@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -12,15 +12,15 @@ val secrets = Properties().apply {
 }
 
 android {
-    namespace = "com.agenthita.poc"
+    namespace = "com.agenthita.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.agenthita.poc"
+        applicationId = "com.agenthita.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
-        versionName = "0.1.0-poc"
+        versionName = "1.0.0"
 
         buildConfigField("String", "FEEDBACK_API_KEY",   "\"${secrets.getProperty("FEEDBACK_API_KEY",   "")}\"")
         buildConfigField("String", "FEEDBACK_API_URL",   "\"${secrets.getProperty("FEEDBACK_API_URL",   "https://api.agenthita.org/feedback")}\"")
