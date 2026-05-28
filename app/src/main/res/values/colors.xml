@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand palette — matches agenthita.org -->
+    <color name="hita_primary">#6AC6FF</color>       <!-- cyan-blue accent -->
+    <color name="hita_accent">#9D7CFF</color>         <!-- purple accent -->
+    <color name="hita_mint">#87F0C5</color>           <!-- mint highlight -->
+    <color name="hita_background">#07142B</color>     <!-- deep navy background -->
+    <color name="hita_surface">#0D2142</color>        <!-- card / toolbar surface -->
+    <color name="hita_primary_dark">#0D2142</color>   <!-- status bar -->
+    <color name="hita_text_primary">#EEF4FF</color>   <!-- primary text -->
+    <color name="hita_text_secondary">#B7C5E0</color> <!-- muted text -->
+
+    <!-- Severity colours (keep semantic meaning) -->
+    <color name="hita_warning">#F59E0B</color>
+    <color name="hita_danger">#EF4444</color>
+    <color name="hita_success">#10B981</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+</resources>

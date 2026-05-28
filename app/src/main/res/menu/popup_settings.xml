@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/popup_guardian"
+        android:title="Guardian Alerts" />
+
+    <item
+        android:id="@+id/popup_notification_settings"
+        android:title="Notification Access" />
+
+
+</menu>

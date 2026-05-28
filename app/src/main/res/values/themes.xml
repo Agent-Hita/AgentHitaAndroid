@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.AgentHita" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Brand colours -->
+        <item name="colorPrimary">@color/hita_primary</item>
+        <item name="colorPrimaryVariant">@color/hita_primary_dark</item>
+        <item name="colorOnPrimary">@color/black</item>
+        <item name="colorSecondary">@color/hita_accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Dark backgrounds -->
+        <item name="android:colorBackground">@color/hita_background</item>
+        <item name="colorSurface">@color/hita_surface</item>
+        <item name="colorOnSurface">@color/hita_text_primary</item>
+        <item name="colorOnBackground">@color/hita_text_primary</item>
+
+        <!-- Text -->
+        <item name="android:textColorPrimary">@color/hita_text_primary</item>
+        <item name="android:textColorSecondary">@color/hita_text_secondary</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/hita_surface</item>
+
+        <!-- Buttons — gradient primary, cyan outlined -->
+        <item name="materialButtonStyle">@style/Widget.AgentHita.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.AgentHita.Button.Outlined</item>
+        <item name="borderlessButtonStyle">@style/Widget.AgentHita.Button.Text</item>
+    </style>
+
+    <!-- Filled gradient button -->
+    <style name="Widget.AgentHita.Button" parent="Widget.MaterialComponents.Button.UnelevatedButton">
+        <item name="backgroundTint">@null</item>
+        <item name="android:background">@drawable/bg_button_primary</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0.02</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- Cyan outlined button -->
+    <style name="Widget.AgentHita.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/hita_primary</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:textColor">@color/hita_primary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">14dp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">14dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <!-- Text-only button -->
+    <style name="Widget.AgentHita.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/hita_text_secondary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="cornerRadius">14dp</item>
+    </style>
+</resources>

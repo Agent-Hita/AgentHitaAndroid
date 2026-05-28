@@ -1,0 +1,42 @@
+# Built artifacts
+*.apk
+*.aab
+*.dex
+*.class
+
+# Build directories
+build/
+app/build/
+**/build/
+
+# Android Studio / IntelliJ
+.gradle/
+.idea/
+*.iml
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Gradle caches
+gradle/.gradle/
+.gradle/
+
+# Keystore / secrets
+*.jks
+*.keystore
+keystore.properties
+secrets.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin kapt generated (reproducible)
+app/src/main/java/**/*_Impl.java
+app/src/main/java/**/*_Dao_Impl.java
+
+# Large model files (too big for Git)
+*.bin
+*.tflite
+*.h5
