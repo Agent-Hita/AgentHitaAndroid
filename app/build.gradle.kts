@@ -97,5 +97,6 @@ dependencies {
     // RecyclerView (recent events list)
     implementation("androidx.recyclerview:recyclerview:1.3.2")
 
-
+    // Unit tests
+    testImplementation("junit:junit:4.13.2")
 }

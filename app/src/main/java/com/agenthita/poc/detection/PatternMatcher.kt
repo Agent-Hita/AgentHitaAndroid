@@ -7,7 +7,8 @@ enum class HarmCategory {
     ROMANCE_SCAM,
     IDENTITY_PHISHING,
     LURING,
-    HARASSMENT
+    HARASSMENT,
+    DISAPPEARING_MESSAGES
 }
 
 enum class RiskLevel {

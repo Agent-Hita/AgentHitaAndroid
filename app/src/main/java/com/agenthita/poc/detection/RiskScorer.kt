@@ -18,7 +18,8 @@ class RiskScorer(private val classifier: OnDeviceClassifier) {
         RomanceScamDetector(),
         IdentityPhishingDetector(),
         LuringDetector(),
-        HarassmentDetector()
+        HarassmentDetector(),
+        DisappearingMessageDetector()
     )
 
     /**
