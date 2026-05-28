@@ -92,7 +92,7 @@ class DisappearingMessageDetector : PatternMatcher {
             if (lower.contains(signal)) matches.add(SignalMatch("view_once", signal, 0.75f))
         }
         hidingIntentSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("hiding_intent", signal, 0.60f))
+            if (lower.contains(signal)) matches.add(SignalMatch("hiding_intent", signal, 0.40f))
         }
 
         val score = computeScore(matches)

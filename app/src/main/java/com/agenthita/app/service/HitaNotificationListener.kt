@@ -43,6 +43,20 @@ class HitaNotificationListener : NotificationListenerService() {
     private lateinit var antiCoercionMonitor: AntiCoercionMonitor
     private lateinit var classifier: com.agenthita.app.model.OnDeviceClassifier
 
+    private fun packageToAppName(pkg: String) = when (pkg) {
+        "com.whatsapp", "com.whatsapp.w4b"          -> "WhatsApp"
+        "com.instagram.android"                      -> "Instagram"
+        "com.facebook.orca"                          -> "Messenger"
+        "org.telegram.messenger"                     -> "Telegram"
+        "com.snapchat.android"                       -> "Snapchat"
+        "com.discord"                                -> "Discord"
+        "com.google.android.apps.messaging",
+        "com.samsung.android.messaging",
+        "com.android.messaging",
+        "com.android.mms"                            -> "Messages"
+        else                                         -> pkg
+    }
+
     // Messaging apps that carry interpersonal communication
     private val targetPackages = setOf(
         "com.whatsapp",
@@ -172,7 +186,15 @@ class HitaNotificationListener : NotificationListenerService() {
 
             // Step 3: Guardian alert — only HIGH risk, only after user has been notified
             if (topResult.riskLevel == RiskLevel.HIGH) {
-                guardianAlertSender.sendIfConfigured(topResult, eventId)
+                val contactHash = riskEventStore.sha256(contactIdentifier)
+                val isFirstAlert = !riskEventStore.hasAlertSentForContact(contactHash)
+                guardianAlertSender.sendIfConfigured(
+                    result       = topResult,
+                    eventId      = eventId,
+                    appName      = packageToAppName(sbn.packageName),
+                    contactHash  = contactHash,
+                    isFirstAlert = isFirstAlert
+                )
                 riskEventStore.markAlertSent(eventId)
             }
 

@@ -23,6 +23,9 @@ interface RiskEventDao {
     @Query("UPDATE risk_events SET guardianAlertSent = 1 WHERE id = :id")
     suspend fun markAlertSent(id: Long)
 
+    @Query("SELECT COUNT(*) FROM risk_events WHERE contactHash = :hash AND guardianAlertSent = 1")
+    suspend fun countSentAlertsForContact(hash: String): Int
+
     @Query("DELETE FROM risk_events WHERE timestampMs < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long)
 }

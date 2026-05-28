@@ -89,6 +89,7 @@ class GemmaClassifier(context: Context) {
             HarmCategory.IDENTITY_PHISHING -> "phishing for passwords, OTP codes, or personal identity information"
             HarmCategory.LURING            -> "fake job or modelling offers used to harvest information or lure victims"
             HarmCategory.HARASSMENT        -> "threats, stalking, doxxing, or coercive control behaviour"
+            HarmCategory.DISAPPEARING_MESSAGES -> "requests to use disappearing messages, ephemeral chat, or hide conversation history"
         }
         return """You are a safety classifier detecting $desc.
 Analyze this message and respond with exactly one word: HIGH, MEDIUM, LOW, or NONE.

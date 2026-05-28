@@ -31,12 +31,15 @@ class RiskEventStore(private val dao: RiskEventDao) {
 
     suspend fun markAlertSent(eventId: Long) = dao.markAlertSent(eventId)
 
+    suspend fun hasAlertSentForContact(contactHash: String): Boolean =
+        dao.countSentAlertsForContact(contactHash) > 0
+
     /** Prune events older than maxAgeMs (default: 30 days). Call periodically. */
     suspend fun pruneOldEvents(maxAgeMs: Long = 30L * 24 * 60 * 60 * 1000) {
         dao.deleteOlderThan(System.currentTimeMillis() - maxAgeMs)
     }
 
-    private fun sha256(input: String): String {
+    fun sha256(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }
     }

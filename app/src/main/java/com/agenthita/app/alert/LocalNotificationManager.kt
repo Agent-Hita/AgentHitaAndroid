@@ -91,4 +91,5 @@ private val HarmCategory.displayName: String
         HarmCategory.IDENTITY_PHISHING -> "identity phishing or credential theft"
         HarmCategory.LURING            -> "luring via fake job or offer"
         HarmCategory.HARASSMENT        -> "harassment, threats, or stalking"
+        HarmCategory.DISAPPEARING_MESSAGES -> "disappearing or ephemeral message activity"
     }
