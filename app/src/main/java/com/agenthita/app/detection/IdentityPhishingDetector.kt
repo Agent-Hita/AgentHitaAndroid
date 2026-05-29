@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects identity phishing: harvesting OTPs, passwords, personal identifiers,
@@ -64,19 +64,19 @@ class IdentityPhishingDetector : PatternMatcher {
         val matches = mutableListOf<SignalMatch>()
 
         codeRequestSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("code_request", signal, 0.9f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("code_request", signal, 0.9f))
         }
         credentialRequestSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("credential_request", signal, 0.9f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("credential_request", signal, 0.9f))
         }
         personalInfoSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
         }
         urgencySignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("urgency", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("urgency", signal, 0.5f))
         }
         fakeSenderSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("fake_sender", signal, 0.6f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("fake_sender", signal, 0.6f))
         }
 
         val score = computeScore(matches)

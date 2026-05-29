@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.storage
+package com.agenthita.app.storage
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -23,8 +23,8 @@ interface RiskEventDao {
     @Query("UPDATE risk_events SET guardianAlertSent = 1 WHERE id = :id")
     suspend fun markAlertSent(id: Long)
 
-    @Query("SELECT COUNT(*) FROM risk_events WHERE contactHash = :hash AND guardianAlertSent = 1")
-    suspend fun countSentAlertsForContact(hash: String): Int
+    @Query("UPDATE risk_events SET gemmaAnalysis = :analysis WHERE id = :id")
+    suspend fun updateGemmaAnalysis(id: Long, analysis: String)
 
     @Query("DELETE FROM risk_events WHERE timestampMs < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long)

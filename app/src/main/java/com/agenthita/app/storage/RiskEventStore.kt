@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.storage
+package com.agenthita.app.storage
 
 import com.agenthita.app.detection.DetectionResult
 import kotlinx.coroutines.flow.Flow
@@ -17,29 +17,29 @@ class RiskEventStore(private val dao: RiskEventDao) {
         timestampMs: Long = System.currentTimeMillis()
     ): Long {
         val event = RiskEvent(
-            timestampMs = timestampMs,
-            appPackage = appPackage,
-            contactHash = sha256(contactIdentifier),
+            timestampMs  = timestampMs,
+            appPackage   = appPackage,
+            contactHash  = sha256(contactIdentifier),
             harmCategory = result.category.name,
-            riskLevel = result.riskLevel.name,
-            score = result.score,
-            signals = result.signals.map { it.signal }.distinct().joinToString(","),
-            explanation = result.explanation
+            riskLevel    = result.riskLevel.name,
+            score        = result.score,
+            signals      = result.signals.map { it.signal }.distinct().joinToString(","),
+            explanation  = result.explanation
         )
         return dao.insert(event)
     }
 
     suspend fun markAlertSent(eventId: Long) = dao.markAlertSent(eventId)
 
-    suspend fun hasAlertSentForContact(contactHash: String): Boolean =
-        dao.countSentAlertsForContact(contactHash) > 0
+    suspend fun updateGemmaAnalysis(eventId: Long, analysis: String) =
+        dao.updateGemmaAnalysis(eventId, analysis)
 
     /** Prune events older than maxAgeMs (default: 30 days). Call periodically. */
     suspend fun pruneOldEvents(maxAgeMs: Long = 30L * 24 * 60 * 60 * 1000) {
         dao.deleteOlderThan(System.currentTimeMillis() - maxAgeMs)
     }
 
-    fun sha256(input: String): String {
+    private fun sha256(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }
     }

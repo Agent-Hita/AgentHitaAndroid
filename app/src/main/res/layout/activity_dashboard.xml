@@ -47,6 +47,16 @@
         android:paddingTop="16dp"
         android:paddingBottom="12dp">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Protecting you from harmful digital influence — privately."
+            android:textSize="12sp"
+            android:textColor="@color/hita_text_secondary"
+            android:fontFamily="sans-serif-light"
+            android:letterSpacing="0.02"
+            android:layout_marginBottom="6dp" />
+
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -62,6 +72,7 @@
                 android:background="@drawable/shape_status_dot" />
 
             <TextView
+                android:id="@+id/tv_status_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Monitoring is active"
@@ -70,6 +81,38 @@
 
         </LinearLayout>
 
+        <!-- AI status chip — tapping opens GemmaDownloadActivity -->
+        <LinearLayout
+            android:id="@+id/layout_ai_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_ai_card"
+            android:paddingStart="10dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:layout_marginTop="8dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:src="@drawable/ic_ai_spark"
+                android:contentDescription="AI"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/tv_ai_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Private AI: Download"
+                android:textSize="12sp"
+                android:textColor="@color/hita_primary" />
+
+        </LinearLayout>
 
     </LinearLayout>
 

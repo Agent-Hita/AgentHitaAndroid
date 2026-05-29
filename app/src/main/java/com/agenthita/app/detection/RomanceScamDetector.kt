@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects romance scam patterns: rapid love-bombing → fake crisis abroad →
@@ -15,7 +15,14 @@ class RomanceScamDetector : PatternMatcher {
         "i love you already", "i fell for you instantly", "i can't stop thinking about you",
         "you're perfect", "you're my everything", "i've been looking for someone like you",
         "i want to spend my life with you", "marry me", "you're my dream come true",
-        "i've never felt this way about anyone", "you're unlike anyone i've ever met"
+        "i've never felt this way about anyone", "you're unlike anyone i've ever met",
+        // Rapid false intimacy — hallmark of romance scams
+        "feels like we've known each other forever", "feels like i've known you forever",
+        "known each other forever", "known you forever",
+        "even though we've never met", "even though we have never met",
+        "never met in person but", "never actually met but",
+        "i miss you so much", "i miss you already",
+        "i feel so close to you", "closer to you than anyone"
     )
 
     private val fakeProfileSignals = listOf(
@@ -36,24 +43,39 @@ class RomanceScamDetector : PatternMatcher {
     )
 
     private val crisisSignals = listOf(
-        "i'm in trouble", "i need your help urgently", "i'm stuck",
+        "i'm in trouble", "i need your help urgently",
         "my account is frozen", "i can't access my funds",
         "there's been an emergency", "i had an accident",
         "i'm in the hospital", "my wallet was stolen",
         "i'm stranded", "i can't get home", "i need a loan",
         "stuck at customs", "customs is holding my package",
         "i'll pay you back as soon as", "i'll transfer it all back",
-        "i just need a small amount", "just this once i promise"
+        "i just need a small amount", "just this once i promise",
+        // Vague hardship to trigger sympathy before a money ask
+        "going through a tough situation", "going through a difficult situation",
+        "going through a hard time", "in a tough spot right now",
+        "i'm struggling right now", "really struggling at the moment",
+        // Isolation framing used to prevent victim from seeking advice
+        "no one else i can trust", "don't have anyone else i can trust",
+        "you're the only one i can trust", "you're the only one who understands",
+        "i have no one else", "you're all i have right now"
     )
 
     private val moneyRequestSignals = listOf(
-        "send me money", "transfer money", "can you send",
+        "send me money", "send money", "transfer money",
         "wire me", "i need funds", "lend me", "loan me",
         "gift card", "bitcoin", "crypto", "western union",
         "money transfer", "pay for my", "cover the cost",
         "i'll repay you", "i'll pay you back double",
         "investment opportunity", "double your money",
-        "i have a business deal", "i need your bank details"
+        "i have a business deal", "i need your bank details",
+        // Transfer phrasing without the word "money"
+        "small transfer", "quick transfer", "little transfer",
+        "help me out with a transfer", "help me with a transfer",
+        "could you transfer", "can you transfer",
+        "just a small amount", "just a little amount",
+        "borrow a little", "borrow some money",
+        "help me out financially", "financial help"
     )
 
     override fun analyze(text: String): DetectionResult {
@@ -61,19 +83,19 @@ class RomanceScamDetector : PatternMatcher {
         val matches = mutableListOf<SignalMatch>()
 
         loveBombingSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("love_bombing", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("love_bombing", signal, 0.5f))
         }
         fakeProfileSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("fake_profile", signal, 0.7f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("fake_profile", signal, 0.7f))
         }
         isolationSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("isolation", signal, 0.6f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("isolation", signal, 0.6f))
         }
         crisisSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("fake_crisis", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("fake_crisis", signal, 0.8f))
         }
         moneyRequestSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("money_request", signal, 0.9f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("money_request", signal, 0.9f))
         }
 
         val score = computeScore(matches)

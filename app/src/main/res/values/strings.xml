@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Agent Hita</string>
     <string name="notification_listener_label">Agent Hita Safety Monitor</string>
+    <string name="accessibility_service_label">Agent Hita Safety Monitor</string>
+    <string name="accessibility_service_description">Agent Hita reads the screen when you open a 1-1 conversation in WhatsApp, Instagram, or SMS to detect harmful patterns such as sextortion, grooming, financial scams, and harassment. No message content is ever stored or transmitted.</string>
 </resources>

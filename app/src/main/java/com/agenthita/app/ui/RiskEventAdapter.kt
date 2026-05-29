@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.ui
+package com.agenthita.app.ui
 
 import android.graphics.Color
 import android.view.LayoutInflater

@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.ui
+package com.agenthita.app.ui
 
 import android.Manifest
 import android.content.Intent
@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityOnboardingBinding
+import com.agenthita.app.telemetry.TelemetryManager
 
 class OnboardingActivity : AppCompatActivity() {
 
@@ -54,13 +55,23 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         binding.btnGrantPermission.setOnClickListener {
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                val componentName = "$packageName/.service.HitaAccessibilityService"
+                val args = Bundle().apply {
+                    putString(":settings:fragment_args_key", componentName)
+                }
+                putExtra(":settings:show_fragment_args", args)
+                putExtra(":settings:fragment_args_key", componentName)
+            }
+            startActivity(intent)
         }
 
         binding.btnContinue.setOnClickListener {
-            if (isNotificationListenerEnabled()) {
+            if (isAccessibilityServiceEnabled()) {
                 consentManager.isOnboardingComplete = true
                 consentManager.consentTimestampMs = System.currentTimeMillis()
+                TelemetryManager.get(this).track("permission_notifications_granted")
+                TelemetryManager.get(this).flush()
                 startActivity(Intent(this, GuardianSetupActivity::class.java))
                 finish()
             } else {
@@ -77,13 +88,14 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun updateContinueButton() {
-        binding.btnContinue.isEnabled = isNotificationListenerEnabled()
+        binding.btnContinue.isEnabled = isAccessibilityServiceEnabled()
     }
 
-    private fun isNotificationListenerEnabled(): Boolean {
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-            ?: return false
-        return flat.contains(packageName)
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val enabled = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabled.contains(packageName, ignoreCase = true)
     }
 
     private fun goToDashboard() {

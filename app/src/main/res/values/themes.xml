@@ -60,4 +60,20 @@
         <item name="android:textStyle">bold</item>
         <item name="cornerRadius">14dp</item>
     </style>
+
+    <!-- Dark alert dialog matching app theme -->
+    <style name="Dialog.AgentHita" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:colorBackground">@color/hita_surface</item>
+        <item name="android:textColorPrimary">@color/hita_text_primary</item>
+        <item name="android:textColorSecondary">@color/hita_text_secondary</item>
+        <item name="colorPrimary">@color/hita_primary</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.AgentHita.Button.Text</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.AgentHita.Button.Text</item>
+    </style>
+
+    <!-- Transparent wrapper for custom-layout dialogs (gradient bg drawn by the layout itself) -->
+    <style name="Dialog.AgentHita.Transparent" parent="Dialog.AgentHita">
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+    </style>
 </resources>

@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.storage
+package com.agenthita.app.storage
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -22,5 +22,6 @@ data class RiskEvent(
     val score: Float,
     val signals: String,          // Comma-separated signal type names
     val explanation: String,
+    val gemmaAnalysis: String? = null,   // Gemma-generated analysis & recommendations (populated async)
     val guardianAlertSent: Boolean = false
 )

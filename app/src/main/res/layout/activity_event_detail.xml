@@ -129,28 +129,6 @@
 
                     </LinearLayout>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="100dp"
-                            android:layout_height="wrap_content"
-                            android:text="Fingerprint"
-                            android:textSize="13sp"
-                            android:textColor="#8A9BBD" />
-
-                        <TextView
-                            android:id="@+id/tv_detail_hash"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:textSize="12sp"
-                            android:textColor="#4A5A7B"
-                            android:fontFamily="monospace" />
-
-                    </LinearLayout>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -276,9 +254,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                app:cardBackgroundColor="@color/white"
+                app:cardBackgroundColor="#FFF8F8"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp">
+                app:cardElevation="2dp"
+                app:strokeColor="#FECACA"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -293,13 +273,15 @@
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:letterSpacing="0.1"
-                        android:textColor="#8A9BBD"
-                        android:layout_marginBottom="10dp" />
+                        android:textColor="#EF4444"
+                        android:layout_marginBottom="12dp" />
 
                     <com.google.android.material.chip.ChipGroup
                         android:id="@+id/chip_group_signals"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content" />
+                        android:layout_height="wrap_content"
+                        app:chipSpacingVertical="6dp"
+                        app:chipSpacingHorizontal="6dp" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -340,11 +322,77 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Gemma AI analysis & recommendations -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_gemma_analysis"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardBackgroundColor="#F0F4FF"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:strokeColor="#C7D7F5"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:layout_marginBottom="10dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="AI SAFETY ADVICE"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            android:letterSpacing="0.1"
+                            android:textColor="#5B8DEF" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Gemma 3"
+                            android:textSize="10sp"
+                            android:textColor="#8A9BBD"
+                            android:background="@drawable/bg_risk_badge"
+                            android:paddingHorizontal="8dp"
+                            android:paddingVertical="3dp" />
+
+                    </LinearLayout>
+
+                    <ProgressBar
+                        android:id="@+id/progress_gemma"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="center_horizontal"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tv_gemma_analysis"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textColor="#3A4A6B"
+                        android:lineSpacingMultiplier="1.5"
+                        android:text="Analysis not available — Gemma model not loaded." />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Privacy note -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Message content is never stored. Sender identity is hashed for privacy — the fingerprint above can identify repeat senders without storing personal data."
+                android:text="Message content is never stored. Sender identity is protected — personal data is never recorded."
                 android:textSize="12sp"
                 android:textColor="#B7C5E0"
                 android:lineSpacingMultiplier="1.5"

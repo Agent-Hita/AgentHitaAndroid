@@ -1,8 +1,10 @@
-﻿package com.agenthita.app.ui
+package com.agenthita.app.ui
 
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
+import android.provider.MediaStore
 import android.provider.Settings
 import android.view.Menu
 import android.view.MenuItem
@@ -21,8 +23,12 @@ import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityDashboardBinding
 import com.agenthita.app.storage.RiskEvent
 import com.agenthita.app.storage.RiskEventStore
+import com.agenthita.app.telemetry.TelemetryManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 class DashboardActivity : AppCompatActivity() {
@@ -36,6 +42,12 @@ class DashboardActivity : AppCompatActivity() {
     private var allEvents: List<RiskEvent> = emptyList()
     private var activeDateChipId: Int = R.id.chip_date_all
     private var activeCategoryChipId: Int = R.id.chip_cat_all
+    private var enableDialog: androidx.appcompat.app.AlertDialog? = null
+    private var aiStatusJob: Job? = null
+
+    private val aiPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "gemma_loaded") updateAiStatus()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +73,11 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         updateStatusDot()
+        updateAiStatus()
+
+        binding.layoutAiStatus.setOnClickListener {
+            startActivity(Intent(this, GemmaDownloadActivity::class.java))
+        }
 
         binding.chipGroupDate.setOnCheckedStateChangeListener { _, checkedIds ->
             activeDateChipId = checkedIds.firstOrNull() ?: R.id.chip_date_all
@@ -91,7 +108,17 @@ class DashboardActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+            .registerOnSharedPreferenceChangeListener(aiPrefsListener)
         updateStatusDot()
+        updateAiStatus()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+            .unregisterOnSharedPreferenceChangeListener(aiPrefsListener)
+        aiStatusJob?.cancel()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -115,7 +142,11 @@ class DashboardActivity : AppCompatActivity() {
                         true
                     }
                     R.id.popup_notification_settings -> {
-                        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        true
+                    }
+                    R.id.popup_private_ai -> {
+                        startActivity(Intent(this, GemmaDownloadActivity::class.java))
                         true
                     }
 else -> false
@@ -184,27 +215,187 @@ else -> false
         val drawable = dot.background.mutate()
         DrawableCompat.setTint(drawable, if (active) Color.parseColor("#10B981") else Color.parseColor("#EF4444"))
         dot.background = drawable
+
+        val label = findViewById<android.widget.TextView>(R.id.tv_status_label)
+        label?.text = if (active) "Monitoring is active" else "Monitoring is not active"
+
+        if (active) {
+            // Service is now enabled — dismiss the prompt if it was open
+            enableDialog?.dismiss()
+            enableDialog = null
+        } else if (enableDialog?.isShowing != true) {
+            // Only show if not already displayed
+            showEnableAccessibilityDialog()
+        }
+    }
+
+    private fun showEnableAccessibilityDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_monitoring_inactive, null)
+
+        enableDialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .setOnDismissListener { enableDialog = null }
+            .create()
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_enable)
+            .setOnClickListener {
+                enableDialog?.dismiss()
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                    val componentName = "$packageName/.service.HitaAccessibilityService"
+                    val args = android.os.Bundle().apply {
+                        putString(":settings:fragment_args_key", componentName)
+                    }
+                    putExtra(":settings:show_fragment_args", args)
+                    putExtra(":settings:fragment_args_key", componentName)
+                }
+                startActivity(intent)
+            }
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_not_now)
+            .setOnClickListener {
+
+
+
+
+
+                TelemetryManager.get(this).track("permission_accessibility_denied")
+                enableDialog?.dismiss()
+            }
+
+        enableDialog?.show()
+    }
+
+    private fun updateAiStatus() {
+        val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+        if (aiPrefs.getBoolean("gemma_loaded", false)) {
+            binding.layoutAiStatus.visibility = View.GONE
+            return
+        }
+
+        // Synchronous check: filesDir is always accessible and populated after the service copies the model.
+        val inFilesDir = filesDir.listFiles()?.any { f ->
+            (f.name.endsWith(".bin") || f.name.endsWith(".task")) && f.length() > 100_000_000L
+        } == true
+        if (inFilesDir) { binding.layoutAiStatus.visibility = View.GONE; return }
+
+        // All remaining checks involve I/O — run off the main thread.
+        // Cancel any previous pending check so a stale result can't overwrite a later correct state.
+        aiStatusJob?.cancel()
+        aiStatusJob = lifecycleScope.launch {
+            val found = withContext(Dispatchers.IO) { modelFileAccessible() }
+            // Re-check pref in case the service wrote gemma_loaded=true during our I/O.
+            val nowLoaded = aiPrefs.getBoolean("gemma_loaded", false)
+            binding.layoutAiStatus.visibility = if (found || nowLoaded) View.GONE else View.VISIBLE
+        }
+    }
+
+    /**
+     * Returns true if a Gemma model file is accessible by the app, using the same
+     * detection strategies as GemmaClassifier.findModelPath() / copyModelFromMediaStore().
+     *
+     * Three strategies, in order:
+     *   1. Direct FileInputStream probe on the same hardcoded candidate paths the service uses.
+     *      Works for adb-pushed files without any storage permission — this is the path the
+     *      service takes, and the dashboard must match it.
+     *   2. MediaStore query — catches Kaggle browser downloads, no extra permission needed.
+     *   3. Directory listing — only works with MANAGE_EXTERNAL_STORAGE, so it's a last resort.
+     */
+    private fun modelFileAccessible(): Boolean {
+        // 1. Same candidate paths as GemmaClassifier.findModelPath() — covers adb-push scenario.
+        val appFiles = getExternalFilesDir(null)?.absolutePath
+        val internalFiles = filesDir.absolutePath
+        val candidates = listOf(
+            "$appFiles/gemma.task", "$appFiles/gemma.bin",
+            "$internalFiles/gemma.task", "$internalFiles/gemma.bin",
+            "/sdcard/Download/gemma3-1b-it-cpu-int4.task",
+            "/storage/emulated/0/Download/gemma3-1b-it-cpu-int4.task",
+            "/sdcard/Download/gemma3-1b-it-cpu-int4.bin",
+            "/sdcard/Download/gemma3-1b-it-gpu-int4.task",
+            "/sdcard/Download/gemma3-1b-it-gpu-int4.bin",
+            "/sdcard/Download/gemma-2b-it-gpu-int4.bin",
+            "/sdcard/Download/gemma-2b-it-cpu-int4.bin",
+            "/sdcard/Download/gemma2-cpu-int4.bin",
+            "/sdcard/Download/gemma.task",
+            "/storage/emulated/0/Download/gemma.task",
+            "/sdcard/Download/gemma.bin"
+        )
+        if (candidates.any { path ->
+            try { java.io.FileInputStream(path).use { true } } catch (_: Exception) { false }
+        }) {
+            android.util.Log.i("HitaAI", "Model found via direct path probe")
+            return true
+        }
+
+        // 2. MediaStore — catches Kaggle browser downloads and .gz archives.
+        val cursor = runCatching {
+            contentResolver.query(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.SIZE),
+                "${MediaStore.Downloads.SIZE} > ?",
+                arrayOf("100000000"), null
+            )
+        }.getOrNull()
+        android.util.Log.i("HitaAI", "MediaStore rows: ${cursor?.count ?: "null"}")
+        cursor?.use { c ->
+            while (c.moveToNext()) {
+                val name = c.getString(0) ?: continue
+                val size = c.getLong(1)
+                android.util.Log.i("HitaAI", "  MediaStore: $name — ${size / 1_000_000} MB")
+                if (isModelFile(name)) {
+                    android.util.Log.i("HitaAI", "Model found via MediaStore: $name")
+                    return true
+                }
+            }
+        }
+
+        // 3. Direct directory scan — requires MANAGE_EXTERNAL_STORAGE; last resort.
+        for (dir in listOf("/sdcard/Download", "/storage/emulated/0/Download").map { java.io.File(it) }) {
+            val files = runCatching { dir.listFiles() }.getOrNull() ?: continue
+            for (f in files) {
+                if (f.length() > 100_000_000L && isModelFile(f.name)) {
+                    android.util.Log.i("HitaAI", "Model found via dir scan: ${f.absolutePath}")
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun isModelFile(name: String): Boolean {
+        val lower = name.lowercase()
+        // Match .bin, .task, .tar.gz, and Kaggle split-archive names like .tar-1.gz
+        return lower.endsWith(".bin") || lower.endsWith(".task") || lower.endsWith(".gz")
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
-        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
-        return flat.contains(packageName)
+        val enabledServices = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.contains(packageName, ignoreCase = true)
     }
 
     private fun showAutonomyPrompt() {
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("Your safety settings")
-            .setMessage(
-                "Do you still want your guardian to receive alerts when Agent Hita detects " +
-                "something concerning?\n\nYour answer is private — your guardian won't be told either way."
-            )
-            .setPositiveButton("Yes, keep alerts on") { _, _ ->
+        val view = layoutInflater.inflate(R.layout.dialog_autonomy_prompt, null)
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .create()
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_keep_alerts)
+            .setOnClickListener {
                 consentManager.isGuardianAlertsEnabled = true
+                dialog.dismiss()
             }
-            .setNegativeButton("Turn alerts off") { _, _ ->
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_turn_off)
+            .setOnClickListener {
                 consentManager.isGuardianAlertsEnabled = false
+                dialog.dismiss()
             }
-            .setNeutralButton("Ask me later", null)
-            .show()
+
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_ask_later)
+            .setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
     }
 }

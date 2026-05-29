@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
@@ -18,7 +20,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AgentHita">
 
-        <!-- Entry point — shows onboarding, then redirects to dashboard if already set up -->
+        <!-- Entry point — shows T&C on first launch, then onboarding, then dashboard -->
         <activity
             android:name=".ui.OnboardingActivity"
             android:exported="true">
@@ -48,20 +50,29 @@
             android:name=".ui.FeedbackActivity"
             android:exported="false" />
 
-<!--
-            NotificationListenerService — requires user to grant access via
-            Settings > Apps > Special app access > Notification access.
-            The persistent status notification (CHANNEL_STATUS) satisfies the
-            anti-coercion transparency requirement: user always knows Hita is active.
+        <activity
+            android:name=".ui.GemmaDownloadActivity"
+            android:exported="false" />
+
+        <!--
+            AccessibilityService — requires user to grant access via
+            Settings > Accessibility > Agent Hita.
+            Reads screen content when the user opens a 1-1 conversation in WhatsApp,
+            Instagram DM, or SMS. No message content is stored.
+            The persistent status notification satisfies the anti-coercion
+            transparency requirement: user always knows Hita is active.
         -->
         <service
-            android:name=".service.HitaNotificationListener"
+            android:name=".service.HitaAccessibilityService"
             android:exported="true"
-            android:label="@string/notification_listener_label"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            android:label="@string/accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
-                <action android:name="android.service.notification.NotificationListenerService" />
+                <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
         </service>
 
     </application>

@@ -1,10 +1,11 @@
-﻿package com.agenthita.app.ui
+package com.agenthita.app.ui
 
 import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
 import com.agenthita.app.consent.ConsentManager
+import com.agenthita.app.consent.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
 
 class GuardianSetupActivity : AppCompatActivity() {
@@ -25,7 +26,24 @@ class GuardianSetupActivity : AppCompatActivity() {
         consentManager.guardianEmail?.let { binding.etGuardianEmail.setText(it) }
         binding.switchAlerts.isChecked = consentManager.isGuardianAlertsEnabled
 
-        binding.btnSkip.setOnClickListener { goToDashboard() }
+        // Pre-fill age checkboxes from saved category
+        when (consentManager.userCategory) {
+            UserCategory.CHILD      -> binding.cbUnder13.isChecked = true
+            UserCategory.ADOLESCENT -> binding.cbUnder21.isChecked = true
+            else                    -> {}
+        }
+        // Mutually exclusive: selecting one clears the other
+        binding.cbUnder13.setOnCheckedChangeListener { _, checked ->
+            if (checked) binding.cbUnder21.isChecked = false
+        }
+        binding.cbUnder21.setOnCheckedChangeListener { _, checked ->
+            if (checked) binding.cbUnder13.isChecked = false
+        }
+
+        binding.btnSkip.setOnClickListener {
+            saveAgeCategory()
+            goToDashboard()
+        }
 
         binding.btnSave.setOnClickListener {
             val email = binding.etGuardianEmail.text.toString().trim()
@@ -40,7 +58,16 @@ class GuardianSetupActivity : AppCompatActivity() {
             } else {
                 consentManager.isGuardianAlertsEnabled = false
             }
+            saveAgeCategory()
             goToDashboard()
+        }
+    }
+
+    private fun saveAgeCategory() {
+        consentManager.userCategory = when {
+            binding.cbUnder13.isChecked -> UserCategory.CHILD
+            binding.cbUnder21.isChecked -> UserCategory.ADOLESCENT
+            else                        -> UserCategory.SELF_PROTECTING_ADULT
         }
     }
 

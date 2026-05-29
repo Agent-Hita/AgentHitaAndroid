@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.consent
+package com.agenthita.app.consent
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -107,10 +107,10 @@ class ConsentManager(context: Context) {
         private const val KEY_GUARDIAN_EMAIL         = "guardian_email"
         private const val KEY_GUARDIAN_ALERTS_ENABLED = "guardian_alerts_enabled"
         private const val KEY_LAST_AUTONOMY_PROMPT   = "last_autonomy_prompt"
-        private const val KEY_USER_ID                = "user_id"
-        private const val KEY_CONSENT_VERSION        = "consent_version"
         private const val KEY_TERMS_ACCEPTED         = "terms_accepted"
         private const val KEY_ACCEPTED_TERMS_VERSION = "accepted_terms_version"
+        private const val KEY_USER_ID                = "user_id"
+        private const val KEY_CONSENT_VERSION        = "consent_version"
 
         const val CURRENT_CONSENT_VERSION = "1.0"
         const val CURRENT_TERMS_VERSION   = "1.0"

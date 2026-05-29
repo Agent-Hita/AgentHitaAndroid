@@ -36,11 +36,144 @@
                 android:lineSpacingMultiplier="1.4"
                 android:layout_marginBottom="12dp" />
 
-            <!-- What triggers an alert -->
+            <!-- Age of the protected person — adjusts detection sensitivity -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="28dp"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/hita_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Who are you protecting?"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/hita_primary"
+                        android:letterSpacing="0.08"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Selecting an age group lowers detection thresholds so threats are flagged earlier for younger users."
+                        android:textSize="12sp"
+                        android:textColor="@color/hita_text_secondary"
+                        android:lineSpacingMultiplier="1.3"
+                        android:layout_marginBottom="12dp" />
+
+                    <CheckBox
+                        android:id="@+id/cb_under_21"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Under 21 years old"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="14sp" />
+
+                    <CheckBox
+                        android:id="@+id/cb_under_13"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Under 13 years old (child)"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="14sp" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Guardian alerts toggle — prominent card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/hita_primary"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Enable guardian alerts"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/white" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Notify a trusted contact on high-risk detections"
+                            android:textSize="12sp"
+                            android:textColor="#CCffffff"
+                            android:layout_marginTop="2dp" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_alerts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        app:thumbTint="@color/switch_thumb_color"
+                        app:trackTint="@color/switch_track_color" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Guardian email address"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_marginBottom="32dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_guardian_email"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textEmailAddress" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Save and Continue"
+                android:layout_marginBottom="14dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_skip"
+                style="@style/Widget.AgentHita.Button.Text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Skip for now" />
+
+            <!-- What triggers an alert — moved below Skip so it doesn't block the CTA -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
                 app:cardBackgroundColor="@color/hita_surface"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="0dp">
@@ -164,42 +297,6 @@
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
-
-            <com.google.android.material.switchmaterial.SwitchMaterial
-                android:id="@+id/switch_alerts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Enable guardian alerts"
-                android:layout_marginBottom="20dp" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="Guardian email address"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                android:layout_marginBottom="32dp">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/et_guardian_email"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textEmailAddress" />
-
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_save"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Save and Continue"
-                android:layout_marginBottom="14dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_skip"
-                style="@style/Widget.AgentHita.Button.Text"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Skip for now" />
 
         </LinearLayout>
     </ScrollView>

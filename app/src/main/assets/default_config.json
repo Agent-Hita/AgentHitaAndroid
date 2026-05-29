@@ -1,0 +1,86 @@
+{
+  "_comment": "Default app configuration. Override any key via the CloudFront endpoint.",
+  "version": 1,
+
+  "api": {
+    "telemetry_endpoint":  "https://api.agenthita.com/telemetry",
+    "alert_endpoint":      "https://api.agenthita.com/alert/guardian",
+    "feedback_endpoint":   "https://api.agenthita.com/feedback",
+    "api_key":             "szJ7jHrFa4HhVPzQW8DO+pCZNi9SSxIIq8ApBTH38EM=",
+    "connect_timeout_ms":  10000,
+    "read_timeout_ms":     15000
+  },
+
+  "telemetry": {
+    "flush_threshold":   50,
+    "flush_interval_ms": 60000,
+    "app_version":       "0.1.0-poc",
+    "build_type":        "release"
+  },
+
+  "gemma": {
+    "max_tokens":              200,
+    "input_truncation_chars":  300,
+    "context_messages":        5,
+    "context_message_length":  80,
+    "kaggle_url": "https://www.kaggle.com/models/google/gemma/tfLite"
+  },
+
+  "risk_thresholds": {
+    "child":      { "high": 0.40, "medium": 0.18, "low": 0.08 },
+    "adolescent": { "high": 0.48, "medium": 0.22, "low": 0.10 },
+    "adult":      { "high": 0.55, "medium": 0.28, "low": 0.12 }
+  },
+
+  "monitoring": {
+    "min_message_length": 8,
+    "target_packages": [
+      "com.whatsapp",
+      "com.whatsapp.w4b",
+      "com.instagram.android",
+      "com.google.android.apps.messaging",
+      "com.samsung.android.messaging",
+      "com.android.messaging",
+      "com.android.mms"
+    ]
+  },
+
+  "safety_resources": {
+    "sextortion": {
+      "tip1_url": "https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-frauds-and-scams/sextortion",
+      "tip2_url": "https://cybercivilrights.org/ccri-crisis-helpline/"
+    },
+    "financial_scam": {
+      "tip1_url": "https://consumer.ftc.gov/articles/how-avoid-scam",
+      "tip2_url": "https://reportfraud.ftc.gov"
+    },
+    "grooming": {
+      "tip1_url": "https://www.missingkids.org/theissues/grooming",
+      "tip2_url": "https://www.missingkids.org/gethelpnow/cybertipline"
+    },
+    "romance_scam": {
+      "tip1_url": "https://www.fbi.gov/how-we-can-help-you/scams-and-safety/common-frauds-and-scams/romance-scams",
+      "tip2_url": "https://consumer.ftc.gov/articles/what-you-need-know-about-romance-scams"
+    },
+    "identity_phishing": {
+      "tip1_url": "https://www.cisa.gov/topics/cyber-threats-and-advisories/phishing",
+      "tip2_url": "https://www.identitytheft.gov"
+    },
+    "luring": {
+      "tip1_url": "https://www.cisa.gov/topics/cyber-threats-and-advisories/social-engineering",
+      "tip2_url": "https://www.ic3.gov"
+    },
+    "harassment": {
+      "tip1_url": "https://www.stopbullying.gov/cyberbullying/how-to-report",
+      "tip2_url": "https://www.cisa.gov/topics/cyber-threats-and-advisories/cyberstalking-and-online-harassment"
+    }
+  },
+
+  "help_resources": [
+    { "name": "National Domestic Violence Hotline", "url": "https://www.thehotline.org" },
+    { "name": "Crisis Text Line",                  "url": "https://www.crisistextline.org" },
+    { "name": "Cyber Civil Rights Initiative",     "url": "https://cybercivilrights.org" },
+    { "name": "FBI IC3 Sextortion Resources",      "url": "https://www.ic3.gov" },
+    { "name": "NCMEC CyberTipline",                "url": "https://www.missingkids.org/gethelpnow/cybertipline" }
+  ]
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Central processor square -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FF6AC6FF"
+        android:strokeWidth="1.6"
+        android:pathData="M8,8h8v8H8z" />
+    <!-- Inner chip mark -->
+    <path
+        android:fillColor="#FF6AC6FF"
+        android:pathData="M10.5,10.5h3v3h-3z" />
+    <!-- Top pins -->
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M10,8V5" />
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M14,8V5" />
+    <!-- Bottom pins -->
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M10,16v3" />
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M14,16v3" />
+    <!-- Left pins -->
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M8,10H5" />
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M8,14H5" />
+    <!-- Right pins -->
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M16,10h3" />
+    <path android:strokeColor="#FF6AC6FF" android:strokeWidth="1.5"
+        android:strokeLineCap="round" android:pathData="M16,14h3" />
+</vector>

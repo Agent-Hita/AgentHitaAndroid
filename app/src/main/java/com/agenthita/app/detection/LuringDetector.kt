@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects luring patterns: fake job/modelling offers used to harvest personal
@@ -43,10 +43,11 @@ class LuringDetector : PatternMatcher {
 
     private val infoHarvestSignals = listOf(
         "send your photos", "send full body photo", "send a photo of yourself",
-        "send us your pictures", "we need your photos first",
+        "send us your pictures", "we need your photos", "your photos",
         "send your id", "copy of your id", "passport copy",
         "send your personal details", "send your home address",
-        "your address for our records", "bank details for payment",
+        "home address", "your address", "your address for our records",
+        "bank details for payment",
         "national insurance", "social security number",
         "we need to verify your identity", "identity check required"
     )
@@ -66,19 +67,19 @@ class LuringDetector : PatternMatcher {
         val matches = mutableListOf<SignalMatch>()
 
         opportunityBaitSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("opportunity_bait", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("opportunity_bait", signal, 0.5f))
         }
         appearanceFocusSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("appearance_focus", signal, 0.7f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("appearance_focus", signal, 0.7f))
         }
         travelLureSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("travel_lure", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("travel_lure", signal, 0.8f))
         }
         infoHarvestSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("info_harvest", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("info_harvest", signal, 0.8f))
         }
         tooGoodToBetrueSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("too_good_to_be_true", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("too_good_to_be_true", signal, 0.5f))
         }
 
         val score = computeScore(matches)

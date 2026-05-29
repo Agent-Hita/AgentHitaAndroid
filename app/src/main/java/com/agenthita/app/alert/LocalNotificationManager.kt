@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.alert
+package com.agenthita.app.alert
 
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -17,9 +17,17 @@ class LocalNotificationManager(private val context: Context) {
     private val notificationManager =
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
+    // Tracks when the last warning was posted so we know whether to cancel-first.
+    // Volatile: showWarning can be called from IO coroutines, dismissWarning from main.
+    @Volatile private var lastWarningTimeMs = 0L
+
     /**
      * Shows a safety warning to the user — always fires BEFORE any guardian alert.
      * Anti-coercion requirement: user is always first to know (consent.html safeguard #6).
+     *
+     * If more than SESSION_TIMEOUT_MS has elapsed since the last warning (e.g. user left
+     * the app and came back), the old notification is cancelled first so this one appears
+     * as a fresh heads-up banner rather than a silent update.
      */
     fun showWarning(result: DetectionResult) {
         val (title, body) = when (result.riskLevel) {
@@ -33,6 +41,14 @@ class LocalNotificationManager(private val context: Context) {
             )
             else -> return
         }
+
+        val now = System.currentTimeMillis()
+        // Cancel the existing notification if enough time has passed — this forces
+        // the OS to treat the next notify() as a new notification with full heads-up.
+        if (now - lastWarningTimeMs > SESSION_TIMEOUT_MS) {
+            notificationManager.cancel(NOTIFICATION_ID_WARNING)
+        }
+        lastWarningTimeMs = now
 
         val intent = Intent(context, DashboardActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -49,10 +65,21 @@ class LocalNotificationManager(private val context: Context) {
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
             .setContentIntent(pendingIntent)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID_WARNING, notification)
+    }
+
+    /**
+     * Dismisses the current warning notification and resets the session timer so the
+     * next detection always shows a fresh heads-up. Call this when a conversation
+     * session ends (user navigates back to chat list or switches conversations).
+     */
+    fun dismissWarning() {
+        notificationManager.cancel(NOTIFICATION_ID_WARNING)
+        lastWarningTimeMs = 0L
     }
 
     /**
@@ -67,6 +94,8 @@ class LocalNotificationManager(private val context: Context) {
             .setContentText("Monitoring for harmful patterns. Tap to manage settings.")
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE)
+            .setNumber(0)
             .build()
 
         notificationManager.notify(NOTIFICATION_ID_STATUS, notification)
@@ -76,9 +105,43 @@ class LocalNotificationManager(private val context: Context) {
         notificationManager.cancel(NOTIFICATION_ID_STATUS)
     }
 
+    /**
+     * Notifies the user that the other party turned on disappearing messages.
+     * This is a structural signal (not content-based) so it gets its own fixed
+     * notification ID — it does not replace the content-warning notification.
+     */
+    fun showDisappearingMessagesWarning() {
+        val intent = Intent(context, DashboardActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, HitaApplication.CHANNEL_WARNINGS)
+            .setSmallIcon(R.drawable.ic_hita_shield)
+            .setContentTitle("Agent Hita: Disappearing messages turned on")
+            .setContentText("The other person enabled disappearing messages — this is often a sign of secrecy or hidden intent. Tap to learn more.")
+            .setStyle(NotificationCompat.BigTextStyle().bigText(
+                "The other person enabled disappearing messages — this is often a sign of secrecy or hidden intent. " +
+                "Screenshot the conversation now if you need to preserve evidence."
+            ))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        notificationManager.notify(NOTIFICATION_ID_DISAPPEARING, notification)
+    }
+
     companion object {
-        private const val NOTIFICATION_ID_STATUS  = 1000
-        private const val NOTIFICATION_ID_WARNING = 1001
+        private const val NOTIFICATION_ID_STATUS       = 1000
+        private const val NOTIFICATION_ID_WARNING      = 1001
+        private const val NOTIFICATION_ID_DISAPPEARING = 1002
+        // After this gap, the next warning cancels the old notification so it
+        // shows as a fresh heads-up rather than a silent update.
+        private const val SESSION_TIMEOUT_MS           = 5 * 60 * 1000L  // 5 minutes
     }
 }
 
@@ -90,6 +153,6 @@ private val HarmCategory.displayName: String
         HarmCategory.ROMANCE_SCAM      -> "romance scam or fake relationship"
         HarmCategory.IDENTITY_PHISHING -> "identity phishing or credential theft"
         HarmCategory.LURING            -> "luring via fake job or offer"
-        HarmCategory.HARASSMENT        -> "harassment, threats, or stalking"
-        HarmCategory.DISAPPEARING_MESSAGES -> "disappearing or ephemeral message activity"
+        HarmCategory.HARASSMENT             -> "harassment, threats, or stalking"
+        HarmCategory.DISAPPEARING_MESSAGES  -> "disappearing messages (secrecy signal)"
     }

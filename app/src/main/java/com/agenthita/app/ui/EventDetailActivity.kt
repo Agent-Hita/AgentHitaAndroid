@@ -1,7 +1,9 @@
-﻿package com.agenthita.app.ui
+package com.agenthita.app.ui
 
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.text.method.LinkMovementMethod
+import android.text.util.Linkify
 import androidx.core.graphics.drawable.DrawableCompat
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -71,7 +73,6 @@ class EventDetailActivity : AppCompatActivity() {
         )
         binding.tvDetailApp.text = event.appPackage.toAppName()
         binding.tvDetailIdentity.text = "Protected (privacy by design)"
-        binding.tvDetailHash.text = "…${event.contactHash.takeLast(16)}"
 
         // Detection section
         binding.tvDetailCategory.text = event.harmCategory.toCategoryLabel()
@@ -86,17 +87,28 @@ class EventDetailActivity : AppCompatActivity() {
             .distinct()
             .forEach { signal ->
                 val chip = Chip(this)
-                chip.text = signal.replace("_", " ").replaceFirstChar { it.uppercase() }
+                chip.text = signal.toSignalLabel()
                 chip.isClickable = false
-                chip.setChipBackgroundColorResource(android.R.color.transparent)
-                chip.setChipStrokeColorResource(android.R.color.darker_gray)
-                chip.chipStrokeWidth = 1f
-                chip.setTextColor(Color.parseColor("#3A4A6B"))
+                chip.isCheckable = false
+                chip.chipStrokeWidth = 0f
+                val bgColor = signal.toSignalColor()
+                chip.setChipBackgroundColor(
+                    android.content.res.ColorStateList.valueOf(bgColor)
+                )
+                chip.setTextColor(Color.WHITE)
+                chip.textSize = 13f
+
                 binding.chipGroupSignals.addView(chip)
             }
 
         // Explanation
         binding.tvDetailExplanation.text = event.explanation
+
+        // AI safety analysis (Gemma if loaded, rules-based fallback otherwise)
+        binding.tvGemmaAnalysis.text = event.gemmaAnalysis
+            ?: "Generating analysis..."
+        Linkify.addLinks(binding.tvGemmaAnalysis, Linkify.WEB_URLS)
+        binding.tvGemmaAnalysis.movementMethod = LinkMovementMethod.getInstance()
     }
 
     private fun String.toAppName() = when (this) {
@@ -123,6 +135,44 @@ class EventDetailActivity : AppCompatActivity() {
         "LURING"            -> "Luring / Fake Offer"
         "HARASSMENT"        -> "Harassment"
         else                -> this
+    }
+
+    /** Maps a signal type key to a human-readable label. */
+    private fun String.toSignalLabel() = when (this) {
+        "age_probing"        -> "Age probing"
+        "trust_building"     -> "Trust building"
+        "isolation"          -> "Isolation tactic"
+        "boundary_testing"   -> "Boundary testing"
+        "escalation"         -> "Escalation"
+        "secrecy"            -> "Secrecy demand"
+        "photo_request"      -> "Photo request"
+        "location_request"   -> "Location request"
+        "urgency"            -> "Urgency pressure"
+        "financial_pressure" -> "Financial pressure"
+        "romance_bait"       -> "Romance bait"
+        "threat"             -> "Threat"
+        "identity_harvest"   -> "Identity harvesting"
+        "fake_offer"         -> "Fake offer"
+        else                 -> replace("_", " ").replaceFirstChar { it.uppercase() }
+    }
+
+    /**
+     * Maps a signal type to a severity color.
+     * Escalation / boundary testing / threat → danger red
+     * Isolation / secrecy / urgency           → warning amber
+     * Everything else                          → info blue
+     */
+    private fun String.toSignalColor(): Int = when (this) {
+        "escalation",
+        "boundary_testing",
+        "threat",
+        "photo_request",
+        "location_request"  -> Color.parseColor("#EF4444") // danger
+        "isolation",
+        "secrecy",
+        "urgency",
+        "financial_pressure" -> Color.parseColor("#F59E0B") // warning
+        else                 -> Color.parseColor("#5B8DEF") // info blue
     }
 
     private fun String.toAvatarColor(): Int {

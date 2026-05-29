@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects grooming patterns: age probing → trust building → isolation from caregivers
@@ -29,22 +29,39 @@ class GroomingDetector : PatternMatcher {
 
     private val isolationSignals = listOf(
         "don't tell your parents", "do not tell your parents",
+        "don't tell anyone", "do not tell anyone",
+        "don't tell your friends", "do not tell your friends",
+        "don't tell nobody", "don't tell anybody", "do not tell anybody",
         "your parents wouldn't understand", "they won't understand",
         "they'll try to stop us", "your friends won't get it",
         "they're just jealous", "your family is controlling you",
-        "no one needs to know about us", "this is just between us",
+        "no one needs to know about us", "no one needs to know",
+        "this is just between us", "just between us",
         "keep our relationship private", "our special secret",
+        "keep this between us", "keep it between us",
         "your parents are too strict", "they don't want you to be happy"
     )
 
     private val boundaryTestingSignals = listOf(
         "are you home alone", "is anyone home with you",
+        "are you alone", "are you by yourself",
+        "is anyone with you", "are your parents home",
+        "are your parents there", "when are your parents home",
+        "your parents are not home", "your parents aren't home",
+        "your parents are away", "parents not home",
+        "parents are out", "parents are gone",
+        "home alone", "nobody home", "no one home",
+        "i know your parents are not home", "i know you are home alone",
         "have you ever kissed anyone", "do you have a boyfriend",
         "are you a virgin", "have you ever done anything like this",
         "what do you look like", "what are you wearing",
         "show me your room", "come meet me", "let's meet up",
         "i want to see you in person", "let's meet somewhere private",
-        "can you sneak out", "come over when your parents aren't home"
+        "can you sneak out", "come over when your parents aren't home",
+        "come over when your parents are not home",
+        "send me your photo", "send me a photo", "send me your picture",
+        "send me a picture", "send me your location", "share your location",
+        "show me your face", "can i see you", "video call me"
     )
 
     private val escalationSignals = listOf(
@@ -52,7 +69,22 @@ class GroomingDetector : PatternMatcher {
         "you'll enjoy it", "it'll feel good", "everyone does this",
         "it's normal at your age", "it's natural", "don't be scared",
         "i won't tell anyone", "you'll like it", "you're ready for this",
-        "you're old enough", "it's not a big deal"
+        "you're old enough", "it's not a big deal",
+        // Sexual escalation pressure
+        "take things further", "willing to take things further",
+        "take this to the next level", "take our relationship further",
+        "go further with me", "ready to go further",
+        // Consent assumption / dismissing hesitation
+        "you actually want this", "you know you want this",
+        "i know you want this", "i know you actually want this",
+        "just being shy", "stop being shy", "you're just being shy",
+        "don't overthink it", "you're overthinking",
+        "if you really loved me", "if you loved me",
+        "prove you care", "prove you love me",
+        // Normalization
+        "this is what people do when they care",
+        "this is what couples do", "all couples do this",
+        "people do this when they care about each other"
     )
 
     override fun analyze(text: String): DetectionResult {
@@ -60,19 +92,19 @@ class GroomingDetector : PatternMatcher {
         val matches = mutableListOf<SignalMatch>()
 
         ageProbingSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("age_probing", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("age_probing", signal, 0.5f))
         }
         trustBuildingSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("trust_building", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("trust_building", signal, 0.5f))
         }
         isolationSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("isolation", signal, 0.7f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("isolation", signal, 0.7f))
         }
         boundaryTestingSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("boundary_testing", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("boundary_testing", signal, 0.8f))
         }
         escalationSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("escalation", signal, 0.9f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("escalation", signal, 0.9f))
         }
 
         val score = computeScore(matches)
@@ -106,6 +138,9 @@ class GroomingDetector : PatternMatcher {
         .replace("don't", "do not")
         .replace("won't", "will not")
         .replace("can't", "cannot")
+        .replace("aren't", "are not")
+        .replace("isn't", "is not")
+        .replace("didn't", "did not")
         .replace("you'll", "you will")
         .replace("they'll", "they will")
         .replace("i've", "i have")

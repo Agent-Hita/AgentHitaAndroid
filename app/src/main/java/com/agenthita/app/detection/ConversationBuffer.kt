@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 import java.security.MessageDigest
 

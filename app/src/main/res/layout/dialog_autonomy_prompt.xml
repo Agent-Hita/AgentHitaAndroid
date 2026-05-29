@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog_gradient"
+    android:padding="28dp">
+
+    <!-- Settings icon -->
+    <ImageView
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        android:src="@drawable/ic_settings"
+        app:tint="@color/hita_accent" />
+
+    <!-- Title -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Your safety settings"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@color/hita_text_primary"
+        android:gravity="center"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Divider with purple/accent tinge -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="2dp"
+        android:layout_gravity="center_horizontal"
+        android:background="@color/hita_accent"
+        android:layout_marginBottom="16dp" />
+
+    <!-- Message -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Do you still want your guardian to receive alerts when Agent Hita detects something concerning?\n\nYour answer is private — your guardian won&#8217;t be told either way."
+        android:textSize="14sp"
+        android:textColor="@color/hita_text_secondary"
+        android:lineSpacingMultiplier="1.5"
+        android:gravity="center"
+        android:layout_marginBottom="28dp" />
+
+    <!-- Yes, keep alerts on — gradient primary -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_keep_alerts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Yes, keep alerts on"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Turn alerts off — outlined -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_turn_off"
+        style="@style/Widget.AgentHita.Button.Outlined"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Turn alerts off"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Ask me later — text only -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_ask_later"
+        style="@style/Widget.AgentHita.Button.Text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ask me later" />
+
+</LinearLayout>

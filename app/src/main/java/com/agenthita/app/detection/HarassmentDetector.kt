@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects harassment, stalking, and coercive control patterns: explicit threats,
@@ -14,7 +14,12 @@ class HarassmentDetector : PatternMatcher {
         "watch your back", "i'm coming for you", "you'll be sorry",
         "i will make you suffer", "i will destroy you", "i'm going to destroy you",
         "you'll wish you hadn't", "this isn't over", "you haven't heard the last of me",
-        "i know what i'll do to you", "you're going to get what's coming"
+        "i know what i'll do to you", "you're going to get what's coming",
+        // Coercive ultimatum patterns (do X or I will retaliate)
+        "or else i will", "or i will tell", "else i will tell",
+        "or i will expose", "else i will expose",
+        "or i will share", "else i will share",
+        "send money or", "send money else", "pay me or", "pay or else"
     )
 
     private val doxxingSignals = listOf(
@@ -24,7 +29,9 @@ class HarassmentDetector : PatternMatcher {
         "i've been watching you", "i've been following you",
         "i know your daily routine", "i know your schedule",
         "i'll find you", "i know how to find you", "i can track you",
-        "i can see you right now", "i'm outside", "i'm near your house"
+        "i can see you right now", "i'm outside your house", "i'm outside your home",
+        "i'm outside right now watching", "i'm standing outside", "i'm near your house",
+        "i'm parked outside", "i can see your lights"
     )
 
     private val persistentContactSignals = listOf(
@@ -41,12 +48,16 @@ class HarassmentDetector : PatternMatcher {
     private val reputationThreatSignals = listOf(
         "i'll tell everyone", "i will tell everyone", "i'll tell your family",
         "i'll tell your parents", "i'll tell your friends",
+        "i'll tell all your friends", "i will tell all your friends",
+        "tell all your friends", "tell all your family",
+        "tell everyone you know", "i will tell everyone you know",
         "i'll show your family", "i'll show everyone",
         "i'll ruin your reputation", "i will ruin you",
         "everyone will know", "everyone will find out",
         "i'll post this everywhere", "i'll put this online",
         "i'll make sure everyone knows", "i'll go public",
-        "i'll report you", "i'll expose you"
+        "i'll report you", "i'll expose you",
+        "will expose you to", "will tell your contacts"
     )
 
     private val coerciveControlSignals = listOf(
@@ -66,19 +77,19 @@ class HarassmentDetector : PatternMatcher {
         val matches = mutableListOf<SignalMatch>()
 
         explicitThreatSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("explicit_threat", signal, 1.0f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("explicit_threat", signal, 1.0f))
         }
         doxxingSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("doxxing", signal, 0.9f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("doxxing", signal, 0.9f))
         }
         persistentContactSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("persistent_contact", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("persistent_contact", signal, 0.5f))
         }
         reputationThreatSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("reputation_threat", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("reputation_threat", signal, 0.8f))
         }
         coerciveControlSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("coercive_control", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("coercive_control", signal, 0.8f))
         }
 
         val score = computeScore(matches)

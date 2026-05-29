@@ -1,8 +1,9 @@
-﻿package com.agenthita.app.consent
+package com.agenthita.app.consent
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.agenthita.app.config.RemoteConfig
 
 /**
  * Implements the anti-coercion design patterns specified in consent.html.
@@ -27,7 +28,8 @@ class AntiCoercionMonitor(
         val lower = query.lowercase()
         val isSafeExitQuery = safeExitTerms.any { lower.contains(it) }
         return if (isSafeExitQuery) {
-            SafeExitResult(shouldSuppressAnalysis = true, resources = helpResources)
+            val resources = RemoteConfig.helpResources.map { HelpResource(it.name, it.url) }
+            SafeExitResult(shouldSuppressAnalysis = true, resources = resources)
         } else {
             SafeExitResult(shouldSuppressAnalysis = false)
         }
@@ -60,13 +62,6 @@ class AntiCoercionMonitor(
         "my partner is controlling me", "i feel unsafe"
     )
 
-    private val helpResources = listOf(
-        HelpResource("National Domestic Violence Hotline", "https://www.thehotline.org"),
-        HelpResource("Crisis Text Line", "https://www.crisistextline.org"),
-        HelpResource("Cyber Civil Rights Initiative", "https://cybercivilrights.org"),
-        HelpResource("FBI IC3 Sextortion Resources", "https://www.ic3.gov"),
-        HelpResource("NCMEC CyberTipline", "https://www.missingkids.org/gethelpnow/cybertipline")
-    )
 }
 
 data class SafeExitResult(

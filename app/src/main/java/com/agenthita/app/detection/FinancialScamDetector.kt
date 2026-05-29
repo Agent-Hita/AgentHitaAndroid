@@ -1,4 +1,4 @@
-﻿package com.agenthita.app.detection
+package com.agenthita.app.detection
 
 /**
  * Detects financial scam patterns: urgency + payment method + authority claim + isolation.
@@ -8,6 +8,13 @@
 class FinancialScamDetector : PatternMatcher {
 
     override val category = HarmCategory.FINANCIAL_SCAM
+
+    private val prizeScamSignals = listOf(
+        "you've won", "you have won", "you are the winner", "you've been selected as winner",
+        "claim your prize", "claim your reward", "claim your winnings",
+        "lottery winner", "you won the lottery", "lucky winner",
+        "collect your prize", "prize money", "jackpot winner"
+    )
 
     private val urgencySignals = listOf(
         "right now", "immediately", "today only", "expires today",
@@ -24,6 +31,7 @@ class FinancialScamDetector : PatternMatcher {
         // Explicit payment methods
         "gift card", "gift cards", "google play card", "apple gift card",
         "itunes card", "steam card", "crypto", "bitcoin", "ethereum",
+        "bank account details", "bank details", "account details",
         "wire transfer", "western union", "moneygram", "money gram",
         "zelle", "cash app", "venmo", "paypal", "send money",
         "send me the money", "send the money", "wire funds", "transfer funds",
@@ -83,20 +91,23 @@ class FinancialScamDetector : PatternMatcher {
         val lower = normalizeContractions(text.lowercase())
         val matches = mutableListOf<SignalMatch>()
 
+        prizeScamSignals.forEach { signal ->
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("prize_scam", signal, 0.7f))
+        }
         urgencySignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("urgency", signal, 0.5f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("urgency", signal, 0.5f))
         }
         paymentSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("payment_method", signal, 0.8f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("payment_method", signal, 0.8f))
         }
         authoritySignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("authority_claim", signal, 0.7f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("authority_claim", signal, 0.7f))
         }
         isolationSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("isolation", signal, 0.6f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("isolation", signal, 0.6f))
         }
         suspiciousLinkSignals.forEach { signal ->
-            if (lower.contains(signal)) matches.add(SignalMatch("suspicious_link", signal, 0.6f))
+            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("suspicious_link", signal, 0.6f))
         }
 
         val score = computeScore(matches)
@@ -115,7 +126,8 @@ class FinancialScamDetector : PatternMatcher {
 
         // Authority + payment = canonical scam combo
         val comboBonus = if (
-            uniqueTypes.contains("authority_claim") && uniqueTypes.contains("payment_method")
+            (uniqueTypes.contains("authority_claim") || uniqueTypes.contains("prize_scam")) &&
+            uniqueTypes.contains("payment_method")
         ) 0.3f else 0f
 
         // Suspicious link + authority or payment = phishing/smishing pattern
