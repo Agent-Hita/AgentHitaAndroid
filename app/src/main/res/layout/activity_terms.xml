@@ -30,7 +30,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Agent Hita"
+                android:text="Terms &amp; Privacy Policy"
                 android:textColor="@color/hita_text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -39,90 +39,49 @@
 
     </com.google.android.material.appbar.MaterialToolbar>
 
-    <ScrollView
+    <!-- Loading indicator shown while the page loads -->
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:indeterminate="true"
+        android:visibility="visible" />
+
+    <!-- WebView fills all remaining space -->
+    <WebView
+        android:id="@+id/web_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
+        android:layout_weight="1" />
 
-        <LinearLayout
+    <!-- Bottom bar — button disabled until user scrolls to bottom -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@color/hita_surface"
+        android:padding="20dp"
+        android:elevation="8dp">
+
+        <TextView
+            android:id="@+id/tv_scroll_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="Scroll to read the full policy"
+            android:textColor="@color/hita_text_secondary"
+            android:textSize="13sp"
+            android:layout_marginBottom="12dp"
+            android:visibility="visible" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_agree"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="28dp"
-            android:gravity="center_horizontal">
+            android:text="I Agree &amp; Continue"
+            android:enabled="false" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Before you begin"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:textColor="@color/hita_text_primary"
-                android:layout_marginTop="32dp"
-                android:layout_marginBottom="16dp" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="By using Agent Hita you agree to our Terms of Use and Privacy Policy."
-                android:textSize="15sp"
-                android:textColor="@color/hita_text_primary"
-                android:lineSpacingMultiplier="1.6"
-                android:layout_marginBottom="28dp" />
-
-            <!-- Summary bullets -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="@color/hita_surface"
-                android:padding="18dp"
-                android:layout_marginBottom="28dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• AI analysis runs on your device — your messages are never uploaded."
-                    android:textSize="14sp"
-                    android:textColor="@color/hita_text_secondary"
-                    android:lineSpacingMultiplier="1.5"
-                    android:layout_marginBottom="10dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• Guardian alerts are sent by email only when you enable them."
-                    android:textSize="14sp"
-                    android:textColor="@color/hita_text_secondary"
-                    android:lineSpacingMultiplier="1.5"
-                    android:layout_marginBottom="10dp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="• No message content, contact names, or conversation history ever leaves your device."
-                    android:textSize="14sp"
-                    android:textColor="@color/hita_text_secondary"
-                    android:lineSpacingMultiplier="1.5" />
-
-            </LinearLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_read_policy"
-                style="@style/Widget.AgentHita.Button.Outlined"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Read full policy →"
-                android:layout_marginBottom="14dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_agree"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="I Agree &amp; Continue" />
-
-        </LinearLayout>
-    </ScrollView>
+    </LinearLayout>
 
 </LinearLayout>
