@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@color/hita_background">
 
     <com.google.android.material.appbar.MaterialToolbar
         android:id="@+id/toolbar"
@@ -66,6 +67,7 @@
                 android:layout_height="wrap_content"
                 android:text="By using Agent Hita you agree to our Terms of Use and Privacy Policy."
                 android:textSize="15sp"
+                android:textColor="@color/hita_text_primary"
                 android:lineSpacingMultiplier="1.6"
                 android:layout_marginBottom="28dp" />
 
