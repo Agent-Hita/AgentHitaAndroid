@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.BuildConfig
+import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityFeedbackBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -68,12 +69,12 @@ class FeedbackActivity : AppCompatActivity() {
 
     private fun postFeedback(rating: Int, feedbackText: String): Boolean {
         return try {
+            val consent = ConsentManager(applicationContext)
             val payload = JSONObject().apply {
                 put("rating", rating)
-                put("feedback_text", feedbackText)
-                put("app_version", packageManager.getPackageInfo(packageName, 0).versionName)
-                put("platform", "android")
-                put("timestamp_ms", System.currentTimeMillis())
+                put("text", feedbackText)
+                put("userId", consent.userId)
+                put("consentVersion", consent.consentVersion)
             }
 
             val url = URL(BuildConfig.FEEDBACK_API_URL)

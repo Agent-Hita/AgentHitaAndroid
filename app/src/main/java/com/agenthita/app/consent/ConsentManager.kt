@@ -53,6 +53,21 @@ class ConsentManager(context: Context) {
         return System.currentTimeMillis() - lastAutonomyPromptMs > ninetyDaysMs
     }
 
+    /** Stable anonymous identifier generated once on first install. */
+    val userId: String
+        get() {
+            val stored = prefs.getString(KEY_USER_ID, null)
+            if (stored != null) return stored
+            val generated = java.util.UUID.randomUUID().toString()
+            prefs.edit().putString(KEY_USER_ID, generated).apply()
+            return generated
+        }
+
+    /** Version of the consent document accepted by the user. */
+    var consentVersion: String
+        get() = prefs.getString(KEY_CONSENT_VERSION, CURRENT_CONSENT_VERSION)!!
+        set(value) = prefs.edit().putString(KEY_CONSENT_VERSION, value).apply()
+
     /** Wipes all consent state — used when user revokes or uninstalls. */
     fun clearAllConsent() = prefs.edit().clear().apply()
 
@@ -82,6 +97,10 @@ class ConsentManager(context: Context) {
         private const val KEY_GUARDIAN_EMAIL         = "guardian_email"
         private const val KEY_GUARDIAN_ALERTS_ENABLED = "guardian_alerts_enabled"
         private const val KEY_LAST_AUTONOMY_PROMPT   = "last_autonomy_prompt"
+        private const val KEY_USER_ID                = "user_id"
+        private const val KEY_CONSENT_VERSION        = "consent_version"
+
+        const val CURRENT_CONSENT_VERSION = "1.0"
     }
 }
 
