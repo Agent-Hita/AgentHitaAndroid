@@ -29,6 +29,10 @@
         </activity>
 
         <activity
+            android:name=".ui.TermsActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.GuardianSetupActivity"
             android:exported="false" />
 

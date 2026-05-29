@@ -28,6 +28,12 @@ class OnboardingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         consentManager = ConsentManager(this)
 
+        if (!consentManager.hasAcceptedTerms) {
+            startActivity(Intent(this, TermsActivity::class.java))
+            finish()
+            return
+        }
+
         if (consentManager.isOnboardingComplete) {
             goToDashboard()
             return

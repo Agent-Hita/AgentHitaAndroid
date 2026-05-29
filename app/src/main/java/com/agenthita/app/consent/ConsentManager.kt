@@ -53,6 +53,16 @@ class ConsentManager(context: Context) {
         return System.currentTimeMillis() - lastAutonomyPromptMs > ninetyDaysMs
     }
 
+    /** True once the user has tapped "I Agree" on the T&C screen. */
+    var hasAcceptedTerms: Boolean
+        get() = prefs.getBoolean(KEY_TERMS_ACCEPTED, false)
+        set(value) = prefs.edit().putBoolean(KEY_TERMS_ACCEPTED, value).apply()
+
+    /** Version of the Terms & Conditions the user accepted. */
+    var acceptedTermsVersion: String
+        get() = prefs.getString(KEY_ACCEPTED_TERMS_VERSION, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_ACCEPTED_TERMS_VERSION, value).apply()
+
     /** Stable anonymous identifier generated once on first install. */
     val userId: String
         get() {
@@ -99,8 +109,11 @@ class ConsentManager(context: Context) {
         private const val KEY_LAST_AUTONOMY_PROMPT   = "last_autonomy_prompt"
         private const val KEY_USER_ID                = "user_id"
         private const val KEY_CONSENT_VERSION        = "consent_version"
+        private const val KEY_TERMS_ACCEPTED         = "terms_accepted"
+        private const val KEY_ACCEPTED_TERMS_VERSION = "accepted_terms_version"
 
         const val CURRENT_CONSENT_VERSION = "1.0"
+        const val CURRENT_TERMS_VERSION   = "1.0"
     }
 }
 
