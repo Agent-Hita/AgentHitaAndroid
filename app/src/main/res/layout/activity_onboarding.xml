@@ -79,7 +79,7 @@
                 android:id="@+id/btn_grant_permission"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Grant Notification Access"
+                android:text="Grant Accessibility Access"
                 android:layout_marginBottom="14dp" />
 
             <com.google.android.material.button.MaterialButton
@@ -94,7 +94,7 @@
                 android:id="@+id/tv_permission_warning"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Please grant notification access to continue."
+                android:text="Please grant accessibility access to continue."
                 android:textColor="#EF4444"
                 android:layout_marginTop="12dp"
                 android:visibility="gone" />

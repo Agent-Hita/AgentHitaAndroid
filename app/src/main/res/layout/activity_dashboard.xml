@@ -95,7 +95,8 @@
             android:paddingBottom="5dp"
             android:layout_marginTop="8dp"
             android:clickable="true"
-            android:focusable="true">
+            android:focusable="true"
+            android:visibility="gone">
 
             <ImageView
                 android:layout_width="16dp"
@@ -108,7 +109,7 @@
                 android:id="@+id/tv_ai_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Private AI: Download"
+                android:text="Private AI Model: Download"
                 android:textSize="12sp"
                 android:textColor="@color/hita_primary" />
 

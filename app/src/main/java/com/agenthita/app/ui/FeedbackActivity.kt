@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.databinding.ActivityFeedbackBinding
+import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,9 +62,11 @@ class FeedbackActivity : AppCompatActivity() {
                 binding.ratingBar.setIsIndicator(true)
                 binding.etFeedback.isEnabled = false
             } else {
+                android.util.Log.w("FeedbackActivity", "Feedback submission failed: $error")
+                TelemetryManager.get(this@FeedbackActivity).track("feedback_submit_failed")
                 binding.btnSubmit.isEnabled = true
                 binding.btnSubmit.text = "Submit Feedback"
-                Toast.makeText(this@FeedbackActivity, error, Toast.LENGTH_LONG).show()
+                Toast.makeText(this@FeedbackActivity, "Something went wrong. Please try again later.", Toast.LENGTH_LONG).show()
             }
         }
     }

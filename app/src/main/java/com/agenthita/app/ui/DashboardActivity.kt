@@ -240,15 +240,17 @@ else -> false
         view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_enable)
             .setOnClickListener {
                 enableDialog?.dismiss()
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                    val componentName = "$packageName/.service.HitaAccessibilityService"
-                    val args = android.os.Bundle().apply {
-                        putString(":settings:fragment_args_key", componentName)
+                // Android 13+: deep-link directly to this app's accessibility detail page.
+                // Older Android: open the general accessibility settings list.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    try {
+                        startActivity(Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS", android.net.Uri.parse("package:$packageName")))
+                    } catch (_: android.content.ActivityNotFoundException) {
+                        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                     }
-                    putExtra(":settings:show_fragment_args", args)
-                    putExtra(":settings:fragment_args_key", componentName)
+                } else {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                 }
-                startActivity(intent)
             }
 
         view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_not_now)

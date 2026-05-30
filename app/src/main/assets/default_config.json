@@ -3,10 +3,9 @@
   "version": 1,
 
   "api": {
-    "telemetry_endpoint":  "https://api.agenthita.com/telemetry",
-    "alert_endpoint":      "https://api.agenthita.com/alert/guardian",
-    "feedback_endpoint":   "https://api.agenthita.com/feedback",
-    "api_key":             "szJ7jHrFa4HhVPzQW8DO+pCZNi9SSxIIq8ApBTH38EM=",
+    "telemetry_endpoint":  "https://api.agenthita.org/telemetry",
+    "alert_endpoint":      "https://api.agenthita.org/alert/guardian",
+    "feedback_endpoint":   "https://api.agenthita.org/feedback",
     "connect_timeout_ms":  10000,
     "read_timeout_ms":     15000
   },
@@ -23,7 +22,7 @@
     "input_truncation_chars":  300,
     "context_messages":        5,
     "context_message_length":  80,
-    "kaggle_url": "https://www.kaggle.com/models/google/gemma/tfLite"
+    "kaggle_url": "https://www.kaggle.com/models/google/gemma/tfLite/gemma3-1b-it-cpu-int4"
   },
 
   "risk_thresholds": {

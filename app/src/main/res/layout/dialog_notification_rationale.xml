@@ -7,56 +7,50 @@
     android:background="@drawable/bg_dialog_gradient"
     android:padding="28dp">
 
-    <!-- Shield icon -->
     <ImageView
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="16dp"
         android:src="@drawable/ic_hita_shield"
-        app:tint="@color/hita_primary" />
+        app:tint="@color/hita_accent" />
 
-    <!-- Title -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Monitoring is not active"
+        android:text="Allow notifications"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="@color/hita_text_primary"
         android:gravity="center"
         android:layout_marginBottom="12dp" />
 
-    <!-- Divider with cyan tinge -->
     <View
         android:layout_width="40dp"
         android:layout_height="2dp"
         android:layout_gravity="center_horizontal"
-        android:background="@color/hita_primary"
+        android:background="@color/hita_accent"
         android:layout_marginBottom="16dp" />
 
-    <!-- Message -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Agent Hita needs the Accessibility permission to monitor conversations for harmful content.\n\nTap Enable to open Accessibility Settings, then tap Installed apps and select Agent Hita Safety Monitor to turn it on."
+        android:text="Agent Hita uses notifications to alert you when a potential threat is detected in your conversations.\n\nNo message content is ever included in these alerts."
         android:textSize="14sp"
         android:textColor="@color/hita_text_secondary"
         android:lineSpacingMultiplier="1.5"
         android:gravity="center"
         android:layout_marginBottom="28dp" />
 
-    <!-- Enable button — gradient -->
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_enable"
+        android:id="@+id/btn_allow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Enable"
+        android:text="Allow"
         android:layout_marginBottom="8dp" />
 
-    <!-- Not now button — text style -->
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_not_now"
+        android:id="@+id/btn_skip"
         style="@style/Widget.AgentHita.Button.Text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

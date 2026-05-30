@@ -32,7 +32,7 @@ object RemoteConfig {
 
     // The single hardcoded URL — all other URLs come from the config itself.
     private const val CONFIG_URL =
-        "https://config.agenthita.com/app_config.json"
+        "https://config.agenthita.org/app_config.json"
 
     @Volatile
     private var current = ConfigSnapshot()
@@ -173,10 +173,10 @@ object RemoteConfig {
         val version: Int = 1,
 
         // API
-        val telemetryEndpoint: String = "https://api.agenthita.com/telemetry",
-        val alertEndpoint:     String = "https://api.agenthita.com/alert/guardian",
-        val feedbackEndpoint:  String = "https://api.agenthita.com/feedback",
-        val apiKey:            String = "szJ7jHrFa4HhVPzQW8DO+pCZNi9SSxIIq8ApBTH38EM=",
+        val telemetryEndpoint: String = "https://api.agenthita.org/telemetry",
+        val alertEndpoint:     String = "https://api.agenthita.org/alert/guardian",
+        val feedbackEndpoint:  String = "https://api.agenthita.org/feedback",
+        val apiKey:            String = com.agenthita.app.BuildConfig.FEEDBACK_API_KEY,
         val connectTimeoutMs:  Int    = 10_000,
         val readTimeoutMs:     Int    = 15_000,
 
@@ -191,7 +191,7 @@ object RemoteConfig {
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
-        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite",
+        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma3-1b-it-cpu-int4",
         // SHA-256 hex digests of known-good model files. Empty = skip verification (POC default).
         // Populate via remote config once you have hashes for the shipped model variants.
         val gemmaModelHashes:          List<String> = emptyList(),
@@ -244,7 +244,7 @@ object RemoteConfig {
             telemetryEndpoint = api?.optString("telemetry_endpoint", defaults.telemetryEndpoint) ?: defaults.telemetryEndpoint,
             alertEndpoint     = api?.optString("alert_endpoint",     defaults.alertEndpoint)     ?: defaults.alertEndpoint,
             feedbackEndpoint  = api?.optString("feedback_endpoint",  defaults.feedbackEndpoint)  ?: defaults.feedbackEndpoint,
-            apiKey            = api?.optString("api_key",            defaults.apiKey)            ?: defaults.apiKey,
+            apiKey            = api?.optString("api_key").takeIf { !it.isNullOrBlank() } ?: defaults.apiKey,
             connectTimeoutMs  = api?.optInt("connect_timeout_ms",    defaults.connectTimeoutMs)  ?: defaults.connectTimeoutMs,
             readTimeoutMs     = api?.optInt("read_timeout_ms",       defaults.readTimeoutMs)     ?: defaults.readTimeoutMs,
 
