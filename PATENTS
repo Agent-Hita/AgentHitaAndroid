@@ -1,0 +1,23 @@
+Patent Notice
+Copyright (c) 2026 Agent Hita LLC. All rights reserved.
+
+Agent Hita LLC has one or more patent applications pending with the United
+States Patent and Trademark Office covering technology implemented in this
+software, including but not limited to:
+
+  - Methods for on-device detection of harmful communication patterns
+  - Real-time risk scoring and temporal escalation analysis
+  - Privacy-preserving guardian alert systems
+  - On-device AI inference for coercion, grooming, and exploitation detection
+  - Minimal-disclosure alert architecture that transmits risk signals
+    without exposing raw message content
+
+The source available license granted under the LICENSE file does not include
+any patent license beyond what is strictly necessary to use the software
+as permitted under those terms.
+
+Any commercial use, reproduction, or distribution of this software may
+require a separate patent license from Agent Hita LLC in addition to the
+source available license.
+
+For licensing inquiries: admin@agenthita.org
