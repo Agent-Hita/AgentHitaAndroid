@@ -1,0 +1,62 @@
+Agent Hita Source Available License
+Copyright (c) 2026 Agent Hita LLC. All rights reserved.
+
+Based on the PolyForm Noncommercial License 1.0.0
+https://polyformproject.org/licenses/noncommercial/1.0.0
+
+---
+
+## Acceptance
+
+By using the software, you agree to all of the terms and conditions below.
+
+## Source Visibility and Audit Rights
+
+The source code of this software is made publicly available for transparency,
+security auditing, and community review. Anyone may read, inspect, and audit
+the code without restriction.
+
+## Individual Use
+
+Individuals may use, run, and modify this software for personal,
+non-commercial purposes at no cost, subject to the conditions below.
+
+## Contributions
+
+Community contributions are welcome via pull request. All contributions are
+subject to review and acceptance by Agent Hita LLC. By submitting a
+contribution you agree that Agent Hita LLC may use your contribution under
+these same license terms.
+
+## Commercial and Enterprise Use
+
+**Use of this software by any company, organization, enterprise, or
+individual acting in a commercial capacity requires a separate written
+commercial license from Agent Hita LLC.**
+
+This includes but is not limited to:
+- Deploying or distributing this software as part of a commercial product
+- Using this software to provide a service to third parties
+- Integrating this software into enterprise systems or workflows
+- Using this software for any revenue-generating activity
+
+To obtain a commercial license, contact: admin@agenthita.org
+
+## Prohibited Uses
+
+Regardless of license type, you may not:
+- Remove or alter copyright notices or these license terms
+- Use the Agent Hita name, logo, or trademarks without written permission
+- Build a competing product or service using this code
+- Sublicense, sell, or transfer rights to this software
+
+## No Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. AGENT HITA LLC SHALL NOT BE LIABLE FOR ANY DAMAGES ARISING FROM
+THE USE OF THIS SOFTWARE.
+
+## Termination
+
+Your rights under this license terminate automatically if you violate any
+of its terms.
