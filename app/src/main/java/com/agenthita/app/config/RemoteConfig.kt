@@ -130,6 +130,7 @@ object RemoteConfig {
 
     val minMessageLength: Int      get() = current.minMessageLength
     val targetPackages: Set<String> get() = current.targetPackages
+    val uiTags: UiTags             get() = current.uiTags
 
     // ── Data classes ──────────────────────────────────────────────────────────
 
@@ -220,6 +221,45 @@ object RemoteConfig {
             "com.samsung.android.messaging",
             "com.android.messaging",
             "com.android.mms"
+        ),
+
+        // Per-app UI tag overrides — lets us fix broken selectors via remote config
+        // without a Play Store release whenever an app updates its view hierarchy.
+        val uiTags: UiTags = UiTags()
+    )
+
+    /**
+     * Tag/ID names used to locate UI elements inside each supported messaging app.
+     * All fields have safe defaults matching the currently verified app versions.
+     * Push an updated app_config.json to CloudFront to patch broken selectors OTA.
+     */
+    data class UiTags(
+        // Google Messages (Compose-based, uses bare test tags)
+        val gmConversationScreenTag: String       = "ConversationScreenUi",
+        val gmTitleRowTag: String                 = "top_app_bar_title_row",
+        val gmMessageTag: String                  = "message_text",
+        // UI chrome prefixes to filter from Google Messages message_text nodes
+        val gmUiChromePrefixes: List<String>      = listOf("texting with"),
+
+        // WhatsApp view IDs (package-qualified)
+        val waMessageTextId: String               = "message_text",
+        val waEntryId: String                     = "entry",
+        val waSendId: String                      = "send",
+        val waStatusId: String                    = "status",
+        val waContactNameId: String               = "conversation_contact_name",
+        val waContactStatusId: String             = "conversation_contact_status",
+
+        // Instagram view IDs (package-qualified, verified v424)
+        val igComposerEditTextId: String          = "row_thread_composer_edittext",
+        val igSendButtonId: String                = "send_button",
+        val igDirectSendButtonId: String          = "direct_thread_send_button",
+        val igRecyclerViewId: String              = "direct_thread_recycler_view",
+        val igHeaderTitleId: String               = "header_title",
+        val igHeaderSubtitleId: String            = "header_subtitle",
+        val igMessageTextIds: List<String>        = listOf(
+            "direct_text_message_text_view",
+            "message_content",
+            "direct_message_text"
         )
     )
 
@@ -236,6 +276,7 @@ object RemoteConfig {
         val mon = root.optJSONObject("monitoring")
         val res = root.optJSONObject("safety_resources")
         val hlp = root.optJSONArray("help_resources")
+        val tags = root.optJSONObject("ui_tags")
 
         return defaults.copy(
             version = root.optInt("version", defaults.version),
@@ -279,7 +320,41 @@ object RemoteConfig {
             targetPackages   = mon?.optJSONArray("target_packages")
                 ?.let { arr -> (0 until arr.length()).map { arr.getString(it) }.toSet() }
                 ?.takeIf { it.isNotEmpty() }
-                ?: defaults.targetPackages
+                ?: defaults.targetPackages,
+
+            // UI tags
+            uiTags = tags?.let { parseUiTags(it, defaults.uiTags) } ?: defaults.uiTags
+        )
+    }
+
+    private fun parseUiTags(obj: JSONObject, d: UiTags): UiTags {
+        val gm = obj.optJSONObject("google_messages")
+        val wa = obj.optJSONObject("whatsapp")
+        val ig = obj.optJSONObject("instagram")
+        return d.copy(
+            gmConversationScreenTag = gm?.optString("conversation_screen_tag", d.gmConversationScreenTag) ?: d.gmConversationScreenTag,
+            gmTitleRowTag           = gm?.optString("title_row_tag",           d.gmTitleRowTag)           ?: d.gmTitleRowTag,
+            gmMessageTag            = gm?.optString("message_tag",             d.gmMessageTag)            ?: d.gmMessageTag,
+            gmUiChromePrefixes      = gm?.optJSONArray("ui_chrome_prefixes")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+                ?.takeIf { it.isNotEmpty() } ?: d.gmUiChromePrefixes,
+
+            waMessageTextId   = wa?.optString("message_text_id",    d.waMessageTextId)   ?: d.waMessageTextId,
+            waEntryId         = wa?.optString("entry_id",           d.waEntryId)         ?: d.waEntryId,
+            waSendId          = wa?.optString("send_id",            d.waSendId)          ?: d.waSendId,
+            waStatusId        = wa?.optString("status_id",          d.waStatusId)        ?: d.waStatusId,
+            waContactNameId   = wa?.optString("contact_name_id",    d.waContactNameId)   ?: d.waContactNameId,
+            waContactStatusId = wa?.optString("contact_status_id",  d.waContactStatusId) ?: d.waContactStatusId,
+
+            igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,
+            igSendButtonId        = ig?.optString("send_button_id",          d.igSendButtonId)        ?: d.igSendButtonId,
+            igDirectSendButtonId  = ig?.optString("direct_send_button_id",   d.igDirectSendButtonId)  ?: d.igDirectSendButtonId,
+            igRecyclerViewId      = ig?.optString("recycler_view_id",        d.igRecyclerViewId)      ?: d.igRecyclerViewId,
+            igHeaderTitleId       = ig?.optString("header_title_id",         d.igHeaderTitleId)       ?: d.igHeaderTitleId,
+            igHeaderSubtitleId    = ig?.optString("header_subtitle_id",      d.igHeaderSubtitleId)    ?: d.igHeaderSubtitleId,
+            igMessageTextIds      = ig?.optJSONArray("message_text_ids")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+                ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds
         )
     }
 

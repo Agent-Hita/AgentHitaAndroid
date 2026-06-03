@@ -12,6 +12,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.agenthita.app.HitaApplication
 import com.agenthita.app.alert.GuardianAlertSender
+import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.alert.LocalNotificationManager
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
@@ -233,6 +234,7 @@ class HitaAccessibilityService : AccessibilityService() {
                         dumpHierarchy(root, "", 0)
                     }
                     android.util.Log.d(TAG, "[$packageName] Could not determine contact name — skipping")
+                    TelemetryManager.get(this).track("parsing_failed_${pkgShortName(packageName)}")
                     return
                 }
 
@@ -422,9 +424,26 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                 }
             }
+        } catch (e: Exception) {
+            // Catch all unchecked exceptions from any per-app parsing helper so a broken
+            // selector in one app never crashes the service and silences all other apps.
+            val shortPkg = pkgShortName(packageName)
+            android.util.Log.e(TAG, "[$packageName] Parsing exception — $shortPkg will be skipped this event: ${e.message}", e)
+            TelemetryManager.get(this).track("parsing_failed_$shortPkg")
         } finally {
             root.recycle()
         }
+    }
+
+    /** Returns a short metric-safe label for a package name. */
+    private fun pkgShortName(pkg: String) = when (pkg) {
+        "com.whatsapp", "com.whatsapp.w4b"          -> "whatsapp"
+        "com.instagram.android"                      -> "instagram"
+        "com.google.android.apps.messaging"          -> "google_messages"
+        "com.samsung.android.messaging"              -> "samsung_messages"
+        "com.android.messaging"                      -> "aosp_messages"
+        "com.android.mms"                            -> "aosp_mms"
+        else                                         -> pkg.replace('.', '_')
     }
 
     // -------------------------------------------------------------------------
@@ -438,18 +457,16 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isConversationScreen(root: AccessibilityNodeInfo, pkg: String): Boolean {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
-                // WhatsApp conversation has a send button and a message input field
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/entry").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/send").isNotEmpty()
+                val t = RemoteConfig.uiTags
+                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}").isNotEmpty() ||
+                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waSendId}").isNotEmpty()
             }
             "com.instagram.android" -> {
-                // Primary: compose EditText present in standard DM view (verified v424)
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/row_thread_composer_edittext").isNotEmpty() ||
-                // Fallback: send button visible when compose bar uses an alternate layout
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/send_button").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/direct_thread_send_button").isNotEmpty() ||
-                // Fallback: message list is present — enough signal that we're in a thread
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/direct_thread_recycler_view").isNotEmpty()
+                val t = RemoteConfig.uiTags
+                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igComposerEditTextId}").isNotEmpty() ||
+                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igSendButtonId}").isNotEmpty() ||
+                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igDirectSendButtonId}").isNotEmpty() ||
+                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igRecyclerViewId}").isNotEmpty()
             }
             else -> {
                 // SMS apps: check known compose field IDs first
@@ -471,7 +488,13 @@ class HitaAccessibilityService : AccessibilityService() {
                 ).isNotEmpty() || root.findAccessibilityNodeInfosByViewId(
                     "com.android.messaging:id/message_list"
                 ).isNotEmpty()
-                hasMessageList
+                if (hasMessageList) return true
+                // Google Messages (Compose builds): uses bare test tags — check for ConversationScreenUi
+                val composeTags = mutableListOf<AccessibilityNodeInfo>()
+                findNodesByTag(root, RemoteConfig.uiTags.gmConversationScreenTag, composeTags)
+                val found = composeTags.isNotEmpty()
+                composeTags.forEach { it.recycle() }
+                found
             }
         }
     }
@@ -483,20 +506,14 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isGroupConversation(root: AccessibilityNodeInfo, pkg: String): Boolean {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
-                // WhatsApp subtitle shows "X members" or a comma-separated member list for groups
-                val subtitleNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/conversation_contact_status")
+                val subtitleNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waContactStatusId}")
                 val subtitle = subtitleNodes.firstOrNull()?.text?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
                 subtitle.contains("member", ignoreCase = true) ||
                 subtitle.split(",").size >= 3
             }
             "com.instagram.android" -> {
-                // Group DMs show member names or counts in header_subtitle.
-                // 1-on-1 DMs show activity status ("Active now", "Active 2h ago", etc.)
-                // which never contain these keywords.
-                // Comma threshold raised to >= 3 (matching WhatsApp) to avoid false-positives
-                // on subtitles like "Photographer, NYC" from non-group conversations.
-                val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/header_subtitle")
+                val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderSubtitleId}")
                 val subtitle = nodes.firstOrNull()?.text?.toString() ?: ""
                 nodes.forEach { it.recycle() }
                 val isGroup = subtitle.contains("other", ignoreCase = true) ||
@@ -520,14 +537,13 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun extractContactName(root: AccessibilityNodeInfo, pkg: String): String? {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
-                val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/conversation_contact_name")
+                val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waContactNameId}")
                 val name = nodes.firstOrNull()?.text?.toString()
                 nodes.forEach { it.recycle() }
                 name
             }
             "com.instagram.android" -> {
-                // Verified against Instagram v424 UI dump
-                val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/header_title")
+                val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderTitleId}")
                 val name = nodes.firstOrNull()?.text?.toString()
                 nodes.forEach { it.recycle() }
                 name
@@ -546,7 +562,27 @@ class HitaAccessibilityService : AccessibilityService() {
                     nodes.forEach { it.recycle() }
                     if (!name.isNullOrBlank()) return name
                 }
-                null
+                // Google Messages (Compose builds): contact name sits inside a node tagged
+                // "top_app_bar_title_row" with no package prefix.
+                val t = RemoteConfig.uiTags
+                val titleRowNodes = mutableListOf<AccessibilityNodeInfo>()
+                findNodesByTag(root, t.gmTitleRowTag, titleRowNodes)
+                for (row in titleRowNodes) {
+                    val name = extractTextFromChildren(row)
+                    row.recycle()
+                    if (!name.isNullOrBlank()) return name
+                }
+                // Last resort: parse sender from content-desc of message_text nodes.
+                // Format: "<contact> said <message>" — present in Google Messages Compose UI.
+                val msgNodes = mutableListOf<AccessibilityNodeInfo>()
+                findNodesByTag(root, t.gmMessageTag, msgNodes)
+                val name = msgNodes.firstNotNullOfOrNull { node ->
+                    val desc = node.contentDescription?.toString() ?: ""
+                    val match = Regex("^(.+?) said .+").find(desc)
+                    match?.groupValues?.get(1)?.takeIf { it != "You" && it.isNotBlank() }
+                }
+                msgNodes.forEach { it.recycle() }
+                name
             }
         }
     }
@@ -564,8 +600,7 @@ class HitaAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
-                // WhatsApp marks message text in id/message_text nodes
-                val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/message_text")
+                val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waMessageTextId}")
                 nodes.forEach { node ->
                     val text = node.text?.toString()
                     if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH) {
@@ -577,13 +612,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
             }
             "com.instagram.android" -> {
-                // Try primary ID first (verified v424), then alternate IDs used in
-                // newer Instagram builds. Stop after the first ID that yields results.
-                val igTextIds = listOf(
-                    "com.instagram.android:id/direct_text_message_text_view",
-                    "com.instagram.android:id/message_content",
-                    "com.instagram.android:id/direct_message_text"
-                )
+                val igTextIds = RemoteConfig.uiTags.igMessageTextIds.map { "com.instagram.android:id/$it" }
                 for (viewId in igTextIds) {
                     val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                     nodes.forEach { node ->
@@ -597,8 +626,27 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
             }
             else -> {
-                // SMS / Google Messages fallback — collect all substantial TextViews
-                collectTextViewContent(root, messages)
+                // Google Messages (Compose builds): messages use bare test tags.
+                // content-desc distinguishes sender: "<contact> said <msg>" vs "You said <msg>".
+                val gmNodes = mutableListOf<AccessibilityNodeInfo>()
+                findNodesByTag(root, RemoteConfig.uiTags.gmMessageTag, gmNodes)
+                if (gmNodes.isNotEmpty()) {
+                    gmNodes.forEach { node ->
+                        val desc = node.contentDescription?.toString() ?: ""
+                        val text = node.text?.toString()
+                        // Exclude outgoing ("You said …"), timestamps, and UI labels
+                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
+                            !desc.startsWith("You said", ignoreCase = true) &&
+                            !isUIChrome(text)
+                        ) {
+                            messages.add(text)
+                        }
+                        node.recycle()
+                    }
+                } else {
+                    // Fallback for other SMS apps (Samsung, AOSP) — collect all substantial TextViews
+                    collectTextViewContent(root, messages)
+                }
             }
         }
 
@@ -612,7 +660,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
         val parent  = messageNode.parent ?: return false
         val gParent = parent.parent ?: return false
-        val statusNodes = gParent.findAccessibilityNodeInfosByViewId("com.whatsapp:id/status")
+        val statusNodes = gParent.findAccessibilityNodeInfosByViewId("com.whatsapp:id/${RemoteConfig.uiTags.waStatusId}")
         val isOutgoing = statusNodes.isNotEmpty()
         statusNodes.forEach { it.recycle() }
         parent.recycle()
@@ -689,9 +737,11 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isUIChrome(text: String): Boolean {
         if (text.length < MIN_MESSAGE_LENGTH) return true
         val lower = text.lowercase()
-        return lower == "send" || lower == "type a message" || lower == "message" ||
-               lower.startsWith("today") || lower.startsWith("yesterday") ||
-               lower.matches(Regex("\\d{1,2}:\\d{2}\\s*(am|pm)?", RegexOption.IGNORE_CASE))
+        if (lower == "send" || lower == "type a message" || lower == "message") return true
+        if (lower.startsWith("today") || lower.startsWith("yesterday")) return true
+        if (lower.matches(Regex("\\d{1,2}:\\d{2}\\s*(am|pm)?", RegexOption.IGNORE_CASE))) return true
+        if (RemoteConfig.uiTags.gmUiChromePrefixes.any { lower.startsWith(it) }) return true
+        return false
     }
 
     // -------------------------------------------------------------------------
@@ -751,6 +801,38 @@ class HitaAccessibilityService : AccessibilityService() {
         }
         current.add(msgHash)
         dedupPrefs.edit().putStringSet(seenKey, current).apply()
+    }
+
+    private fun extractTextFromChildren(node: AccessibilityNodeInfo): String? {
+        val text = node.text?.toString()
+        if (!text.isNullOrBlank()) return text
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = extractTextFromChildren(child)
+            child.recycle()
+            if (!found.isNullOrBlank()) return found
+        }
+        return null
+    }
+
+    /**
+     * Walks the accessibility tree and collects all nodes whose viewIdResourceName
+     * equals [tag] exactly. Used for Jetpack Compose UIs (e.g. Google Messages) that
+     * expose bare test-tag strings instead of "package:id/name" resource IDs.
+     */
+    private fun findNodesByTag(
+        node: AccessibilityNodeInfo,
+        tag: String,
+        out: MutableList<AccessibilityNodeInfo>,
+        depth: Int = 0
+    ) {
+        if (depth > 20) return
+        if (node.viewIdResourceName == tag) out.add(node)
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findNodesByTag(child, tag, out, depth + 1)
+            if (node.viewIdResourceName != tag) child.recycle()
+        }
     }
 
     private fun sha256(input: String): String {
