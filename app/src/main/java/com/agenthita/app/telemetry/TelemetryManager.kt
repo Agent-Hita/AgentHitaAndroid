@@ -85,7 +85,7 @@ class TelemetryManager private constructor(private val context: Context) {
             val payload = JSONObject().apply {
                 put("appVersion",     RemoteConfig.appVersion)
                 put("androidVersion", Build.VERSION.RELEASE)
-                put("deviceTier",     getDeviceTier())
+                put("deviceManufacturer", Build.MANUFACTURER.take(64))
                 put("buildType",      RemoteConfig.buildType)
                 put("country",        getCountry())
                 put("events", JSONArray().also { arr ->
@@ -135,27 +135,6 @@ class TelemetryManager private constructor(private val context: Context) {
             val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
             val simCountry = tm.simCountryIso?.uppercase()?.takeIf { it.length == 2 }
             simCountry ?: Locale.getDefault().country.uppercase().takeIf { it.length == 2 } ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
-        }
-    }
-
-    /**
-     * Coarse device tier based on total RAM — no hardware fingerprinting.
-     * low < 2 GB, mid 2-4 GB, high > 4 GB.
-     */
-    private fun getDeviceTier(): String {
-        return try {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE)
-                    as android.app.ActivityManager
-            val info = android.app.ActivityManager.MemoryInfo()
-            am.getMemoryInfo(info)
-            val ramGb = info.totalMem / 1_073_741_824.0
-            when {
-                ramGb < 2.0 -> "low"
-                ramGb < 4.0 -> "mid"
-                else        -> "high"
-            }
         } catch (e: Exception) {
             "unknown"
         }
