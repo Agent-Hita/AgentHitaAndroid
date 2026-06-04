@@ -47,16 +47,20 @@ class GuardianSetupActivity : AppCompatActivity() {
 
         binding.btnSave.setOnClickListener {
             val email = binding.etGuardianEmail.text.toString().trim()
+            val emailValid = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
 
-            if (binding.switchAlerts.isChecked) {
-                if (email.isEmpty() || !Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                    binding.etGuardianEmail.error = "Please enter a valid email address"
-                    return@setOnClickListener
-                }
+            if (email.isNotEmpty() && !emailValid) {
+                binding.etGuardianEmail.error = "Please enter a valid email address"
+                return@setOnClickListener
+            }
+
+            if (emailValid) {
                 consentManager.guardianEmail = email
                 consentManager.isGuardianAlertsEnabled = true
+                binding.switchAlerts.isChecked = true
             } else {
                 consentManager.isGuardianAlertsEnabled = false
+                binding.switchAlerts.isChecked = false
             }
             saveAgeCategory()
             goToDashboard()
