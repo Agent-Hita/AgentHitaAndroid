@@ -80,8 +80,8 @@ object RemoteConfig {
         Thread {
             try {
                 val conn = URL(CONFIG_URL).openConnection() as HttpURLConnection
-                conn.connectTimeout = 5_000
-                conn.readTimeout    = 10_000
+                conn.connectTimeout = configConnectTimeoutMs
+                conn.readTimeout    = configReadTimeoutMs
                 conn.setRequestProperty("Accept", "application/json")
 
                 if (conn.responseCode in 200..299) {
@@ -108,8 +108,10 @@ object RemoteConfig {
     val alertEndpoint: String      get() = current.alertEndpoint
     val feedbackEndpoint: String   get() = current.feedbackEndpoint
     val apiKey: String             get() = current.apiKey
-    val connectTimeoutMs: Int      get() = current.connectTimeoutMs
-    val readTimeoutMs: Int         get() = current.readTimeoutMs
+    val connectTimeoutMs:       Int get() = current.connectTimeoutMs
+    val readTimeoutMs:          Int get() = current.readTimeoutMs
+    val configConnectTimeoutMs: Int get() = current.configConnectTimeoutMs
+    val configReadTimeoutMs:    Int get() = current.configReadTimeoutMs
 
     val telemetryFlushThreshold: Int  get() = current.telemetryFlushThreshold
     val telemetryFlushIntervalMs: Long get() = current.telemetryFlushIntervalMs
@@ -178,8 +180,10 @@ object RemoteConfig {
         val alertEndpoint:     String = "https://api.agenthita.org/alert/guardian",
         val feedbackEndpoint:  String = "https://api.agenthita.org/feedback",
         val apiKey:            String = com.agenthita.app.BuildConfig.FEEDBACK_API_KEY,
-        val connectTimeoutMs:  Int    = 10_000,
-        val readTimeoutMs:     Int    = 15_000,
+        val connectTimeoutMs:       Int = 10_000,
+        val readTimeoutMs:          Int = 15_000,
+        val configConnectTimeoutMs: Int = 5_000,
+        val configReadTimeoutMs:    Int = 10_000,
 
         // Telemetry
         val telemetryFlushThreshold: Int    = 50,
@@ -286,8 +290,10 @@ object RemoteConfig {
             alertEndpoint     = api?.optString("alert_endpoint",     defaults.alertEndpoint)     ?: defaults.alertEndpoint,
             feedbackEndpoint  = api?.optString("feedback_endpoint",  defaults.feedbackEndpoint)  ?: defaults.feedbackEndpoint,
             apiKey            = api?.optString("api_key").takeIf { !it.isNullOrBlank() } ?: defaults.apiKey,
-            connectTimeoutMs  = api?.optInt("connect_timeout_ms",    defaults.connectTimeoutMs)  ?: defaults.connectTimeoutMs,
-            readTimeoutMs     = api?.optInt("read_timeout_ms",       defaults.readTimeoutMs)     ?: defaults.readTimeoutMs,
+            connectTimeoutMs       = api?.optInt("connect_timeout_ms",        defaults.connectTimeoutMs)       ?: defaults.connectTimeoutMs,
+            readTimeoutMs          = api?.optInt("read_timeout_ms",           defaults.readTimeoutMs)          ?: defaults.readTimeoutMs,
+            configConnectTimeoutMs = api?.optInt("config_connect_timeout_ms", defaults.configConnectTimeoutMs) ?: defaults.configConnectTimeoutMs,
+            configReadTimeoutMs    = api?.optInt("config_read_timeout_ms",    defaults.configReadTimeoutMs)    ?: defaults.configReadTimeoutMs,
 
             // Telemetry
             telemetryFlushThreshold  = tel?.optInt("flush_threshold",    defaults.telemetryFlushThreshold)         ?: defaults.telemetryFlushThreshold,
