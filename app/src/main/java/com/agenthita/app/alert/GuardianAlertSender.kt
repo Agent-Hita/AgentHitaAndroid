@@ -1,11 +1,15 @@
 package com.agenthita.app.alert
 
 import android.content.Context
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
+import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import java.util.concurrent.TimeUnit
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.detection.DetectionResult
@@ -57,6 +61,12 @@ class GuardianAlertSender(
 
         val request = OneTimeWorkRequestBuilder<GuardianAlertWorker>()
             .setInputData(data)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
 
         WorkManager.getInstance(context).enqueue(request)
@@ -80,7 +90,8 @@ class GuardianAlertWorker(
 ) : CoroutineWorker(context, params) {
 
     companion object {
-        private const val TAG = "GuardianAlertWorker"
+        private const val TAG          = "GuardianAlertWorker"
+        private const val MAX_ATTEMPTS = 5
 
         private val APP_NAMES = mapOf(
             "com.instagram.android"              to "Instagram",
@@ -153,6 +164,12 @@ class GuardianAlertWorker(
     }
 
     override suspend fun doWork(): Result {
+        if (runAttemptCount >= MAX_ATTEMPTS) {
+            android.util.Log.e(TAG, "Guardian alert abandoned after $MAX_ATTEMPTS attempts")
+            TelemetryManager.get(applicationContext).track("guardian_alert_abandoned")
+            return Result.failure()
+        }
+
         val guardianEmail = inputData.getString(GuardianAlertSender.KEY_GUARDIAN_EMAIL)
             ?: return Result.failure()
         val categoryName = inputData.getString(GuardianAlertSender.KEY_CATEGORY)
