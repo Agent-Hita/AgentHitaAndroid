@@ -78,7 +78,13 @@ class SextortionDetector : PatternMatcher {
         "tell all your friends", "tell all your family", "tell everyone you know",
         "tell everyone", "i will ruin you", "i will tell everyone",
         "i'll share", "i'll post", "i'll expose", "i'll tell everyone", "i'll ruin",
-        "i'll tell all your friends", "i'll tell all your family"
+        "i'll tell all your friends", "i'll tell all your family",
+        // Explicit monetary extortion demands — prefix and trailing currency formats
+        "send me $", "send $", "pay me $", "pay $",
+        "send me £", "send £", "pay me £", "pay £",
+        "send me €", "send €", "pay me €", "pay €",
+        "$ now", "£ now", "€ now",
+        "send me the money", "send the money", "pay me now", "send me money"
     )
 
     override fun analyze(text: String): DetectionResult {
