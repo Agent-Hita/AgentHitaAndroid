@@ -104,9 +104,10 @@ object RemoteConfig {
 
     // ── Typed accessors ───────────────────────────────────────────────────────
 
-    val telemetryEndpoint: String  get() = current.telemetryEndpoint
-    val alertEndpoint: String      get() = current.alertEndpoint
-    val feedbackEndpoint: String   get() = current.feedbackEndpoint
+    val telemetryEndpoint: String       get() = current.telemetryEndpoint
+    val alertEndpoint: String           get() = current.alertEndpoint
+    val guardianConfigEndpoint: String  get() = current.guardianConfigEndpoint
+    val feedbackEndpoint: String        get() = current.feedbackEndpoint
     val apiKey: String             get() = current.apiKey
     val connectTimeoutMs:       Int get() = current.connectTimeoutMs
     val readTimeoutMs:          Int get() = current.readTimeoutMs
@@ -177,8 +178,9 @@ object RemoteConfig {
 
         // API
         val telemetryEndpoint: String = "https://api.agenthita.org/telemetry",
-        val alertEndpoint:     String = "https://api.agenthita.org/alert/guardian",
-        val feedbackEndpoint:  String = "https://api.agenthita.org/feedback",
+        val alertEndpoint:          String = "https://api.agenthita.org/alert/guardian",
+        val guardianConfigEndpoint: String = "https://api.agenthita.org/alert/guardian/configure",
+        val feedbackEndpoint:       String = "https://api.agenthita.org/feedback",
         val apiKey:            String = com.agenthita.app.BuildConfig.FEEDBACK_API_KEY,
         val connectTimeoutMs:       Int = 10_000,
         val readTimeoutMs:          Int = 15_000,
@@ -287,8 +289,9 @@ object RemoteConfig {
 
             // API
             telemetryEndpoint = api?.optString("telemetry_endpoint", defaults.telemetryEndpoint) ?: defaults.telemetryEndpoint,
-            alertEndpoint     = api?.optString("alert_endpoint",     defaults.alertEndpoint)     ?: defaults.alertEndpoint,
-            feedbackEndpoint  = api?.optString("feedback_endpoint",  defaults.feedbackEndpoint)  ?: defaults.feedbackEndpoint,
+            alertEndpoint          = api?.optString("alert_endpoint",           defaults.alertEndpoint)          ?: defaults.alertEndpoint,
+            guardianConfigEndpoint = api?.optString("guardian_config_endpoint", defaults.guardianConfigEndpoint) ?: defaults.guardianConfigEndpoint,
+            feedbackEndpoint       = api?.optString("feedback_endpoint",        defaults.feedbackEndpoint)       ?: defaults.feedbackEndpoint,
             apiKey            = api?.optString("api_key").takeIf { !it.isNullOrBlank() } ?: defaults.apiKey,
             connectTimeoutMs       = api?.optInt("connect_timeout_ms",        defaults.connectTimeoutMs)       ?: defaults.connectTimeoutMs,
             readTimeoutMs          = api?.optInt("read_timeout_ms",           defaults.readTimeoutMs)          ?: defaults.readTimeoutMs,
