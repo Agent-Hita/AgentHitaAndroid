@@ -199,6 +199,19 @@ class RemoteConfigDefaultsTest {
         assertTrue("telemetryFlushIntervalMs must be > 0", defaults.telemetryFlushIntervalMs > 0)
     }
 
+    @Test
+    fun `guardianAlertThrottleMs is at least one hour`() {
+        assertTrue(
+            "guardianAlertThrottleMs must be >= 1 hour to avoid alert spam",
+            defaults.guardianAlertThrottleMs >= 60 * 60 * 1_000L
+        )
+    }
+
+    @Test
+    fun `guardianAlertThrottleMs default is 24 hours`() {
+        assertEquals(24L * 60 * 60 * 1_000, defaults.guardianAlertThrottleMs)
+    }
+
     // ── ConfigSnapshot copy preserves unrelated fields ───────────────────────
 
     @Test

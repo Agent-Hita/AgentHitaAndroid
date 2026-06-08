@@ -100,6 +100,7 @@ class GuardianSetupActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val payload = JSONObject().apply {
+                    put("deviceId",     consentManager.userId)
                     put("guardianEmail", email)
                     put("action", action)
                 }

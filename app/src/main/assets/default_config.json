@@ -3,11 +3,12 @@
   "version": 1,
 
   "api": {
-    "telemetry_endpoint":  "https://api.agenthita.org/telemetry",
-    "alert_endpoint":      "https://api.agenthita.org/alert/guardian",
-    "feedback_endpoint":   "https://api.agenthita.org/feedback",
-    "connect_timeout_ms":  10000,
-    "read_timeout_ms":     15000
+    "telemetry_endpoint":           "https://api.agenthita.org/telemetry",
+    "alert_endpoint":               "https://api.agenthita.org/alert/guardian",
+    "feedback_endpoint":            "https://api.agenthita.org/feedback",
+    "connect_timeout_ms":           10000,
+    "read_timeout_ms":              15000,
+    "guardian_alert_throttle_ms":   86400000
   },
 
   "telemetry": {

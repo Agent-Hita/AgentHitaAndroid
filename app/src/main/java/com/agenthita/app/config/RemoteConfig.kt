@@ -109,10 +109,11 @@ object RemoteConfig {
     val guardianConfigEndpoint: String  get() = current.guardianConfigEndpoint
     val feedbackEndpoint: String        get() = current.feedbackEndpoint
     val apiKey: String             get() = current.apiKey
-    val connectTimeoutMs:       Int get() = current.connectTimeoutMs
-    val readTimeoutMs:          Int get() = current.readTimeoutMs
-    val configConnectTimeoutMs: Int get() = current.configConnectTimeoutMs
-    val configReadTimeoutMs:    Int get() = current.configReadTimeoutMs
+    val connectTimeoutMs:            Int  get() = current.connectTimeoutMs
+    val readTimeoutMs:               Int  get() = current.readTimeoutMs
+    val configConnectTimeoutMs:      Int  get() = current.configConnectTimeoutMs
+    val configReadTimeoutMs:         Int  get() = current.configReadTimeoutMs
+    val guardianAlertThrottleMs:     Long get() = current.guardianAlertThrottleMs
 
     val telemetryFlushThreshold: Int  get() = current.telemetryFlushThreshold
     val telemetryFlushIntervalMs: Long get() = current.telemetryFlushIntervalMs
@@ -182,10 +183,11 @@ object RemoteConfig {
         val guardianConfigEndpoint: String = "https://api.agenthita.org/alert/guardian/configure",
         val feedbackEndpoint:       String = "https://api.agenthita.org/feedback",
         val apiKey:            String = com.agenthita.app.BuildConfig.FEEDBACK_API_KEY,
-        val connectTimeoutMs:       Int = 10_000,
-        val readTimeoutMs:          Int = 15_000,
-        val configConnectTimeoutMs: Int = 5_000,
-        val configReadTimeoutMs:    Int = 10_000,
+        val connectTimeoutMs:           Int  = 10_000,
+        val readTimeoutMs:              Int  = 15_000,
+        val configConnectTimeoutMs:     Int  = 5_000,
+        val configReadTimeoutMs:        Int  = 10_000,
+        val guardianAlertThrottleMs:    Long = 24L * 60 * 60 * 1_000,
 
         // Telemetry
         val telemetryFlushThreshold: Int    = 50,
@@ -293,10 +295,11 @@ object RemoteConfig {
             guardianConfigEndpoint = api?.optString("guardian_config_endpoint", defaults.guardianConfigEndpoint) ?: defaults.guardianConfigEndpoint,
             feedbackEndpoint       = api?.optString("feedback_endpoint",        defaults.feedbackEndpoint)       ?: defaults.feedbackEndpoint,
             apiKey            = api?.optString("api_key").takeIf { !it.isNullOrBlank() } ?: defaults.apiKey,
-            connectTimeoutMs       = api?.optInt("connect_timeout_ms",        defaults.connectTimeoutMs)       ?: defaults.connectTimeoutMs,
-            readTimeoutMs          = api?.optInt("read_timeout_ms",           defaults.readTimeoutMs)          ?: defaults.readTimeoutMs,
-            configConnectTimeoutMs = api?.optInt("config_connect_timeout_ms", defaults.configConnectTimeoutMs) ?: defaults.configConnectTimeoutMs,
-            configReadTimeoutMs    = api?.optInt("config_read_timeout_ms",    defaults.configReadTimeoutMs)    ?: defaults.configReadTimeoutMs,
+            connectTimeoutMs        = api?.optInt("connect_timeout_ms",          defaults.connectTimeoutMs)        ?: defaults.connectTimeoutMs,
+            readTimeoutMs           = api?.optInt("read_timeout_ms",            defaults.readTimeoutMs)           ?: defaults.readTimeoutMs,
+            configConnectTimeoutMs  = api?.optInt("config_connect_timeout_ms",  defaults.configConnectTimeoutMs)  ?: defaults.configConnectTimeoutMs,
+            configReadTimeoutMs     = api?.optInt("config_read_timeout_ms",     defaults.configReadTimeoutMs)     ?: defaults.configReadTimeoutMs,
+            guardianAlertThrottleMs = api?.optLong("guardian_alert_throttle_ms", defaults.guardianAlertThrottleMs) ?: defaults.guardianAlertThrottleMs,
 
             // Telemetry
             telemetryFlushThreshold  = tel?.optInt("flush_threshold",    defaults.telemetryFlushThreshold)         ?: defaults.telemetryFlushThreshold,

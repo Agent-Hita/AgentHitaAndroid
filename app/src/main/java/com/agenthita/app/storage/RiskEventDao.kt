@@ -26,6 +26,12 @@ interface RiskEventDao {
     @Query("UPDATE risk_events SET gemmaAnalysis = :analysis WHERE id = :id")
     suspend fun updateGemmaAnalysis(id: Long, analysis: String)
 
+    @Query("SELECT * FROM risk_events WHERE contactHash = :hash AND guardianAlertSent = 0 ORDER BY timestampMs ASC")
+    suspend fun getUnsentEventsForContact(hash: String): List<RiskEvent>
+
+    @Query("UPDATE risk_events SET guardianAlertSent = 1 WHERE contactHash = :hash AND guardianAlertSent = 0")
+    suspend fun markAllUnsentAlertsSent(hash: String)
+
     @Query("DELETE FROM risk_events WHERE timestampMs < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long)
 }

@@ -5,6 +5,7 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -22,65 +23,132 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Dispatches Tier 1 guardian alerts via a WorkManager background job.
+ * Dispatches Tier 1 guardian alerts via WorkManager.
  *
- * Tier 1 disclosure (consent.html): category + severity + approximate time + recommended action.
- * Explicitly excluded: message content, contact name/number, conversation history,
- * screenshots, precise timestamps.
+ * Throttle behaviour (window = RemoteConfig.guardianAlertThrottleMs, default 24 h):
+ *   - First HIGH event for a contact → sent immediately; throttle window starts.
+ *   - Further HIGH events within the window → accumulated as unsent DB records;
+ *     a single deferred WorkManager job (unique per contact, KEEP policy) is
+ *     scheduled to fire when the window expires.
+ *   - Deferred job sends one aggregated alert covering all accumulated events.
+ *
+ * Returns true from sendIfConfigured when an immediate alert is enqueued so the
+ * caller can mark the event as sent. Returns false when throttled (event stays
+ * unsent in the DB until the deferred job picks it up).
+ *
+ * Tier 1 disclosure (consent.html): category + severity + approximate time +
+ * recommended action. Explicitly excluded: message content, contact name/number,
+ * conversation history, screenshots, precise timestamps.
  */
 class GuardianAlertSender(
     private val context: Context,
     private val consentManager: ConsentManager
 ) {
+    /**
+     * @return true  — immediate alert enqueued; caller should mark the event sent.
+     *         false — throttled; event left unsent for the deferred aggregated job.
+     */
     fun sendIfConfigured(
         result: DetectionResult,
         eventId: Long,
         packageName: String,
         contactHash: String
-    ) {
+    ): Boolean {
         val guardianEmail = consentManager.guardianEmail
         if (guardianEmail == null) {
             android.util.Log.d(TAG, "Skipped: no guardian email configured")
             TelemetryManager.get(context).track("guardian_alert_skipped_no_email")
-            return
+            return false
         }
         if (!consentManager.isGuardianAlertsEnabled) {
             android.util.Log.d(TAG, "Skipped: guardian alerts disabled in settings")
             TelemetryManager.get(context).track("guardian_alert_skipped_disabled")
-            return
+            return false
         }
 
-        val data = Data.Builder()
-            .putString(KEY_GUARDIAN_EMAIL, guardianEmail)
-            .putString(KEY_CATEGORY, result.category.name)
-            .putString(KEY_RISK_LEVEL, result.riskLevel.name)
-            .putLong(KEY_EVENT_ID, eventId)
-            .putString(KEY_PACKAGE_NAME, packageName)
-            .putString(KEY_CONTACT_HASH, contactHash)
-            .build()
+        val throttle = createThrottle()
+        val nowMs = System.currentTimeMillis()
+        val throttleMs = RemoteConfig.guardianAlertThrottleMs
 
-        val request = OneTimeWorkRequestBuilder<GuardianAlertWorker>()
-            .setInputData(data)
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
+        return if (throttle.shouldSendNow(contactHash, nowMs, throttleMs)) {
+            throttle.recordAlertSent(contactHash, nowMs)
+
+            val data = Data.Builder()
+                .putString(KEY_DEVICE_ID, consentManager.userId)
+                .putString(KEY_GUARDIAN_EMAIL, guardianEmail)
+                .putString(KEY_CATEGORY, result.category.name)
+                .putString(KEY_RISK_LEVEL, result.riskLevel.name)
+                .putLong(KEY_EVENT_ID, eventId)
+                .putString(KEY_PACKAGE_NAME, packageName)
+                .putString(KEY_CONTACT_HASH, contactHash)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<GuardianAlertWorker>()
+                .setInputData(data)
+                .setConstraints(networkConstraints())
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .build()
+
+            WorkManager.getInstance(context).enqueue(request)
+            android.util.Log.i(TAG, "Guardian alert enqueued immediately: category=${result.category} level=${result.riskLevel} eventId=$eventId to=$guardianEmail")
+            true
+        } else {
+            val delayMs = throttle.remainingMs(contactHash, nowMs, throttleMs)
+
+            val data = Data.Builder()
+                .putBoolean(KEY_IS_AGGREGATED, true)
+                .putString(KEY_DEVICE_ID, consentManager.userId)
+                .putString(KEY_GUARDIAN_EMAIL, guardianEmail)
+                .putString(KEY_CONTACT_HASH, contactHash)
+                .build()
+
+            val request = OneTimeWorkRequestBuilder<GuardianAlertWorker>()
+                .setInputData(data)
+                .setConstraints(networkConstraints())
+                .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+                .build()
+
+            // KEEP: the first throttled event schedules the aggregated send at the
+            // correct expiry time. Subsequent events within the same window are
+            // accumulated in the DB; the existing job picks them all up.
+            WorkManager.getInstance(context).enqueueUniqueWork(
+                aggregateWorkName(contactHash),
+                ExistingWorkPolicy.KEEP,
+                request
             )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .build()
+            android.util.Log.i(TAG, "Guardian alert throttled — deferred aggregated send in ${delayMs}ms for contact=$contactHash")
+            false
+        }
+    }
 
-        WorkManager.getInstance(context).enqueue(request)
-        android.util.Log.i(TAG, "Guardian alert enqueued: category=${result.category} level=${result.riskLevel} eventId=$eventId to=$guardianEmail")
+    private fun createThrottle(): GuardianAlertThrottle {
+        val prefs = context.getSharedPreferences(THROTTLE_PREFS, Context.MODE_PRIVATE)
+        return GuardianAlertThrottle(
+            store  = { key -> prefs.getLong(key, 0L) },
+            save   = { key, value -> prefs.edit().putLong(key, value).apply() },
+            remove = { key -> prefs.edit().remove(key).apply() }
+        )
     }
 
     companion object {
-        private const val TAG            = "GuardianAlertSender"
-        const val KEY_GUARDIAN_EMAIL = "guardian_email"
-        const val KEY_CATEGORY       = "category"
-        const val KEY_RISK_LEVEL     = "risk_level"
-        const val KEY_EVENT_ID       = "event_id"
-        const val KEY_PACKAGE_NAME   = "package_name"
-        const val KEY_CONTACT_HASH   = "contact_hash"
+        private const val TAG               = "GuardianAlertSender"
+        internal const val THROTTLE_PREFS   = "hita_guardian_throttle"
+
+        const val KEY_DEVICE_ID             = "device_id"
+        const val KEY_GUARDIAN_EMAIL        = "guardian_email"
+        const val KEY_CATEGORY              = "category"
+        const val KEY_RISK_LEVEL            = "risk_level"
+        const val KEY_EVENT_ID              = "event_id"
+        const val KEY_PACKAGE_NAME          = "package_name"
+        const val KEY_CONTACT_HASH          = "contact_hash"
+        const val KEY_IS_AGGREGATED         = "is_aggregated"
+
+        fun aggregateWorkName(contactHash: String) = "guardian_aggregate_$contactHash"
+
+        fun networkConstraints() = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
     }
 }
 
@@ -170,6 +238,12 @@ class GuardianAlertWorker(
             return Result.failure()
         }
 
+        val isAggregated = inputData.getBoolean(GuardianAlertSender.KEY_IS_AGGREGATED, false)
+        return if (isAggregated) doAggregatedWork() else doImmediateWork()
+    }
+
+    private suspend fun doImmediateWork(): Result {
+        val deviceId     = inputData.getString(GuardianAlertSender.KEY_DEVICE_ID) ?: return Result.failure()
         val guardianEmail = inputData.getString(GuardianAlertSender.KEY_GUARDIAN_EMAIL)
             ?: return Result.failure()
         val categoryName = inputData.getString(GuardianAlertSender.KEY_CATEGORY)
@@ -193,6 +267,7 @@ class GuardianAlertWorker(
 
         return try {
             sendAlert(
+                deviceId     = deviceId,
                 to           = guardianEmail,
                 category     = category,
                 riskLevel    = riskLevel,
@@ -200,7 +275,7 @@ class GuardianAlertWorker(
                 appName      = appName,
                 isFirstAlert = isFirstAlert
             )
-            android.util.Log.i(TAG, "Guardian alert sent successfully: category=$categoryName level=$riskLevel eventId=$eventId")
+            android.util.Log.i(TAG, "Guardian alert sent: category=$categoryName level=$riskLevel eventId=$eventId")
             TelemetryManager.get(applicationContext).track("guardian_alert_sent")
             Result.success()
         } catch (e: Exception) {
@@ -210,27 +285,88 @@ class GuardianAlertWorker(
         }
     }
 
+    private suspend fun doAggregatedWork(): Result {
+        val deviceId = inputData.getString(GuardianAlertSender.KEY_DEVICE_ID) ?: return Result.failure()
+        val guardianEmail = inputData.getString(GuardianAlertSender.KEY_GUARDIAN_EMAIL)
+            ?: return Result.failure()
+        val contactHash = inputData.getString(GuardianAlertSender.KEY_CONTACT_HASH)
+            ?: return Result.failure()
+
+        val dao = try {
+            HitaDatabase.getInstance(applicationContext).riskEventDao()
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Aggregated alert: cannot open DB: ${e.message}")
+            return Result.retry()
+        }
+
+        val unsentEvents = dao.getUnsentEventsForContact(contactHash)
+        if (unsentEvents.isEmpty()) {
+            android.util.Log.i(TAG, "Aggregated alert: no unsent events for contact=$contactHash — skipping")
+            return Result.success()
+        }
+
+        val topEvent = unsentEvents.maxByOrNull { it.score } ?: return Result.success()
+        val category = HarmCategory.valueOf(topEvent.harmCategory)
+        val appName  = APP_NAMES[topEvent.appPackage] ?: topEvent.appPackage
+
+        return try {
+            sendAlert(
+                deviceId     = deviceId,
+                to           = guardianEmail,
+                category     = category,
+                riskLevel    = topEvent.riskLevel,
+                eventId      = topEvent.id,
+                appName      = appName,
+                isFirstAlert = false,
+                isAggregated = true,
+                eventCount   = unsentEvents.size
+            )
+            dao.markAllUnsentAlertsSent(contactHash)
+
+            val prefs = applicationContext.getSharedPreferences(GuardianAlertSender.THROTTLE_PREFS, android.content.Context.MODE_PRIVATE)
+            GuardianAlertThrottle(
+                store  = { key -> prefs.getLong(key, 0L) },
+                save   = { key, value -> prefs.edit().putLong(key, value).apply() },
+                remove = { key -> prefs.edit().remove(key).apply() }
+            ).recordAlertSent(contactHash, System.currentTimeMillis())
+
+            android.util.Log.i(TAG, "Aggregated alert sent: ${unsentEvents.size} events for contact=$contactHash topCategory=${category.name}")
+            TelemetryManager.get(applicationContext).track("guardian_alert_aggregated_sent")
+            Result.success()
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Aggregated alert send failed (will retry): ${e.message}")
+            TelemetryManager.get(applicationContext).track("guardian_alert_failed")
+            Result.retry()
+        }
+    }
+
     /**
-     * POSTs alert data to the EC2 backend, which sends the email via AWS SES.
+     * POSTs alert data to the backend, which sends the email via AWS SES.
      * Credentials never leave the server — the app only passes the alert payload.
      */
     private fun sendAlert(
+        deviceId: String,
         to: String,
         category: HarmCategory,
         riskLevel: String,
         eventId: Long,
         appName: String,
-        isFirstAlert: Boolean
+        isFirstAlert: Boolean,
+        isAggregated: Boolean = false,
+        eventCount: Int = 1
     ) {
         val whatYouCanDo = WHAT_YOU_CAN_DO[category.name] ?: emptyList()
 
         val payload = JSONObject().apply {
+            put("deviceId",      deviceId)
             put("guardianEmail", to)
             put("category",      category.name)
             put("riskLevel",     riskLevel)
             put("eventId",       eventId)
             put("appName",       appName)
             put("isFirstAlert",  isFirstAlert)
+            put("isAggregated",  isAggregated)
+            if (isAggregated) put("eventCount", eventCount)
             put("whatYouCanDo",  org.json.JSONArray(whatYouCanDo))
         }
 

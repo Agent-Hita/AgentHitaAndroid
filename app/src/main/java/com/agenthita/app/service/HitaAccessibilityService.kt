@@ -266,14 +266,14 @@ class HitaAccessibilityService : AccessibilityService() {
                         contactIdentifier = contactName,
                         result            = syntheticResult
                     )
-                    riskEventStore.markAlertSent(eventId)
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        guardianAlertSender.sendIfConfigured(
+                        val sending = guardianAlertSender.sendIfConfigured(
                             result      = syntheticResult,
                             eventId     = eventId,
                             packageName = packageName,
                             contactHash = sha256(contactName)
                         )
+                        if (sending) riskEventStore.markAlertSent(eventId)
                     }
                 }
             }
@@ -412,14 +412,14 @@ class HitaAccessibilityService : AccessibilityService() {
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                         if (convHash !in alertedConvHashes) {
                             alertedConvHashes.add(convHash)
-                            android.util.Log.i(TAG, "[$packageName] HIGH risk — sending guardian alert immediately: score=${topResult.score}")
-                            guardianAlertSender.sendIfConfigured(
+                            android.util.Log.i(TAG, "[$packageName] HIGH risk — sending guardian alert: score=${topResult.score}")
+                            val sending = guardianAlertSender.sendIfConfigured(
                                 result      = topResult,
                                 eventId     = eventId,
                                 packageName = packageName,
                                 contactHash = sha256(contactName)
                             )
-                            riskEventStore.markAlertSent(eventId)
+                            if (sending) riskEventStore.markAlertSent(eventId)
                         }
                     }
                 }
