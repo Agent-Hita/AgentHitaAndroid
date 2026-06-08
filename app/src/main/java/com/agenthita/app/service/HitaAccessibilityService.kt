@@ -234,7 +234,7 @@ class HitaAccessibilityService : AccessibilityService() {
                         dumpHierarchy(root, "", 0)
                     }
                     android.util.Log.d(TAG, "[$packageName] Could not determine contact name — skipping")
-                    TelemetryManager.get(this).track("parsing_failed_${pkgShortName(packageName)}")
+                    TelemetryManager.get(this).track(parsingFailedEvent(packageName))
                     return
                 }
 
@@ -429,10 +429,20 @@ class HitaAccessibilityService : AccessibilityService() {
             // selector in one app never crashes the service and silences all other apps.
             val shortPkg = pkgShortName(packageName)
             android.util.Log.e(TAG, "[$packageName] Parsing exception — $shortPkg will be skipped this event: ${e.message}", e)
-            TelemetryManager.get(this).track("parsing_failed_$shortPkg")
+            TelemetryManager.get(this).track(parsingFailedEvent(packageName))
         } finally {
             root.recycle()
         }
+    }
+
+    private fun parsingFailedEvent(pkg: String) = when (pkg) {
+        "com.whatsapp", "com.whatsapp.w4b"         -> "parsing_failed_whatsapp"
+        "com.instagram.android"                     -> "parsing_failed_instagram"
+        "com.google.android.apps.messaging"         -> "parsing_failed_google_messages"
+        "com.samsung.android.messaging"             -> "parsing_failed_samsung_messages"
+        "com.android.messaging"                     -> "parsing_failed_aosp_messages"
+        "com.android.mms"                           -> "parsing_failed_aosp_mms"
+        else                                        -> "parsing_failed_unknown"
     }
 
     /** Returns a short metric-safe label for a package name. */

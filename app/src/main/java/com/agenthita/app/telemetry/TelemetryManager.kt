@@ -43,6 +43,9 @@ class TelemetryManager private constructor(private val context: Context) {
     // ── Public API ────────────────────────────────────────────────────────────
 
     fun track(eventName: String, value: Double = 1.0) {
+        require(eventName in ALLOWED_EVENT_NAMES) {
+            "Unknown telemetry event '$eventName' — add it to ALLOWED_EVENT_NAMES first"
+        }
         synchronized(lock) {
             val existing = pendingEvents[eventName]
             pendingEvents[eventName] = if (existing == null) {
@@ -153,6 +156,54 @@ class TelemetryManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "TelemetryManager"
+
+        // ████████████████████████████████████████████████████████████████████████
+        // PRIVACY BOUNDARY — READ BEFORE EDITING
+        //
+        // This is the exhaustive allowlist of telemetry event names. Every entry
+        // must be a short snake_case identifier describing an app action or metric.
+        //
+        // NEVER add:  message text, contact names, phone numbers, email addresses,
+        //             conversation content, user-typed strings, or any data derived
+        //             from message content. Doing so would violate the privacy promise
+        //             stated in the Play Store listing and the Accessibility declaration.
+        //
+        // Adding a new call site requires a matching entry here. Omitting it throws
+        // IllegalArgumentException at runtime and fails any test that exercises the
+        // call path — the build will not pass.
+        // ████████████████████████████████████████████████████████████████████████
+        internal val ALLOWED_EVENT_NAMES: Set<String> = setOf(
+            "app_open",
+            "app_close",
+            "app_crash",
+            "monitoring_enabled",
+            "analysis_started",
+            "analysis_completed",
+            "analysis_failed",
+            "analysis_duration_ms",
+            "alert_generated",
+            "gemma_load_success",
+            "gemma_load_failed",
+            "gemma_download_tapped",
+            "gemma_import_success",
+            "gemma_hash_mismatch",
+            "guardian_alert_sent",
+            "guardian_alert_failed",
+            "guardian_alert_aggregated_sent",
+            "guardian_alert_abandoned",
+            "guardian_alert_skipped_no_email",
+            "guardian_alert_skipped_disabled",
+            "parsing_failed_whatsapp",
+            "parsing_failed_instagram",
+            "parsing_failed_google_messages",
+            "parsing_failed_samsung_messages",
+            "parsing_failed_aosp_messages",
+            "parsing_failed_aosp_mms",
+            "parsing_failed_unknown",
+            "permission_notifications_granted",
+            "permission_accessibility_denied",
+            "feedback_submit_failed"
+        )
 
         @Volatile
         private var instance: TelemetryManager? = null
