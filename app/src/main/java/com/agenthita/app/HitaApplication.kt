@@ -18,6 +18,9 @@ class HitaApplication : Application() {
 
     val database: HitaDatabase by lazy { HitaDatabase.getInstance(this) }
 
+    /** Millisecond timestamp captured at process start — used to measure cold-start durations. */
+    val startMs: Long = System.currentTimeMillis()
+
     @OptIn(DelicateCoroutinesApi::class)
     override fun onCreate() {
         super.onCreate()
@@ -43,11 +46,17 @@ class HitaApplication : Application() {
      */
     private fun installForegroundTracker() {
         var resumedCount = 0
+        var startupTracked = false
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             override fun onActivityResumed(activity: Activity) {
                 resumedCount++
                 if (resumedCount == 1) {
                     TelemetryManager.get(this@HitaApplication).track("app_open")
+                    if (!startupTracked) {
+                        startupTracked = true
+                        val startupMs = System.currentTimeMillis() - startMs
+                        TelemetryManager.get(this@HitaApplication).track("app_startup_ms", startupMs.toDouble())
+                    }
                 }
             }
             override fun onActivityPaused(activity: Activity) {

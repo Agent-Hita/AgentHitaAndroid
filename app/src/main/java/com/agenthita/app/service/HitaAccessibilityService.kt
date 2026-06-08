@@ -132,6 +132,7 @@ class HitaAccessibilityService : AccessibilityService() {
         android.util.Log.i(TAG, "Accessibility service connected — monitoring active")
         localNotificationManager.showStatusIndicator()
         TelemetryManager.get(this).track("monitoring_enabled")
+        TelemetryManager.get(this).track("service_connect_ms", (System.currentTimeMillis() - app.startMs).toDouble())
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(modelAvailableReceiver, IntentFilter(ACTION_MODEL_AVAILABLE), RECEIVER_NOT_EXPORTED)
@@ -152,12 +153,14 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun loadGemmaAsync() {
         serviceScope.launch {
             withContext(Dispatchers.IO) {
+                val loadStart = System.currentTimeMillis()
                 val gemma = OnDeviceClassifier(this@HitaAccessibilityService)
                 val telemetry = TelemetryManager.get(this@HitaAccessibilityService)
                 when {
                     gemma.isLoaded -> {
                         classifier.upgrade(gemma)
                         telemetry.track("gemma_load_success")
+                        telemetry.track("gemma_load_ms", (System.currentTimeMillis() - loadStart).toDouble())
                         getSharedPreferences(AI_PREFS, MODE_PRIVATE)
                             .edit().putBoolean(KEY_GEMMA_LOADED, true).apply()
                         android.util.Log.i(TAG, "Gemma ready — ML-assisted mode active")
