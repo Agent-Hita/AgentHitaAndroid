@@ -45,6 +45,8 @@ import java.security.MessageDigest
 class HitaAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pendingRunnables = mutableMapOf<String, Runnable>()
 
     private lateinit var classifier: com.agenthita.app.model.OnDeviceClassifier
     private lateinit var riskScorer: RiskScorer
@@ -184,6 +186,8 @@ class HitaAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         super.onDestroy()
         runCatching { unregisterReceiver(modelAvailableReceiver) }
+        pendingRunnables.values.forEach { mainHandler.removeCallbacks(it) }
+        pendingRunnables.clear()
         flushAllPendingAlerts()
         localNotificationManager.dismissStatusIndicator()
         TelemetryManager.get(this).flush()
@@ -200,8 +204,20 @@ class HitaAccessibilityService : AccessibilityService() {
         if (!consentManager.isOnboardingComplete) return
 
         when (event.eventType) {
-            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> processWindow(pkg)
+            // Compose-based apps (Google Messages) haven't finished rendering when
+            // TYPE_WINDOW_STATE_CHANGED fires. Schedule processing with a 400 ms
+            // fallback; if TYPE_WINDOW_CONTENT_CHANGED fires first (Compose settled
+            // faster) it cancels the pending runnable and processes immediately.
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
+                val r = Runnable { processWindow(pkg) }
+                pendingRunnables[pkg] = r
+                mainHandler.postDelayed(r, 400)
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
+                pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
+                processWindow(pkg)
+            }
         }
     }
 
