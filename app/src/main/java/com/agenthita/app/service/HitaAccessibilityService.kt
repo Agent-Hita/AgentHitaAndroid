@@ -266,19 +266,7 @@ class HitaAccessibilityService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
-                // Instagram only: 300 ms settle lets RecyclerView item-add animations
-                // complete before getBoundsInScreen is called. Without this, in-flight
-                // items have rect.left > screenWidth/2 (mid-animation rightward entry)
-                // and isOutgoingInstagram misclassifies them as outgoing.
-                // All other apps: process immediately (original behaviour) so rapid
-                // content events on WhatsApp/Samsung Messages don't push detection out.
-                if (pkg == "com.instagram.android") {
-                    val r = Runnable { processWindow(pkg) }
-                    pendingRunnables[pkg] = r
-                    mainHandler.postDelayed(r, 300L)
-                } else {
-                    processWindow(pkg)
-                }
+                processWindow(pkg)
             }
         }
     }
