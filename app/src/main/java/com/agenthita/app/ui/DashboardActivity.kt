@@ -3,7 +3,11 @@ package com.agenthita.app.ui
 import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.PowerManager
 import android.provider.MediaStore
 import android.provider.Settings
 import android.view.Menu
@@ -33,6 +37,16 @@ import java.util.Calendar
 
 class DashboardActivity : AppCompatActivity() {
 
+    companion object {
+        // Heartbeat is written every 60 s; allow 3 min before calling it frozen.
+        private const val SERVICE_FROZEN_THRESHOLD_MS = 3 * 60 * 1000L
+        // After detecting frozen, recheck after this delay — gives the unfreezing
+        // process time to write a fresh heartbeat before we update the UI.
+        private const val FROZEN_RECHECK_DELAY_MS = 3_000L
+    }
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private lateinit var binding: ActivityDashboardBinding
     private lateinit var consentManager: ConsentManager
     private lateinit var eventStore: RiskEventStore
@@ -46,7 +60,7 @@ class DashboardActivity : AppCompatActivity() {
     private var aiStatusJob: Job? = null
 
     private val aiPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == "gemma_loaded") updateAiStatus()
+        if (key == "gemma_loaded" || key == "gemma_load_failed") updateAiStatus()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -210,22 +224,58 @@ else -> false
     }
 
     private fun updateStatusDot() {
-        val active = isNotificationListenerEnabled()
+        val enabled = isNotificationListenerEnabled()
         val dot = findViewById<View>(R.id.view_status_dot) ?: return
-        val drawable = dot.background.mutate()
-        DrawableCompat.setTint(drawable, if (active) Color.parseColor("#10B981") else Color.parseColor("#EF4444"))
-        dot.background = drawable
-
         val label = findViewById<android.widget.TextView>(R.id.tv_status_label)
-        label?.text = if (active) "Monitoring is active" else "Monitoring is not active"
+        val drawable = dot.background.mutate()
 
-        if (active) {
-            // Service is now enabled — dismiss the prompt if it was open
-            enableDialog?.dismiss()
-            enableDialog = null
-        } else if (enableDialog?.isShowing != true) {
-            // Only show if not already displayed
-            showEnableAccessibilityDialog()
+        if (!enabled) {
+            DrawableCompat.setTint(drawable, Color.parseColor("#EF4444"))
+            dot.background = drawable
+            label?.text = "Monitoring is not active"
+            if (enableDialog?.isShowing != true) showEnableAccessibilityDialog()
+            return
+        }
+
+        // Service is enabled — check whether the process is actually alive via heartbeat.
+        val lastAlive = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+            .getLong("service_last_alive_ms", 0L)
+        val frozen = lastAlive > 0L && (System.currentTimeMillis() - lastAlive) > SERVICE_FROZEN_THRESHOLD_MS
+
+        if (frozen) {
+            DrawableCompat.setTint(drawable, Color.parseColor("#F59E0B")) // amber — degraded
+            dot.background = drawable
+            label?.text = "Monitoring was paused by the OS — tap to fix"
+            label?.setOnClickListener { requestBatteryOptimizationExemption() }
+            TelemetryManager.get(this).track("service_frozen")
+            android.util.Log.w("DashboardActivity", "Service heartbeat stale by ${(System.currentTimeMillis() - lastAlive) / 1000}s — reporting service_frozen")
+            // Opening this app unfreezes the process; give the heartbeat timer 3s to
+            // write a fresh value before rechecking, so the UI recovers automatically.
+            mainHandler.postDelayed({ updateStatusDot() }, FROZEN_RECHECK_DELAY_MS)
+            requestBatteryOptimizationExemption()
+        } else {
+            label?.setOnClickListener(null)
+            DrawableCompat.setTint(drawable, Color.parseColor("#10B981"))
+            dot.background = drawable
+            label?.text = "Monitoring is active"
+        }
+
+        // Dismiss the enable-prompt if it was shown for a previous disabled state.
+        enableDialog?.dismiss()
+        enableDialog = null
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            try {
+                startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                })
+            } catch (_: Exception) {
+                // Fallback: open general battery optimization settings
+                runCatching { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+            }
         }
     }
 
@@ -269,10 +319,25 @@ else -> false
 
     private fun updateAiStatus() {
         val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+        val loadFailed = aiPrefs.getBoolean("gemma_load_failed", false)
+
+        // Model found but MediaPipe failed to initialise it (corrupt file, OOM, etc.).
+        // Show the chip with an error label regardless of any other state — user must reinstall.
+        if (loadFailed) {
+            binding.tvAiStatus.text = "Private AI Model: Error — tap to reinstall"
+            binding.layoutAiStatus.visibility = View.VISIBLE
+            return
+        }
+
+        // Model loaded successfully — hide the chip.
         if (aiPrefs.getBoolean("gemma_loaded", false)) {
             binding.layoutAiStatus.visibility = View.GONE
             return
         }
+
+        // Model not yet installed — check whether the file is present so the chip
+        // disappears as soon as the service copies it, before gemma_loaded is written.
+        binding.tvAiStatus.text = "Private AI Model: Download"
 
         // Synchronous check: filesDir is always accessible and populated after the service copies the model.
         val inFilesDir = filesDir.listFiles()?.any { f ->

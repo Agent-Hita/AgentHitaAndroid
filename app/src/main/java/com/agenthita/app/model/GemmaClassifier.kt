@@ -44,7 +44,7 @@ class GemmaClassifier(context: Context) {
 
     // Single-entry cache — avoids re-running inference when the test pipeline calls
     // classifier.classify(text) immediately after scorer.score(text) with the same inputs.
-    private var cacheKey: Pair<String, String?> = "" to null
+    private var cacheKey: Triple<String, List<String>, String?> = Triple("", emptyList(), null)
     private var cacheVal: Pair<HarmCategory, RiskLevel>? = null
 
     init {
@@ -52,6 +52,13 @@ class GemmaClassifier(context: Context) {
     }
 
     private fun tryLoad(context: Context) {
+        // Remove any previously staged GPU models — they can't run on the CPU backend
+        context.filesDir.listFiles()
+            ?.filter { it.name.lowercase().contains("gpu") && (it.name.endsWith(".bin") || it.name.endsWith(".task")) }
+            ?.forEach { f ->
+                if (f.delete()) android.util.Log.i("GemmaClassifier", "Removed incompatible GPU model: ${f.name}")
+            }
+
         // 1. Try direct file access first (fast path)
         val modelPath = findModelPath(context)
             // 2. Fall back to copying model from MediaStore Downloads into internal storage.
@@ -73,7 +80,7 @@ class GemmaClassifier(context: Context) {
             android.util.Log.i("GemmaClassifier", "Gemma loaded from $modelPath")
         } catch (e: Throwable) {
             loadFailed = true
-            android.util.Log.w("GemmaClassifier", "Failed to load Gemma (${e.javaClass.simpleName}): ${e.message}")
+            android.util.Log.w("GemmaClassifier", "Failed to load Gemma from $modelPath (${e.javaClass.simpleName}): ${e.message}")
         }
     }
 
@@ -125,6 +132,11 @@ class GemmaClassifier(context: Context) {
             val isTarGz = lower.endsWith(".gz")
             val isBinary = lower.endsWith(".bin") || lower.endsWith(".task")
             if (!isTarGz && !isBinary) continue
+            // GPU-quantized models require OpenCL — skip them since we run CPU-only
+            if (isBinary && lower.contains("gpu")) {
+                android.util.Log.i("GemmaClassifier", "Skipping GPU model: ${entry.name}")
+                continue
+            }
 
             val fileUri = ContentUris.withAppendedId(collection, entry.id)
 
@@ -144,6 +156,13 @@ class GemmaClassifier(context: Context) {
                 }.isSuccess
                 if (copied && dest.length() > 100_000_000L) {
                     android.util.Log.i("GemmaClassifier", "Copy complete: ${dest.length() / 1_000_000} MB")
+                    // Remove from Downloads — model is now in private app storage where
+                    // the user can't accidentally delete it. Best-effort: if the entry is
+                    // not owned by this app (e.g. pushed via adb), MediaStore delete will
+                    // throw RecoverableSecurityException — we log and continue.
+                    runCatching { context.contentResolver.delete(fileUri, null, null) }
+                        .onSuccess { android.util.Log.i("GemmaClassifier", "Downloads copy removed — model in app storage") }
+                        .onFailure { android.util.Log.w("GemmaClassifier", "Could not remove Downloads copy: ${it.message}") }
                     return dest.absolutePath
                 } else {
                     dest.delete()
@@ -239,7 +258,8 @@ class GemmaClassifier(context: Context) {
                     // from a crafted TAR header declaring a huge file size (real models are ~1-4 GB).
                     val isSane     = fileSize in 500_000_000L..RemoteConfig.gemmaMaxFileSizeBytes
                     val isModel    = isRegular && isSane &&
-                        (baseName.endsWith(".bin") || baseName.endsWith(".task"))
+                        (baseName.endsWith(".bin") || baseName.endsWith(".task")) &&
+                        !baseName.lowercase().contains("gpu")
 
                     if (isModel) {
                         val dest = File(context.filesDir, baseName)
@@ -282,23 +302,27 @@ class GemmaClassifier(context: Context) {
     }  // end companion object
 
     private fun findModelPath(context: Context): String? {
+        // Fast path: model already in private app storage from a previous run.
+        // Scan by extension + size so any model filename is accepted (not just gemma.bin).
+        context.filesDir.listFiles()?.firstOrNull { f ->
+            (f.name.endsWith(".bin") || f.name.endsWith(".task")) &&
+            !f.name.lowercase().contains("gpu") &&
+            f.length() > 100_000_000L &&
+            try { java.io.FileInputStream(f).use { true } } catch (_: Exception) { false }
+        }?.let {
+            android.util.Log.i("GemmaClassifier", "Model found: ${it.absolutePath}")
+            return it.absolutePath
+        }
+
         val appFiles = context.getExternalFilesDir(null)?.absolutePath
-        // Internal files dir is always accessible regardless of external storage permissions
-        val internalFiles = context.filesDir.absolutePath
         val candidates = listOf(
             // App-private external storage — readable when external storage is mounted
             "$appFiles/gemma.task",
             "$appFiles/gemma.bin",
-            // App-private internal storage — always readable, no storage permissions needed
-            "$internalFiles/gemma.task",
-            "$internalFiles/gemma.bin",
-            // Downloads — owned by app UID; try both /sdcard and /storage/emulated/0 forms
+            // Downloads — CPU variants only; GPU models require OpenCL which we don't use
             "/sdcard/Download/gemma3-1b-it-cpu-int4.task",
             "/storage/emulated/0/Download/gemma3-1b-it-cpu-int4.task",
             "/sdcard/Download/gemma3-1b-it-cpu-int4.bin",
-            "/sdcard/Download/gemma3-1b-it-gpu-int4.task",
-            "/sdcard/Download/gemma3-1b-it-gpu-int4.bin",
-            "/sdcard/Download/gemma-2b-it-gpu-int4.bin",
             "/sdcard/Download/gemma-2b-it-cpu-int4.bin",
             "/sdcard/Download/gemma2-cpu-int4.bin",
             "/sdcard/Download/gemma.task",
@@ -327,6 +351,12 @@ class GemmaClassifier(context: Context) {
                 } catch (_: Exception) { null }
                 if (extracted != null) {
                     android.util.Log.i("GemmaClassifier", "Model extracted from archive: ${f.absolutePath}")
+                    // Delete the archive from Downloads — model is now in private app storage
+                    if (f.delete()) {
+                        android.util.Log.i("GemmaClassifier", "Archive removed from Downloads")
+                    } else {
+                        android.util.Log.w("GemmaClassifier", "Could not remove archive from Downloads (scoped storage)")
+                    }
                     return extracted
                 }
             }
@@ -344,15 +374,15 @@ class GemmaClassifier(context: Context) {
      * Returns null if the model is not loaded, the message is safe, or the
      * response cannot be parsed.
      */
-    fun classifyMessage(text: String, ageHint: String? = null): Pair<HarmCategory, RiskLevel>? {
+    fun classifyMessage(text: String, context: List<String> = emptyList(), ageHint: String? = null): Pair<HarmCategory, RiskLevel>? {
         val inference = llm ?: return null
-        val key = text to ageHint
+        val key = Triple(text, context, ageHint)
         if (key == cacheKey) {
             android.util.Log.d("GemmaClassifier", "Cache hit — skipping inference")
             return cacheVal
         }
         return try {
-            val prompt = buildMultiClassPrompt(text, ageHint)
+            val prompt = buildMultiClassPrompt(text, context, ageHint)
             val t0 = System.currentTimeMillis()
             val response = inference.generateResponse(prompt).trim().uppercase()
             val ms = System.currentTimeMillis() - t0
@@ -367,18 +397,21 @@ class GemmaClassifier(context: Context) {
         }
     }
 
-    private fun buildMultiClassPrompt(text: String, ageHint: String? = null): String {
-        // Truncate to keep total tokens well under the 512 limit.
-        // Use fill-in-the-blank lines so Gemma 1B outputs the value rather than
-        // echoing the prompt template (e.g. "CATEGORY SEVERITY: HIGH").
+    private fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
+        // Budget: 512 tokens total. Reserve ~80 for prompt overhead + ~150 for response.
+        // Split remaining ~280 between context (up to 3 prior msgs × 60 chars) and latest message.
         val truncated = text.take(RemoteConfig.gemmaInputTruncationChars)
         val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
+        val contextBlock = if (context.isEmpty()) "" else {
+            val prior = context.takeLast(3).joinToString("\n") { "- \"${it.take(60)}\"" }
+            "\nPrior messages in conversation:\n$prior"
+        }
         return """Identify the harm in this message. Fill in the blanks below.
 
 Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
 Valid severity levels: HIGH MEDIUM LOW NONE
-$recipientLine
-Message: "$truncated"
+$recipientLine$contextBlock
+Latest message: "$truncated"
 
 Harm type:
 Severity: """.trimIndent()

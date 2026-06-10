@@ -75,14 +75,17 @@ class RiskScorer(
             result.copy(score = s, riskLevel = scoreToRiskLevel(s))
         }
 
-        // Layer 2: single Gemma multi-class inference — age adjustment is handled
-        // entirely by scoreToRiskLevel thresholds, so no age hint is needed here.
-        // All UserCategory variants call classify(text) with the same key, maximising
-        // cache hits across the three age-group scorers in tests.
-        // Gemma is invoked unconditionally when loaded; its verdict is always merged
-        // so it can rescue messages that both rule layers miss entirely.
+        // Layer 2: single Gemma multi-class inference. Gemma is invoked unconditionally
+        // when loaded so it can rescue messages that both rule layers miss entirely.
+        // ageHint biases Gemma toward age-relevant harm — a message that is borderline
+        // for an adult may be clearly harmful for a child.
+        val ageHint: String? = when (userCategory) {
+            UserCategory.CHILD      -> "child under 13 years old"
+            UserCategory.ADOLESCENT -> "adolescent aged 13 to 17"
+            else                    -> null
+        }
         val gemmaResult: Pair<HarmCategory, RiskLevel>? = if (classifier.isLoaded) {
-            classifier.classify(text).also { result ->
+            classifier.classify(text, context, ageHint).also { result ->
                 android.util.Log.d("RiskScorer", if (result != null) "Gemma → ${result.first} ${result.second}" else "Gemma → NONE")
             }
         } else {
@@ -119,7 +122,11 @@ class RiskScorer(
             // Gemma runs unconditionally so it can rescue messages patterns missed entirely.
             // Capped at MEDIUM to guard against hallucinations on genuinely safe messages.
             ruleLevel == RiskLevel.NONE && gemmaSeverity >= RiskLevel.MEDIUM ->
-                ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.35f)
+                ruleResult.copy(
+                    riskLevel   = RiskLevel.MEDIUM,
+                    score       = 0.35f,
+                    explanation = "Detected by AI analysis — behavioural patterns in this conversation are consistent with ${ruleResult.category.name.lowercase().replace('_', ' ')}."
+                )
             // Rules LOW, Gemma MEDIUM → MEDIUM
             ruleLevel == RiskLevel.LOW  && gemmaSeverity == RiskLevel.MEDIUM ->
                 ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.40f)

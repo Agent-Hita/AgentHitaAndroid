@@ -37,8 +37,8 @@ class TermsActivity : AppCompatActivity() {
 
     private fun setupWebView() {
         binding.webView.apply {
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
+            settings.javaScriptEnabled = false
+            settings.domStorageEnabled = false
             settings.setSupportZoom(false)
 
             webViewClient = object : WebViewClient() {
@@ -68,7 +68,7 @@ class TermsActivity : AppCompatActivity() {
                 }
             }
 
-            loadUrl("https://www.agenthita.org/privacy.html")
+            loadUrl("file:///android_asset/privacy.html")
         }
     }
 

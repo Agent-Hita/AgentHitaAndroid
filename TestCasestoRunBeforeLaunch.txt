@@ -1,0 +1,317 @@
+AGENT HITA — Manual Test Cases Before App Store Launch
+Generated: 2026-06-10
+Based on bug fixes from the last 2 months
+
+Run all cases on a physical Samsung device (primary target) and at least one non-Samsung device.
+Mark each: PASS / FAIL / BLOCKED
+
+
+────────────────────────────────────────────────────────────────────────────────
+A. SERVICE STABILITY (Samsung-specific)
+────────────────────────────────────────────────────────────────────────────────
+
+A1. Service survives background after 10 minutes
+    Steps: Open app, enable monitoring, lock the screen. Wait 10 minutes.
+           Open WhatsApp and send a test message.
+    Expected: App detects the message within a few seconds (no delay > 5s).
+              Dashboard does NOT show "Monitoring paused by OS".
+    Bug fixed: Samsung FreecessController freezing accessibility service.
+
+A2. Service survives switching apps repeatedly
+    Steps: Enable monitoring. Switch between 10+ different apps over 2 minutes.
+           Then open WhatsApp.
+    Expected: Detection still works. No "Monitoring paused" banner.
+
+A3. "Monitoring paused by OS" banner triggers correctly
+    Steps: Force-stop the app from Android Settings > Apps.
+           Reopen the app.
+    Expected: Dashboard shows the "Monitoring was paused" warning with a
+              prompt to restore. Tapping it opens Accessibility Settings.
+
+A4. Status dot updates after service reconnects
+    Steps: Disable accessibility permission, then re-enable it.
+    Expected: Dashboard status dot turns green. No crash.
+    Bug fixed: service_frozen telemetry event caused IllegalArgumentException crash.
+
+
+────────────────────────────────────────────────────────────────────────────────
+B. DETECTION — WHATSAPP
+────────────────────────────────────────────────────────────────────────────────
+
+B1. Detects grooming message immediately (no delay)
+    Steps: Open a WhatsApp conversation. Have a test contact send:
+           "Are you home alone? I know your parents are not there."
+    Expected: Alert appears within 2 seconds of the message arriving.
+              Alert category is GROOMING.
+    Bug fixed: 300ms delay was incorrectly applied to all apps (was only needed
+               for Instagram). WhatsApp now processes immediately.
+
+B2. Detects grooming from "parents not there" phrasing
+    Steps: Test contact sends: "I know your parents are not there, come over"
+    Expected: Alert fires. Category GROOMING.
+    Bug fixed: "your parents are not there" and "i know your parents are not
+               there" were missing from GroomingDetector patterns.
+
+B3. Context-aware detection — mild follow-up after grooming context
+    Steps: Test contact sends a series:
+           Message 1: "Are your parents home tonight?"
+           Message 2: "I know you are home alone"
+           Message 3: "cool, when can you come over?"  ← mild on its own
+    Expected: Alert fires by message 3 at the latest. The conversation context
+              should push Gemma to flag the follow-up even if it is mild alone.
+    Bug fixed: Gemma's classify() was not receiving prior conversation messages;
+               context is now passed to the classification prompt.
+
+B4. Sextortion message detected
+    Steps: Test contact sends: "Send me money now or I will share your pictures"
+    Expected: Alert fires. Category SEXTORTION, level HIGH.
+
+B5. Rapid messages — no missed detections
+    Steps: Test contact sends 5 messages in quick succession (2 seconds apart),
+           including at least one with a clear harm signal.
+    Expected: The harmful message is detected. No "Scroll-back detected" skip
+              for new messages.
+
+B6. Group chat is ignored
+    Steps: Open a WhatsApp group chat. Send a message containing a test trigger
+           phrase (e.g. "home alone").
+    Expected: No alert. Dashboard shows no new event.
+
+
+────────────────────────────────────────────────────────────────────────────────
+C. DETECTION — INSTAGRAM
+────────────────────────────────────────────────────────────────────────────────
+
+C1. Detection works with 300ms settle delay
+    Steps: Open an Instagram DM conversation. Have a test contact send a
+           grooming message.
+    Expected: Alert fires within ~1 second. No crash, no misclassification of
+              message direction.
+    Note: Instagram still uses the 300ms delay to let RecyclerView animations
+          complete before checking message bounds.
+
+C2. Outgoing messages are not flagged
+    Steps: Send a test harm-trigger phrase from your own account in Instagram DM.
+    Expected: No alert fires.
+
+
+────────────────────────────────────────────────────────────────────────────────
+D. DETECTION — SAMSUNG MESSAGES / GOOGLE MESSAGES
+────────────────────────────────────────────────────────────────────────────────
+
+D1. Detects harm signal immediately (no delay)
+    Steps: Receive a test SMS with "Send me money or I share your pictures".
+    Expected: Alert fires within 2 seconds.
+    Bug fixed: Same 300ms delay issue as WhatsApp — now processes immediately.
+
+D2. No alert for normal SMS
+    Steps: Receive a normal SMS ("Hey are you free tomorrow?").
+    Expected: No alert.
+
+
+────────────────────────────────────────────────────────────────────────────────
+E. DISAPPEARING MESSAGES
+────────────────────────────────────────────────────────────────────────────────
+
+E1. Disappearing messages banner triggers alert
+    Steps: In a WhatsApp conversation, have the contact enable disappearing
+           messages (set to 24h or any duration).
+    Expected: A DISAPPEARING_MESSAGES alert appears in the app.
+              Guardian email is sent (if configured).
+              Alert shows on the Dashboard.
+
+E2. Disappearing messages alert fires only once per conversation
+    Steps: After E1, have the same contact toggle disappearing messages off
+           and back on again.
+    Expected: One additional alert fires (not duplicates per toggle).
+
+E3. Subsequent text messages after disappearing messages are still scored
+    Steps: After E1, have the contact send a grooming message in the same chat.
+    Expected: A second alert fires for the text content. Both alerts appear in
+              the Dashboard.
+
+
+────────────────────────────────────────────────────────────────────────────────
+F. ALERT DETAIL PAGE
+────────────────────────────────────────────────────────────────────────────────
+
+F1. Alert detail shows signals and explanation (rule-based detection)
+    Steps: Trigger a GROOMING alert via clear pattern match (e.g. "home alone").
+           Open the alert detail page.
+    Expected: Signals section shows at least one signal (e.g. "boundary testing").
+              Explanation text is non-empty and describes the detected category.
+              NOT "No harassment signals detected".
+    Bug fixed: Gemma-rescued results (rules=NONE, Gemma=MEDIUM) were copying
+               the empty rule explanation. Now shows AI-detected message.
+
+F2. Alert detail shows Gemma analysis
+    Steps: Trigger any alert. Wait a few seconds for Gemma to finish.
+           Open the alert detail.
+    Expected: Analysis section shows a paragraph of text describing the risk.
+              NOT blank or empty.
+    Bug fixed: Empty explanation on Gemma-rescued NONE-rule results.
+
+F3. Alert detail for AI-only detection (no rule match)
+    Steps: Trigger an alert where rules score NONE but Gemma flags it (context
+           case from B3 — mild follow-up after grooming conversation).
+           Open the alert detail.
+    Expected: Explanation says something like "Detected by AI analysis —
+              behavioural patterns consistent with grooming".
+              Analysis section is non-empty.
+
+
+────────────────────────────────────────────────────────────────────────────────
+G. GUARDIAN ALERTS
+────────────────────────────────────────────────────────────────────────────────
+
+G1. Guardian email is sent on HIGH alert
+    Steps: Configure a guardian email. Trigger a HIGH-level alert (sextortion
+           or grooming with clear signals).
+    Expected: Guardian receives an email within 60 seconds.
+
+G2. Guardian email is NOT sent to unregistered address
+    Steps: Attempt to send an alert to an email address that was never
+           registered via the /alert/guardian/configure endpoint.
+    Expected: No email is sent. Backend returns 403.
+    Bug fixed: Any caller with the API key could previously send emails to
+               arbitrary addresses using the SES account as a relay.
+
+G3. Guardian rate limit — no spam
+    Steps: Trigger 6 HIGH alerts for the same guardian email within 24 hours.
+    Expected: First 5 emails are delivered. 6th is silently dropped
+              (rate limit: 5 per guardian per 24h).
+
+G4. Guardian email received when app is backgrounded
+    Steps: Trigger a HIGH alert while the app is in the background (screen off).
+    Expected: Guardian still receives the email.
+
+G5. Guardian configure — add and remove
+    Steps: Add a guardian email via Settings. Check the guardian receives a
+           "you have been added" notification email.
+           Then remove them. Check they receive a "you have been removed" email.
+    Expected: Both emails are received correctly.
+
+
+────────────────────────────────────────────────────────────────────────────────
+H. GEMMA MODEL
+────────────────────────────────────────────────────────────────────────────────
+
+H1. Gemma downloads and loads successfully
+    Steps: Fresh install (no Gemma model). Go to Settings > AI Model.
+           Tap Download.
+    Expected: Progress bar appears. Download completes.
+              "AI-assisted mode active" status shown.
+              gemma_load_success event fires (check logcat).
+
+H2. Gemma file import works
+    Steps: Place the model .bin file in device Downloads. Go to Settings > AI
+           Model > Import from Device.
+    Expected: Model loads. gemma_import_success telemetry event logged.
+
+H3. Gemma hash mismatch shows error, does not load
+    Steps: Rename a different file to match the Gemma filename. Attempt import.
+    Expected: Error message shown. Model not loaded. gemma_hash_mismatch event
+              logged.
+
+H4. Detection works in rules-only mode (Gemma not installed)
+    Steps: Clear app data (removes Gemma model). Enable monitoring.
+           Send a clear sextortion message.
+    Expected: Alert still fires (rules-only detection). Level may be HIGH if
+              rules matched, but no crash.
+
+
+────────────────────────────────────────────────────────────────────────────────
+I. ONBOARDING & PERMISSIONS
+────────────────────────────────────────────────────────────────────────────────
+
+I1. Full onboarding flow completes without crash
+    Steps: Fresh install. Complete the full onboarding flow including granting
+           Accessibility permission and Notification permission.
+    Expected: Dashboard shown. Status dot is green. No crash.
+
+I2. Accessibility permission denied — correct warning shown
+    Steps: During onboarding, deny or skip the Accessibility permission.
+    Expected: Dashboard shows a "permission denied" warning.
+              permission_accessibility_denied telemetry event fires.
+
+I3. App crash recovery — telemetry event sent
+    Steps: Force an app crash (or use a debug trigger if available).
+           Relaunch the app.
+    Expected: app_crash telemetry event is included in the next flush.
+
+
+────────────────────────────────────────────────────────────────────────────────
+J. FEEDBACK SUBMISSION
+────────────────────────────────────────────────────────────────────────────────
+
+J1. Feedback submits successfully
+    Steps: Open an alert. Tap the feedback/report button. Submit.
+    Expected: Confirmation shown. No error toast.
+
+J2. Feedback failure shows user-friendly message
+    Steps: Enable airplane mode. Attempt to submit feedback.
+    Expected: Error message shown. feedback_submit_failed telemetry event queued
+              for next flush (no crash).
+    Bug fixed: feedback_submit_failed was missing from backend ALLOWED_EVENTS
+               and was being silently dropped.
+
+
+────────────────────────────────────────────────────────────────────────────────
+K. TELEMETRY (verify data is flowing — check CloudWatch after test run)
+────────────────────────────────────────────────────────────────────────────────
+
+K1. app_startup_ms appears in CloudWatch (AgentHita/App namespace)
+    Steps: Open the app fresh. Wait 2 minutes.
+    Expected: app_startup_ms data point appears in CloudWatch within 5 minutes.
+
+K2. gemma_load_ms appears after Gemma loads
+    Steps: Start the service with Gemma installed. Wait 2 minutes.
+    Expected: gemma_load_ms data point in CloudWatch.
+
+K3. service_connect_ms appears after accessibility service connects
+    Steps: Enable accessibility service. Wait 2 minutes.
+    Expected: service_connect_ms data point in CloudWatch.
+
+K4. api_response_time_ms appears in CloudWatch (AgentHita/FeedbackService namespace)
+    Steps: Submit feedback or trigger a guardian alert (any API call).
+           Check CloudWatch dashboard after 2 minutes.
+    Expected: api_response_time_ms data points per endpoint.
+    Bug fixed: IAM policy was restricting PutMetricData to AgentHita/App only;
+               AgentHita/FeedbackService namespace was silently denied.
+
+K5. guardian_alert_sent appears after HIGH alert
+    Steps: Trigger a HIGH alert with guardian email configured.
+    Expected: guardian_alert_sent event in CloudWatch after flush.
+    Bug fixed: guardian_alert_sent was missing from backend ALLOWED_EVENTS.
+
+K6. service_frozen appears if OS freezes service
+    Steps: (Reproduce on Samsung only) Lock the screen for 5 minutes.
+           Check CloudWatch for service_frozen events.
+    Expected: service_frozen data point visible if service was frozen.
+    Bug fixed: service_frozen was missing from both Android and backend
+               ALLOWED_EVENTS, causing a crash when tracked.
+
+
+────────────────────────────────────────────────────────────────────────────────
+L. RATE LIMITING & SECURITY (backend)
+────────────────────────────────────────────────────────────────────────────────
+
+L1. Per-IP rate limit blocks after threshold
+    Steps: Send > 50 requests to any endpoint from the same IP within 5 minutes.
+    Expected: Requests are blocked by WAF (HTTP 403). Normal requests resume
+              after the window resets.
+
+L2. Per-device rate limit on feedback (3 per 10 min)
+    Steps: Submit feedback 4 times from the same device within 10 minutes.
+    Expected: 4th submission is rejected with a rate-limit error.
+    Bug fixed: Added per-device-ID rate limiting so devices cannot bypass
+               IP limits via VPN/proxy.
+
+L3. Known scanner IPs are blocked
+    Steps: (Infrastructure only — verify in WAF logs)
+    Expected: IPs in the blocked-scanners IP set are blocked at WAF level
+              before reaching the application.
+
+L4. Oversized request body is blocked
+    Steps: Send a POST request with body > 8 KB to any endpoint.
+    Expected: WAF blocks the request (HTTP 403).

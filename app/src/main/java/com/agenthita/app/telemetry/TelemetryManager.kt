@@ -56,7 +56,7 @@ class TelemetryManager private constructor(private val context: Context) {
             val nowMs = System.currentTimeMillis()
             val enoughEvents = pendingEvents.size >= RemoteConfig.telemetryFlushThreshold
             val enoughTime   = nowMs - lastFlushMs.get() >= RemoteConfig.telemetryFlushIntervalMs
-            if (enoughEvents && enoughTime) {
+            if (enoughEvents || (enoughTime && pendingEvents.isNotEmpty())) {
                 lastFlushMs.set(nowMs)
                 flushAsync()
             }
@@ -205,7 +205,8 @@ class TelemetryManager private constructor(private val context: Context) {
             "parsing_failed_unknown",
             "permission_notifications_granted",
             "permission_accessibility_denied",
-            "feedback_submit_failed"
+            "feedback_submit_failed",
+            "service_frozen"
         )
 
         @Volatile

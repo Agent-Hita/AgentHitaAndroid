@@ -41,10 +41,10 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
      * [ageHint] is an optional natural-language hint (e.g. "child under 13 years old")
      * that is injected into the prompt to bias Gemma toward age-relevant harm categories.
      */
-    fun classify(text: String, ageHint: String? = null): Pair<HarmCategory, RiskLevel>? {
+    fun classify(text: String, context: List<String> = emptyList(), ageHint: String? = null): Pair<HarmCategory, RiskLevel>? {
         val g = activeGemma.get() ?: return null
         if (!g.isLoaded) return null
-        return g.classifyMessage(text, ageHint)
+        return g.classifyMessage(text, context, ageHint)
     }
 
     /**

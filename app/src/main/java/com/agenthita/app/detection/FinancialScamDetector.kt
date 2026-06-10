@@ -9,6 +9,16 @@ class FinancialScamDetector : PatternMatcher {
 
     override val category = HarmCategory.FINANCIAL_SCAM
 
+    companion object {
+        // Matches phone numbers: optional +country code, then 7–15 digits optionally
+        // separated by spaces, dashes, or dots. Anchored by word boundaries so it
+        // does not fire on long numeric strings like order IDs or zip codes.
+        // Examples matched: 70369258  +1-800-555-0199  (206) 555-0142  +44 7700 900123
+        private val PHONE_NUMBER_REGEX = Regex(
+            """(\+\d{1,3}[\s\-.]?)?\(?\d{2,4}\)?[\s\-.]?\d{3,4}[\s\-.]?\d{3,4}"""
+        )
+    }
+
     private val prizeScamSignals = listOf(
         "you've won", "you have won", "you are the winner", "you've been selected as winner",
         "claim your prize", "claim your reward", "claim your winnings",
@@ -19,12 +29,17 @@ class FinancialScamDetector : PatternMatcher {
     private val urgencySignals = listOf(
         "right now", "immediately", "today only", "expires today",
         "limited time", "act now", "urgent", "time sensitive",
-        "within 24 hours", "by end of day", "asap", "as soon as possible",
+        "within 24 hours", "in the next 24 hours", "in the next 48 hours",
+        "within 48 hours", "within the next 24", "within the next 48",
+        "by end of day", "asap", "as soon as possible",
         "do not delay", "hurry", "last chance", "before it is too late",
         "account will be closed", "final notice", "immediate action",
         "action required", "respond immediately", "failure to respond",
         "your account will be", "must be paid", "pay immediately",
-        "overdue", "past due", "payment overdue"
+        "overdue", "past due", "payment overdue",
+        "late fee", "late fees", "avoid late", "penalty fee", "tax penalty",
+        "fees and penalties", "avoid penalties", "to avoid fees",
+        "to avoid charges", "failure to pay", "failure to act"
     )
 
     private val paymentSignals = listOf(
@@ -62,9 +77,14 @@ class FinancialScamDetector : PatternMatcher {
         "account locked", "account has been", "bank security",
         // Legal threat language
         "police", "warrant", "arrest", "legal action",
-        "you owe", "back taxes", "debt collector",
-        "collection agency", "lawsuit filed", "court order",
-        "failure to comply", "law enforcement"
+        "you owe", "you owe taxes", "owe taxes", "unpaid taxes",
+        "tax debt", "back taxes", "tax bill", "outstanding taxes",
+        "debt collector", "collection agency", "lawsuit filed", "court order",
+        "failure to comply", "law enforcement",
+        // Phone-based scam demands (IRS/government impersonators always ask you to call)
+        "call us at", "call us on", "call this number", "call our number",
+        "please call", "call immediately", "call now to", "call to resolve",
+        "call to avoid", "call to prevent", "contact us at", "reach us at"
     )
 
     private val isolationSignals = listOf(
@@ -110,6 +130,13 @@ class FinancialScamDetector : PatternMatcher {
             if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("suspicious_link", signal, 0.6f))
         }
 
+        // Phone numbers embedded in text are a strong scam signal — legitimate businesses
+        // never demand you call a number sent via chat. Matches 7–15 digit sequences
+        // in any common format: bare digits, spaces, dashes, dots, or +country-code prefix.
+        if (PHONE_NUMBER_REGEX.containsMatchIn(text)) {
+            matches.add(SignalMatch("phone_number_demand", "embedded phone number", 0.7f))
+        }
+
         val score = computeScore(matches)
         return DetectionResult(
             category = HarmCategory.FINANCIAL_SCAM,
@@ -136,8 +163,14 @@ class FinancialScamDetector : PatternMatcher {
             (uniqueTypes.contains("authority_claim") || uniqueTypes.contains("payment_method"))
         ) 0.2f else 0f
 
+        // Phone number + authority/urgency = vishing / IRS-style phone scam
+        val phoneBonus = if (
+            uniqueTypes.contains("phone_number_demand") &&
+            (uniqueTypes.contains("authority_claim") || uniqueTypes.contains("urgency"))
+        ) 0.25f else 0f
+
         val rawScore = matches.sumOf { it.weight.toDouble() }.toFloat() / 3f
-        return (rawScore + comboBonus + linkBonus).coerceIn(0f, 1f)
+        return (rawScore + comboBonus + linkBonus + phoneBonus).coerceIn(0f, 1f)
     }
 
     private fun scoreToRiskLevel(score: Float) = when {

@@ -132,9 +132,10 @@ class EventDetailActivity : AppCompatActivity() {
         "GROOMING"          -> "Grooming"
         "ROMANCE_SCAM"      -> "Romance Scam"
         "IDENTITY_PHISHING" -> "Identity Phishing"
-        "LURING"            -> "Luring / Fake Offer"
-        "HARASSMENT"        -> "Harassment"
-        else                -> this
+        "LURING"                 -> "Luring / Fake Offer"
+        "HARASSMENT"             -> "Harassment"
+        "DISAPPEARING_MESSAGES"  -> "Disappearing Messages"
+        else                     -> this
     }
 
     /** Maps a signal type key to a human-readable label. */

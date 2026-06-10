@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Hita — Legal Policies</title>
+  <meta name="description" content="Terms and conditions, privacy policy, and legal policies for Agent Hita." />
+  <style>
+    :root {
+      --bg: #07142b;
+      --bg2: #0d2142;
+      --card: rgba(255,255,255,0.08);
+      --text: #eef4ff;
+      --muted: #b7c5e0;
+      --accent: #6ac6ff;
+      --accent2: #9d7cff;
+      --line: rgba(255,255,255,0.12);
+      --success: #87f0c5;
+      --maxw: 900px;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top right, rgba(157,124,255,0.18), transparent 30%),
+        radial-gradient(circle at top left, rgba(106,198,255,0.16), transparent 25%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      scroll-behavior: smooth;
+    }
+    a { color: inherit; text-decoration: none; }
+    .container { width: min(var(--maxw), calc(100% - 32px)); margin: 0 auto; }
+
+    /* ── Nav ── */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 22px 0; position: sticky; top: 0; z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+    .brand { font-weight: 800; letter-spacing: .02em; font-size: 1.25rem; display: flex; align-items: center; gap: 12px; }
+    .brand-badge {
+      width: 38px; height: 38px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: grid; place-items: center; font-weight: 800; color: white;
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    }
+    .nav-links { display: flex; gap: 24px; align-items: center; color: var(--muted); font-size: .95rem; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 13px 20px; border-radius: 14px; font-weight: 700;
+      transition: transform .18s ease, opacity .18s ease;
+    }
+    .btn:hover { transform: translateY(-1px); opacity: .96; }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; box-shadow: 0 12px 28px rgba(39,112,255,.25); }
+
+    /* ── Page header ── */
+    .page-header { padding: 48px 0 32px; }
+    .eyebrow {
+      display: inline-flex; gap: 8px; align-items: center;
+      border: 1px solid var(--line); background: rgba(255,255,255,0.05);
+      color: var(--success); padding: 8px 12px; border-radius: 999px;
+      font-size: .86rem; margin-bottom: 16px;
+    }
+    h1 { font-size: clamp(2rem, 5vw, 3.2rem); line-height: 1.08; margin: 0 0 12px; letter-spacing: -0.04em; }
+    .lead { color: var(--muted); font-size: 1.05rem; line-height: 1.75; margin: 0 0 8px; }
+    .effective { color: var(--muted); font-size: .88rem; margin-top: 10px; }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 18px; padding: 24px 28px; margin: 12px 0 40px;
+      backdrop-filter: blur(8px);
+    }
+    .toc h2 { font-size: .95rem; font-weight: 700; color: var(--accent); margin: 0 0 14px; letter-spacing: .04em; text-transform: uppercase; }
+    .toc ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: .93rem; line-height: 1.9; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+
+    /* ── Document body ── */
+    .doc { padding: 0 0 80px; }
+    .policy-block { margin-bottom: 52px; }
+    .policy-title {
+      font-size: 1.45rem; font-weight: 800; letter-spacing: -0.03em;
+      color: var(--text); margin: 0 0 24px;
+      padding-bottom: 14px; border-bottom: 1px solid var(--line);
+    }
+    .doc h3 { font-size: 1.05rem; font-weight: 700; color: var(--accent); margin: 28px 0 10px; }
+    .doc p { color: var(--muted); line-height: 1.85; margin: 0 0 12px; font-size: .96rem; }
+    .doc ul, .doc ol { color: var(--muted); line-height: 1.85; margin: 0 0 14px; padding-left: 22px; font-size: .96rem; }
+    .doc li { margin-bottom: 5px; }
+    .doc a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+    .doc strong { color: var(--text); }
+
+    .callout {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 14px; padding: 18px 22px; margin: 16px 0;
+      backdrop-filter: blur(8px);
+    }
+    .callout p { margin: 0; }
+    .callout-green { border-color: rgba(135,240,197,0.25); background: rgba(135,240,197,0.06); }
+    .callout-green p { color: #c6f7e8; }
+    .callout-warn { border-color: rgba(255,127,14,0.25); background: rgba(255,127,14,0.06); }
+    .callout-warn p { color: #ffd4a3; }
+
+    .caps { font-size: .9rem; line-height: 1.8; color: var(--muted); }
+
+    .contact-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+    }
+    .contact-item {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 14px 18px;
+    }
+    .contact-item .label { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+    .contact-item a { color: var(--accent); font-size: .9rem; }
+
+    .divider { border: none; border-top: 1px solid var(--line); margin: 48px 0; }
+
+    footer { padding: 32px 0 56px; border-top: 1px solid var(--line); }
+    .footer-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+    .footer-inner p { color: var(--muted); font-size: .9rem; margin: 0; }
+    .contact-link { color: var(--accent); font-weight: 600; }
+
+    @media (max-width: 640px) {
+      .nav-links a:not(.btn) { display: none; }
+      .contact-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <nav class="nav">
+      <a href="index.html" class="brand">
+        <span class="brand-badge">H</span>
+        <span>Agent Hita</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="vision.html">Product Vision</a>
+        <a href="consent.html">Trust Specification</a>
+        <a href="#contact">Contact</a>
+      </div>
+    </nav>
+
+    <div class="page-header">
+      <div class="eyebrow">Legal</div>
+      <h1>Agent Hita Legal Policies</h1>
+      <p class="lead">These policies govern your use of Agent Hita and explain how we handle data, AI outputs, and your rights.</p>
+      <p class="effective">Effective Date: May 28, 2026</p>
+    </div>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#terms">Terms and Conditions</a></li>
+        <li><a href="#child-safety">Child Safety and Guardian Use Policy</a></li>
+        <li><a href="#privacy">Privacy Policy</a></li>
+        <li><a href="#ai-transparency">AI Transparency Policy</a></li>
+        <li><a href="#acceptable-use">Acceptable Use Policy</a></li>
+        <li><a href="#cookies">Cookie Policy</a></li>
+        <li><a href="#dmca">DMCA and Copyright Policy</a></li>
+        <li><a href="#law-enforcement">Law Enforcement Request Policy</a></li>
+        <li><a href="#security">Responsible Disclosure and Security Policy</a></li>
+        <li><a href="#dpa">Data Processing Addendum Summary</a></li>
+        <li><a href="#contact">Contact Information</a></li>
+      </ol>
+    </nav>
+
+    <div class="doc">
+
+      <!-- ── Terms and Conditions ── -->
+      <div class="policy-block" id="terms">
+        <h2 class="policy-title">Terms and Conditions</h2>
+
+        <h3>1. Acceptance of Terms</h3>
+        <p>Welcome to Agent Hita. These Terms and Conditions ("Terms") govern your access to and use of the Agent Hita website, applications, software, services, and related features (collectively, the "Service").</p>
+        <p>By accessing or using the Service, you agree to be bound by these Terms. If you do not agree with these Terms, do not access or use the Service.</p>
+
+        <h3>2. Description of Service</h3>
+        <p>Agent Hita is a privacy-focused digital safety platform designed to assist users in identifying potential harmful digital influence, manipulation, coercion, grooming, financial scams, romance scams, social engineering, and other concerning behavioral patterns in digital communications.</p>
+        <p>The Service provides informational insights, alerts, and risk indicators only.</p>
+        <p>Agent Hita does not provide legal advice, medical advice, psychological counseling, financial advice, law enforcement services, or emergency services.</p>
+
+        <h3>3. Eligibility</h3>
+        <ul>
+          <li>You must be at least eighteen (18) years old to create an account or administer the Service.</li>
+          <li>Parents, legal guardians, and authorized caregivers may use the Service where permitted by applicable law.</li>
+          <li>You are responsible for ensuring your use complies with all applicable laws and regulations.</li>
+        </ul>
+
+        <h3>4. User Responsibilities</h3>
+        <p>You agree to:</p>
+        <ul>
+          <li>Use the Service only for lawful purposes.</li>
+          <li>Use the Service only on devices, accounts, or communications you are authorized to access.</li>
+          <li>Obtain any required permissions or consent before monitoring communications.</li>
+          <li>Maintain the confidentiality of your credentials.</li>
+          <li>Comply with applicable privacy and surveillance laws.</li>
+        </ul>
+        <p>You agree not to:</p>
+        <ul>
+          <li>Use the Service to stalk, harass, threaten, or intimidate others.</li>
+          <li>Use the Service for unlawful surveillance.</li>
+          <li>Attempt to bypass security protections.</li>
+          <li>Reverse engineer or interfere with the Service.</li>
+          <li>Use the Service in violation of any applicable law.</li>
+        </ul>
+
+        <h3>5. No Guarantee of Detection</h3>
+        <p>Agent Hita uses artificial intelligence, machine learning, behavioral analysis, and rule-based systems. These systems may:</p>
+        <ul>
+          <li>Generate false positives.</li>
+          <li>Generate false negatives.</li>
+          <li>Misinterpret context.</li>
+          <li>Fail to identify harmful activity.</li>
+          <li>Incorrectly classify benign activity as risky.</li>
+        </ul>
+        <p>No automated safety system can guarantee accurate detection of harmful behavior.</p>
+
+        <h3>6. Not Emergency Services</h3>
+        <div class="callout callout-warn">
+          <p>Agent Hita is not an emergency response service. Do not rely on the Service for medical emergencies, mental health crises, threats of violence, self-harm situations, child endangerment emergencies, or criminal activity requiring immediate intervention. If there is an immediate risk to safety, contact emergency services or appropriate authorities.</p>
+        </div>
+
+        <h3>7. Artificial Intelligence Features</h3>
+        <ul>
+          <li>AI-generated outputs are informational only.</li>
+          <li>Users remain solely responsible for all decisions made based on Service outputs.</li>
+          <li>AI-generated alerts should not be treated as factual determinations or evidence of wrongdoing.</li>
+        </ul>
+
+        <h3>8. Intellectual Property</h3>
+        <p>All software, technology, trademarks, logos, branding, content, documentation, models, and related materials are owned by Agent Hita LLC or its licensors and are protected by intellectual property laws. No rights are granted except those expressly stated herein.</p>
+
+        <h3>9. Open Source Components</h3>
+        <p>Certain portions of the Service may incorporate open-source software. Such components remain governed by their respective licenses.</p>
+
+        <h3>10. Feedback</h3>
+        <p>Any feedback, suggestions, ideas, or recommendations submitted to Agent Hita may be used without restriction or compensation.</p>
+
+        <h3>11. Third-Party Services</h3>
+        <p>The Service may interact with third-party platforms, operating systems, cloud providers, messaging applications, or device manufacturers. Agent Hita is not responsible for third-party services or their practices.</p>
+
+        <h3>12. Disclaimer of Warranties</h3>
+        <p class="caps">THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE." TO THE MAXIMUM EXTENT PERMITTED BY LAW, AGENT HITA DISCLAIMS ALL WARRANTIES INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, ACCURACY, AVAILABILITY, AND RELIABILITY.</p>
+
+        <h3>13. Limitation of Liability</h3>
+        <p class="caps">TO THE MAXIMUM EXTENT PERMITTED BY LAW, AGENT HITA LLC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES.</p>
+        <p class="caps">THE TOTAL LIABILITY OF AGENT HITA SHALL NOT EXCEED THE GREATER OF: (A) ONE HUNDRED U.S. DOLLARS (USD $100), OR (B) THE AMOUNT PAID BY YOU TO AGENT HITA DURING THE PRECEDING TWELVE MONTHS.</p>
+
+        <h3>14. Indemnification</h3>
+        <p>You agree to defend, indemnify, and hold harmless Agent Hita LLC from any claims, liabilities, damages, losses, and expenses arising from your use of the Service or violation of these Terms.</p>
+
+        <h3>15. Termination</h3>
+        <p>Agent Hita may suspend or terminate access to the Service at any time for violations of these Terms or for security, legal, or operational reasons.</p>
+
+        <h3>16. Governing Law</h3>
+        <p>These Terms shall be governed by the laws of the State of Washington, United States.</p>
+
+        <h3>17. Arbitration</h3>
+        <p>Any dispute arising from these Terms shall be resolved through binding arbitration in Washington State, except where prohibited by law.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Child Safety ── -->
+      <div class="policy-block" id="child-safety">
+        <h2 class="policy-title">Child Safety and Guardian Use Policy</h2>
+
+        <p>Agent Hita is intended to promote safety while respecting privacy.</p>
+        <p>Parents, guardians, and authorized caregivers remain responsible for all monitoring decisions.</p>
+        <p>Agent Hita is not a substitute for:</p>
+        <ul>
+          <li>Parenting</li>
+          <li>Counseling</li>
+          <li>Education</li>
+          <li>Professional intervention</li>
+          <li>Law enforcement</li>
+        </ul>
+        <p>The Service may provide age-appropriate safety controls, graduated disclosure mechanisms, and customizable risk thresholds where available.</p>
+        <p>Users are responsible for ensuring they have legal authority to monitor any individual.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Privacy Policy ── -->
+      <div class="policy-block" id="privacy">
+        <h2 class="policy-title">Privacy Policy</h2>
+
+        <h3>Privacy First Philosophy</h3>
+        <div class="callout callout-green">
+          <p>Agent Hita is built on the principle: <strong>"Safety should never come at the cost of privacy."</strong> Our goal is to maximize on-device processing and minimize data collection.</p>
+        </div>
+
+        <h3>Information We Collect</h3>
+        <p>We may collect:</p>
+        <ul>
+          <li><strong>Device Information</strong> — device model, operating system version, application version.</li>
+          <li><strong>Technical Information</strong> — crash logs, diagnostic information, performance metrics.</li>
+          <li><strong>Usage Information</strong> — feature usage statistics, configuration settings, service health information.</li>
+        </ul>
+
+        <h3>On-Device Processing</h3>
+        <p>Where technically feasible:</p>
+        <ul>
+          <li>Communications remain on-device.</li>
+          <li>AI analysis occurs on-device.</li>
+          <li>Message content is not transmitted to Agent Hita servers.</li>
+          <li>Personal communications remain under user control.</li>
+        </ul>
+        <p>Certain optional cloud-based features may require transmission of data and will be disclosed before activation.</p>
+
+        <h3>Information Sharing</h3>
+        <p>Agent Hita does not sell personal information. Information may be disclosed:</p>
+        <ul>
+          <li>To comply with law</li>
+          <li>To enforce rights</li>
+          <li>To protect safety</li>
+          <li>During mergers, acquisitions, or asset transfers</li>
+        </ul>
+
+        <h3>Data Retention</h3>
+        <p>Data is retained only as long as reasonably necessary for operational, legal, security, and compliance purposes. Users may request deletion of account-related information where applicable.</p>
+
+        <h3>Security</h3>
+        <p>We implement reasonable safeguards designed to protect information. No security system is guaranteed to be completely secure.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── AI Transparency ── -->
+      <div class="policy-block" id="ai-transparency">
+        <h2 class="policy-title">AI Transparency Policy</h2>
+
+        <p>Agent Hita uses artificial intelligence, machine learning, and behavioral analysis systems to identify patterns that may indicate:</p>
+        <ul>
+          <li>Financial manipulation</li>
+          <li>Romance scams</li>
+          <li>Grooming</li>
+          <li>Coercion</li>
+          <li>Social isolation tactics</li>
+          <li>High-pressure influence attempts</li>
+          <li>Emotional manipulation</li>
+          <li>Other potentially harmful behaviors</li>
+        </ul>
+        <p>AI outputs are probabilistic and should not be considered factual conclusions.</p>
+        <p>Agent Hita cannot determine intent, predict future actions, diagnose conditions, or establish legal wrongdoing.</p>
+        <p>Users should independently evaluate all alerts and recommendations.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Acceptable Use ── -->
+      <div class="policy-block" id="acceptable-use">
+        <h2 class="policy-title">Acceptable Use Policy</h2>
+
+        <p>You may not use Agent Hita to:</p>
+        <ul>
+          <li>Stalk individuals</li>
+          <li>Harass individuals</li>
+          <li>Engage in unlawful surveillance</li>
+          <li>Facilitate abuse</li>
+          <li>Violate privacy laws</li>
+          <li>Collect data without authorization</li>
+          <li>Conduct unauthorized investigations</li>
+          <li>Interfere with Service operation</li>
+        </ul>
+        <p>Violations may result in account suspension, termination, and reporting to appropriate authorities where required by law.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Cookie Policy ── -->
+      <div class="policy-block" id="cookies">
+        <h2 class="policy-title">Cookie Policy</h2>
+
+        <p>Agent Hita may use cookies and similar technologies to:</p>
+        <ul>
+          <li>Maintain sessions</li>
+          <li>Improve functionality</li>
+          <li>Analyze performance</li>
+          <li>Measure reliability</li>
+          <li>Enhance user experience</li>
+        </ul>
+        <p>Users may disable cookies through browser settings, though certain features may not function correctly. Where required by law, consent mechanisms will be provided.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── DMCA ── -->
+      <div class="policy-block" id="dmca">
+        <h2 class="policy-title">DMCA and Copyright Policy</h2>
+
+        <p>Agent Hita respects intellectual property rights. Copyright owners who believe content infringes their rights may submit a notice containing:</p>
+        <ul>
+          <li>Identification of copyrighted work</li>
+          <li>Identification of allegedly infringing material</li>
+          <li>Contact information</li>
+          <li>Good faith statement</li>
+          <li>Statement under penalty of perjury</li>
+        </ul>
+        <p>Valid notices may be sent to: <a href="mailto:copyright@agenthita.org">copyright@agenthita.org</a></p>
+        <p>Agent Hita reserves the right to remove allegedly infringing content and terminate repeat infringers.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Law Enforcement ── -->
+      <div class="policy-block" id="law-enforcement">
+        <h2 class="policy-title">Law Enforcement Request Policy</h2>
+
+        <p>Agent Hita believes privacy is a fundamental safety feature.</p>
+        <p>Where technically feasible, communications analyzed by Agent Hita remain on user devices and are not accessible to Agent Hita.</p>
+        <p>If Agent Hita receives legal requests for user information:</p>
+        <ul>
+          <li>Requests will be evaluated for legal validity.</li>
+          <li>Information will only be disclosed when legally required.</li>
+          <li>We will seek to limit disclosures to the minimum legally required scope.</li>
+          <li>Where legally permitted, affected users may be notified.</li>
+        </ul>
+        <p>If Agent Hita does not possess requested information, it cannot provide such information.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Security ── -->
+      <div class="policy-block" id="security">
+        <h2 class="policy-title">Responsible Disclosure and Security Policy</h2>
+
+        <p>Agent Hita welcomes responsible reporting of security vulnerabilities. Researchers are encouraged to:</p>
+        <ul>
+          <li>Avoid accessing user data.</li>
+          <li>Avoid disrupting services.</li>
+          <li>Provide sufficient detail for reproduction.</li>
+          <li>Allow reasonable time for remediation before public disclosure.</li>
+        </ul>
+        <p>Reports may be submitted to: <a href="mailto:security@agenthita.org">security@agenthita.org</a></p>
+        <p>Agent Hita will make reasonable efforts to investigate and address valid reports.</p>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── DPA ── -->
+      <div class="policy-block" id="dpa">
+        <h2 class="policy-title">Data Processing Addendum (DPA) Summary</h2>
+
+        <p>For enterprise, educational, nonprofit, and organizational customers:</p>
+        <ul>
+          <li>Agent Hita acts as a service provider with respect to customer data.</li>
+          <li>Customers remain responsible for obtaining necessary permissions and consents.</li>
+          <li>Agent Hita processes data only as necessary to provide the Service.</li>
+          <li>Appropriate technical and organizational safeguards are maintained.</li>
+          <li>Data processing practices may be documented through separate enterprise agreements where required.</li>
+        </ul>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- ── Contact ── -->
+      <div class="policy-block" id="contact">
+        <h2 class="policy-title">Contact Information</h2>
+
+        <p><strong>Agent Hita LLC</strong><br>Website: <a href="https://www.agenthita.org">www.agenthita.org</a></p>
+
+        <div class="contact-grid" style="grid-template-columns: 1fr;">
+          <div class="contact-item">
+            <div class="label">General Contact</div>
+            <a href="mailto:admin@agenthita.org">admin@agenthita.org</a>
+          </div>
+        </div>
+
+        <div class="callout" style="margin-top: 32px;">
+          <p>By accessing or using Agent Hita, you acknowledge that you have read, understood, and agreed to these policies.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      <div class="footer-inner">
+        <p>Agent Hita LLC &nbsp;·&nbsp; <a class="contact-link" href="mailto:admin@agenthita.org">admin@agenthita.org</a></p>
+        <p><a href="index.html">Home</a> &nbsp;·&nbsp; <a href="vision.html">Product Vision</a> &nbsp;·&nbsp; <a href="consent.html">Trust Specification</a></p>
+        <p>© 2026 Agent Hita LLC. One or more patent applications pending with the USPTO. Source available — see <a href="https://github.com/Agent-Hita/AgentHitaAndroid/blob/main/LICENSE" target="_blank" rel="noopener" style="color:var(--muted);text-decoration:underline;">LICENSE</a>.</p>
+      </div>
+    </footer>
+
+  </div>
+</body>
+</html>

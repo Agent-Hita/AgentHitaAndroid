@@ -61,6 +61,17 @@ class HitaAccessibilityService : AccessibilityService() {
     // in the same conversation are eventually re-evaluated.
     private lateinit var dedupPrefs: android.content.SharedPreferences
 
+    // Independent heartbeat timer — writes every 60s regardless of accessibility events.
+    // This prevents false "frozen" alerts when the device is idle (no monitored apps open).
+    // If Samsung freezes the process, the main thread suspends and the timer stops,
+    // which correctly causes the heartbeat to go stale and triggers the frozen warning.
+    private val heartbeatRunnable: Runnable = object : Runnable {
+        override fun run() {
+            writeHeartbeat()
+            mainHandler.postDelayed(this, HEARTBEAT_INTERVAL_MS)
+        }
+    }
+
     companion object {
         const val ACTION_MODEL_AVAILABLE = "com.agenthita.app.MODEL_AVAILABLE"
         private const val TAG                = "HitaAccessibilityService"
@@ -68,23 +79,35 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val MIN_MESSAGE_LENGTH = 8
         private const val DEDUP_PREFS        = "hita_dedup"
         private const val AI_PREFS           = "hita_ai_prefs"
-        private const val KEY_GEMMA_LOADED   = "gemma_loaded"
+        private const val KEY_GEMMA_LOADED       = "gemma_loaded"
+        private const val KEY_GEMMA_FAILED       = "gemma_load_failed"
+        private const val KEY_SERVICE_LAST_ALIVE = "service_last_alive_ms"
+        private const val HEARTBEAT_INTERVAL_MS  = 60_000L
+        const val NOTIFICATION_ID_STATUS         = 1000
         private const val DEDUP_MAX_ENTRIES  = 500
-        private const val CONV_KEY_PREFIX    = "last_"
-        private const val SEEN_KEY_PREFIX    = "seen_"
-        private const val MAX_SEEN_PER_CONV  = 200
+        private const val CONV_KEY_PREFIX         = "last_"
+        private const val SEEN_KEY_PREFIX         = "seen_"
+        private const val DISAPPEARING_KEY_PREFIX = "disappearing_"
+        private const val MAX_SEEN_PER_CONV       = 200
 
-        // Text patterns that appear in the chat UI when the other party turns on
-        // disappearing messages. WhatsApp shows a system message; Instagram shows a
-        // full-screen vanish-mode indicator. Matched case-insensitively against every
-        // visible text node in the window.
-        private val DISAPPEARING_PATTERNS = listOf(
-            Regex("disappearing messages"),
+        // Patterns that confirm disappearing messages were turned ON.
+        // Matched case-insensitively; a node matches only if none of the OFF_PATTERNS
+        // also appear in the same text (e.g. "turned off disappearing messages" must not alert).
+        private val DISAPPEARING_ON_PATTERNS = listOf(
             Regex("messages set to disappear"),
             Regex("turned on disappearing"),
-            Regex("vanish mode"),
             Regex("you.re in vanish mode"),
-            Regex("swipe up to exit vanish")
+            Regex("swipe up to exit vanish"),
+            Regex("disappearing messages")   // broad catch-all — checked last, guarded by OFF list
+        )
+
+        // If any of these appear in the same text node, it is a "turned off" event — skip.
+        private val DISAPPEARING_OFF_PATTERNS = listOf(
+            Regex("turned off disappearing"),
+            Regex("disappearing messages (is |are |have been |has been )?turned off"),
+            Regex("turned off vanish"),
+            Regex("exited vanish mode"),
+            Regex("vanish mode (is |has been )?turned off")
         )
     }
 
@@ -97,8 +120,6 @@ class HitaAccessibilityService : AccessibilityService() {
     // convHashes that have already had a guardian alert sent this session — prevents
     // duplicate alerts when the score improves across multiple messages.
     private val alertedConvHashes             = mutableSetOf<String>()
-    // convHashes for which a disappearing-messages alert has already been sent this session.
-    private val disappearingAlertedConvHashes = mutableSetOf<String>()
     private var activeConvHash: String? = null
 
     private val targetPackages = setOf(
@@ -132,7 +153,19 @@ class HitaAccessibilityService : AccessibilityService() {
 
         dedupPrefs = getSharedPreferences(DEDUP_PREFS, MODE_PRIVATE)
         android.util.Log.i(TAG, "Accessibility service connected — monitoring active")
-        localNotificationManager.showStatusIndicator()
+
+        // Pin the process as a foreground service so Samsung's FreecessController cannot
+        // freeze it between accessibility events. Without this, Samsung OneUI treats the
+        // process as a cached background app and repeatedly freezes it (LEV/cached reason).
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID_STATUS, localNotificationManager.buildStatusNotification(),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID_STATUS, localNotificationManager.buildStatusNotification())
+        }
+
+        writeHeartbeat()
+        mainHandler.postDelayed(heartbeatRunnable, HEARTBEAT_INTERVAL_MS)
         TelemetryManager.get(this).track("monitoring_enabled")
         TelemetryManager.get(this).track("service_connect_ms", (System.currentTimeMillis() - app.startMs).toDouble())
 
@@ -163,12 +196,18 @@ class HitaAccessibilityService : AccessibilityService() {
                         classifier.upgrade(gemma)
                         telemetry.track("gemma_load_success")
                         telemetry.track("gemma_load_ms", (System.currentTimeMillis() - loadStart).toDouble())
-                        getSharedPreferences(AI_PREFS, MODE_PRIVATE)
-                            .edit().putBoolean(KEY_GEMMA_LOADED, true).apply()
+                        getSharedPreferences(AI_PREFS, MODE_PRIVATE).edit()
+                            .putBoolean(KEY_GEMMA_LOADED, true)
+                            .putBoolean(KEY_GEMMA_FAILED, false)
+                            .apply()
                         android.util.Log.i(TAG, "Gemma ready — ML-assisted mode active")
                     }
                     gemma.loadFailed -> {
                         telemetry.track("gemma_load_failed")
+                        getSharedPreferences(AI_PREFS, MODE_PRIVATE).edit()
+                            .putBoolean(KEY_GEMMA_LOADED, false)
+                            .putBoolean(KEY_GEMMA_FAILED, true)
+                            .apply()
                         android.util.Log.w(TAG, "Gemma load failed — rules-only mode")
                     }
                     else -> {
@@ -185,12 +224,23 @@ class HitaAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        mainHandler.removeCallbacks(heartbeatRunnable)
         runCatching { unregisterReceiver(modelAvailableReceiver) }
         pendingRunnables.values.forEach { mainHandler.removeCallbacks(it) }
         pendingRunnables.clear()
         flushAllPendingAlerts()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+        } else {
+            @Suppress("DEPRECATION") stopForeground(true)
+        }
         localNotificationManager.dismissStatusIndicator()
         TelemetryManager.get(this).flush()
+    }
+
+    private fun writeHeartbeat() {
+        getSharedPreferences(AI_PREFS, MODE_PRIVATE)
+            .edit().putLong(KEY_SERVICE_LAST_ALIVE, System.currentTimeMillis()).apply()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -216,7 +266,19 @@ class HitaAccessibilityService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
-                processWindow(pkg)
+                // Instagram only: 300 ms settle lets RecyclerView item-add animations
+                // complete before getBoundsInScreen is called. Without this, in-flight
+                // items have rect.left > screenWidth/2 (mid-animation rightward entry)
+                // and isOutgoingInstagram misclassifies them as outgoing.
+                // All other apps: process immediately (original behaviour) so rapid
+                // content events on WhatsApp/Samsung Messages don't push detection out.
+                if (pkg == "com.instagram.android") {
+                    val r = Runnable { processWindow(pkg) }
+                    pendingRunnables[pkg] = r
+                    mainHandler.postDelayed(r, 300L)
+                } else {
+                    processWindow(pkg)
+                }
             }
         }
     }
@@ -268,15 +330,16 @@ class HitaAccessibilityService : AccessibilityService() {
             // ── Disappearing messages detection ────────────────────────────────
             // Runs before the messages-empty check: the vanish/disappearing banner
             // is a UI-level signal independent of whether any new text is visible.
-            if (convHash !in disappearingAlertedConvHashes && detectDisappearingMessages(root)) {
-                disappearingAlertedConvHashes.add(convHash)
+            val disappearingKey = "$DISAPPEARING_KEY_PREFIX$convHash"
+            if (!dedupPrefs.getBoolean(disappearingKey, false) && detectDisappearingMessages(root)) {
+                dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
                 android.util.Log.i(TAG, "[$packageName] Disappearing messages detected for contact=$contactName")
                 localNotificationManager.showDisappearingMessagesWarning()
                 val syntheticResult = com.agenthita.app.detection.DetectionResult(
                     category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES,
                     riskLevel   = RiskLevel.HIGH,
                     score       = 1.0f,
-                    signals     = emptyList(),
+                    signals     = listOf(com.agenthita.app.detection.SignalMatch("activation_confirmed", "disappearing messages detected", 0.95f)),
                     explanation = "Contact enabled disappearing messages"
                 )
                 serviceScope.launch {
@@ -285,6 +348,13 @@ class HitaAccessibilityService : AccessibilityService() {
                         contactIdentifier = contactName,
                         result            = syntheticResult
                     )
+                    val analysis = classifier.generateAnalysis(
+                        lastMessage = "Disappearing messages mode was activated in this conversation.",
+                        context     = emptyList(),
+                        signals     = listOf("activation_confirmed"),
+                        category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES
+                    )
+                    riskEventStore.updateGemmaAnalysis(eventId, analysis)
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                         val sending = guardianAlertSender.sendIfConfigured(
                             result      = syntheticResult,
@@ -311,10 +381,10 @@ class HitaAccessibilityService : AccessibilityService() {
             // Layer 1 (fast path): if the last visible message text is identical to the
             // one we last processed for this contact, the window hasn't changed at all.
             //
-            // Layer 2 (scroll-back guard): even if the last visible message differs from
-            // the stored one (e.g. user scrolled up), check whether its hash already
-            // exists in the per-conversation seen set. If so, this is an old message
-            // re-appearing on screen — skip it to avoid duplicate alerts.
+            // Layer 2 (unseen set): collect every message whose hash is not in the
+            // per-conversation seen set. Each unseen message is scored individually so
+            // a risky message can never be silently skipped by arriving in the same
+            // window snapshot as a later, harmless message.
             val lastMessage  = messages.last()
             val convStateKey = "$CONV_KEY_PREFIX$convHash"
             val seenKey      = "$SEEN_KEY_PREFIX$convHash"
@@ -323,34 +393,40 @@ class HitaAccessibilityService : AccessibilityService() {
             val prevLastMessage = dedupPrefs.getString(convStateKey, null)
             if (lastMessage == prevLastMessage) return
 
-            // Layer 2
-            val lastMsgHash = sha256(lastMessage)
+            // Layer 2 — find every message not yet scored
             val seen = dedupPrefs.getStringSet(seenKey, emptySet())!!
-            if (lastMsgHash in seen) {
-                android.util.Log.d(TAG, "[$packageName] Scroll-back detected — skipping already-seen message")
+            val unseenMessages = messages.filter { sha256(it) !in seen }
+
+            if (unseenMessages.isEmpty()) {
+                android.util.Log.d(TAG, "[$packageName] Scroll-back detected — skipping already-seen messages")
                 return
             }
 
-            // New message confirmed — persist both state trackers before analysis
-            // so that any re-entrant event during the coroutine is also suppressed.
+            // Persist dedup state for all unseen messages before analysis so that
+            // re-entrant events during the coroutine are also suppressed.
             persistConvState(convStateKey, lastMessage)
-            addToSeenMessages(seenKey, lastMsgHash)
+            unseenMessages.forEach { addToSeenMessages(seenKey, sha256(it)) }
 
-            android.util.Log.d(TAG, "[$packageName] Contact=$contactName newMsg=\"${lastMessage.take(60)}\"")
+            android.util.Log.d(TAG, "[$packageName] Contact=$contactName ${unseenMessages.size} new msg(s), latest=\"${lastMessage.take(60)}\"")
 
-            // Safe-exit check on last message
+            // Safe-exit check on latest message
             val safeExit = antiCoercionMonitor.checkForSafeExitIntent(lastMessage)
             if (safeExit.shouldSuppressAnalysis) return
-
-            val context = if (messages.size > 1) messages.dropLast(1) else emptyList()
 
             serviceScope.launch {
                 val telemetry = TelemetryManager.get(this@HitaAccessibilityService)
                 telemetry.track("analysis_started")
                 val startMs = System.currentTimeMillis()
 
+                // Score all unseen messages as a single concatenated block so that
+                // attack signals split across consecutive messages (e.g. "are your
+                // parents home?" followed by "come meet me") are caught together.
+                // Previously seen messages become the context window for mild boosting.
+                val unseenText   = unseenMessages.joinToString("\n")
+                val seenMessages = messages.filter { sha256(it) in seen }
+
                 val results = try {
-                    riskScorer.score(lastMessage, context)
+                    riskScorer.score(unseenText, seenMessages)
                 } catch (e: Exception) {
                     telemetry.track("analysis_failed")
                     android.util.Log.e(TAG, "[$packageName] Scoring failed: ${e.message}")
@@ -364,7 +440,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 telemetry.track("analysis_duration_ms", durationMs.toDouble())
 
                 if (topResult == null) {
-                    android.util.Log.d(TAG, "[$packageName] No risk detected — lastMsg=\"${lastMessage.take(60)}\"")
+                    android.util.Log.d(TAG, "[$packageName] No risk detected — ${unseenMessages.size} new msg(s)")
                     return@launch
                 }
 
@@ -382,10 +458,6 @@ class HitaAccessibilityService : AccessibilityService() {
                 if (topResult.riskLevel < RiskLevel.MEDIUM) return@launch
 
                 // ── One DB record per session ──────────────────────────────────────
-                // sessionRecords (main-thread map) tracks whether a RiskEvent has
-                // already been saved for this conversation visit. Only the first
-                // MEDIUM+ detection writes to DB; later detections in the same
-                // session just update the in-memory best result for the guardian alert.
                 val existingEventId = withContext(kotlinx.coroutines.Dispatchers.Main) {
                     sessionRecords[convHash]
                 }
@@ -397,10 +469,8 @@ class HitaAccessibilityService : AccessibilityService() {
                         contactIdentifier = contactName,
                         result            = topResult
                     )
-                    // Always generate analysis when Gemma is available — even if patterns
-                    // scored zero and Gemma was the sole detector for this message.
                     val signalNames = topResult.signals.map { it.signal }.distinct()
-                    val analysis = classifier.generateAnalysis(lastMessage, context, signalNames, topResult.category)
+                    val analysis = classifier.generateAnalysis(unseenText, seenMessages, signalNames, topResult.category)
                     riskEventStore.updateGemmaAnalysis(eventId, analysis)
                     android.util.Log.d(TAG, "[$packageName] Session event $eventId saved (gemmaLoaded=${classifier.isLoaded})")
 
@@ -409,11 +479,9 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                 } else {
                     eventId = existingEventId
-                    // If Gemma became available after the first save, re-generate the analysis
-                    // so the event detail view shows a richer explanation.
                     if (classifier.isLoaded) {
                         val signalNames = topResult.signals.map { it.signal }.distinct()
-                        val analysis = classifier.generateAnalysis(lastMessage, context, signalNames, topResult.category)
+                        val analysis = classifier.generateAnalysis(unseenText, seenMessages, signalNames, topResult.category)
                         riskEventStore.updateGemmaAnalysis(eventId, analysis)
                         android.util.Log.d(TAG, "[$packageName] Gemma analysis refreshed for event $eventId")
                     } else {
@@ -742,20 +810,19 @@ class HitaAccessibilityService : AccessibilityService() {
      * view IDs. Depth-limited to 12 levels to stay fast on the main thread.
      */
     private fun detectDisappearingMessages(root: AccessibilityNodeInfo): Boolean =
-        scanNodeForPatterns(root, DISAPPEARING_PATTERNS, 0)
+        scanNodeForOnPatterns(root, 0)
 
-    private fun scanNodeForPatterns(
-        node: AccessibilityNodeInfo,
-        patterns: List<Regex>,
-        depth: Int
-    ): Boolean {
+    private fun scanNodeForOnPatterns(node: AccessibilityNodeInfo, depth: Int): Boolean {
         if (depth > 12) return false
         val text = (node.text?.toString() ?: node.contentDescription?.toString())
             ?.lowercase() ?: ""
-        if (text.isNotBlank() && patterns.any { it.containsMatchIn(text) }) return true
+        if (text.isNotBlank() &&
+            DISAPPEARING_ON_PATTERNS.any  { it.containsMatchIn(text) } &&
+            DISAPPEARING_OFF_PATTERNS.none { it.containsMatchIn(text) }
+        ) return true
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
-            val found = scanNodeForPatterns(child, patterns, depth + 1)
+            val found = scanNodeForOnPatterns(child, depth + 1)
             child.recycle()
             if (found) return true
         }
@@ -804,7 +871,8 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun flushPendingAlert(convHash: String) {
         sessionRecords.remove(convHash)
         alertedConvHashes.remove(convHash)
-        disappearingAlertedConvHashes.remove(convHash)
+        // disappearing-messages dedup lives in dedupPrefs (persistent) — not cleared here
+        // so switching apps or restarting the service never re-fires the same alert.
         // Clear the seen-message hash set so that when the user returns to this
         // conversation, new messages are not blocked by the scroll-back guard.
         // Layer 1 (prevLastMessage) still prevents re-processing on the same window event.

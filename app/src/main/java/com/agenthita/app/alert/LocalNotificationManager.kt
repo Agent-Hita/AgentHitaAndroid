@@ -86,9 +86,17 @@ class LocalNotificationManager(private val context: Context) {
      * Persistent low-priority notification shown whenever the listener service is running.
      * Non-dismissable — satisfies the anti-coercion transparency requirement:
      * the monitored person always knows Agent Hita is active (consent.html safeguard #1).
+     *
+     * Also used as the foreground-service notification via [buildStatusNotification] so that
+     * startForeground() can pin the process and prevent Samsung's FreecessController from
+     * freezing the accessibility service between events.
      */
     fun showStatusIndicator() {
-        val notification = NotificationCompat.Builder(context, HitaApplication.CHANNEL_STATUS)
+        notificationManager.notify(NOTIFICATION_ID_STATUS, buildStatusNotification())
+    }
+
+    fun buildStatusNotification(): android.app.Notification =
+        NotificationCompat.Builder(context, HitaApplication.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_hita_shield)
             .setContentTitle("Agent Hita is active")
             .setContentText("Monitoring for harmful patterns. Tap to manage settings.")
@@ -97,9 +105,6 @@ class LocalNotificationManager(private val context: Context) {
             .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE)
             .setNumber(0)
             .build()
-
-        notificationManager.notify(NOTIFICATION_ID_STATUS, notification)
-    }
 
     fun dismissStatusIndicator() {
         notificationManager.cancel(NOTIFICATION_ID_STATUS)
