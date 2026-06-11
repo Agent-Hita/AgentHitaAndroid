@@ -6,6 +6,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Bundle
 import android.util.Log
+import android.webkit.WebView
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.storage.HitaDatabase
 import com.agenthita.app.telemetry.TelemetryManager
@@ -29,6 +30,11 @@ class HitaApplication : Application() {
         createNotificationChannels()
         installCrashHandler()
         installForegroundTracker()
+        // Pre-warm the WebView renderer process so TermsActivity's local-asset
+        // load is instant. Without this, the first WebView instantiation blocks
+        // for 300–700 ms while the renderer process starts, keeping the progress
+        // bar visible even though the content is already on-device.
+        WebView(this).destroy()
         // Pre-warm SQLCipher + Room on a background thread so the first
         // access in DashboardActivity doesn't block the main thread
         GlobalScope.launch(Dispatchers.IO) { database.riskEventDao() }
