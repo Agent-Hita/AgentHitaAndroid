@@ -204,6 +204,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                     gemma.loadFailed -> {
                         telemetry.track("gemma_load_failed")
+                        telemetry.track("gemma_load_ms", (System.currentTimeMillis() - loadStart).toDouble())
                         getSharedPreferences(AI_PREFS, MODE_PRIVATE).edit()
                             .putBoolean(KEY_GEMMA_LOADED, false)
                             .putBoolean(KEY_GEMMA_FAILED, true)
