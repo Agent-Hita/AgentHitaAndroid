@@ -16,6 +16,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout config repo
+        uses: actions/checkout@v4
+        with:
+          repository: Agent-Hita/AgentHitaAndroidConfig
+          token: ${{ secrets.CONFIG_REPO_PAT }}
+          path: AgentHitaAndroidConfig
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -23,18 +30,11 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Write secrets.properties
+      - name: Copy secrets.properties
         run: |
-          cat > secrets.properties <<EOF
-          FEEDBACK_API_KEY=${{ secrets.FEEDBACK_API_KEY }}
-          FEEDBACK_API_URL=https://api.agenthita.org/feedback
-          ALERT_API_URL=https://api.agenthita.org/alert
-          TELEMETRY_API_URL=https://api.agenthita.org/telemetry
-          KEYSTORE_FILE=agenthita.jks
-          KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS=agenthita
-          KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          EOF
+          cp AgentHitaAndroidConfig/secrets.properties secrets.properties
+          # Unit tests don't sign an APK — clear the keystore path to avoid errors
+          sed -i 's|^KEYSTORE_FILE=.*|KEYSTORE_FILE=|' secrets.properties
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
@@ -57,6 +57,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Checkout config repo
+        uses: actions/checkout@v4
+        with:
+          repository: Agent-Hita/AgentHitaAndroidConfig
+          token: ${{ secrets.CONFIG_REPO_PAT }}
+          path: AgentHitaAndroidConfig
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -64,21 +71,11 @@ jobs:
           java-version: 17
           cache: gradle
 
-      - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > agenthita.jks
-
-      - name: Write secrets.properties
+      - name: Copy secrets.properties
         run: |
-          cat > secrets.properties <<EOF
-          FEEDBACK_API_KEY=${{ secrets.FEEDBACK_API_KEY }}
-          FEEDBACK_API_URL=https://api.agenthita.org/feedback
-          ALERT_API_URL=https://api.agenthita.org/alert
-          TELEMETRY_API_URL=https://api.agenthita.org/telemetry
-          KEYSTORE_FILE=agenthita.jks
-          KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS=agenthita
-          KEY_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}
-          EOF
+          cp AgentHitaAndroidConfig/secrets.properties secrets.properties
+          # Point keystore to the file alongside this repo (checked out at AgentHitaAndroidConfig/)
+          sed -i 's|^KEYSTORE_FILE=.*|KEYSTORE_FILE=AgentHitaAndroidConfig/agenthita.jks|' secrets.properties
 
       - name: Build signed release APK
         run: ./gradlew assembleRelease --no-daemon

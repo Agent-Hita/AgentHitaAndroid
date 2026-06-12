@@ -125,7 +125,7 @@ class GuardianAlertSender(
     private fun createThrottle(): GuardianAlertThrottle {
         val prefs = context.getSharedPreferences(THROTTLE_PREFS, Context.MODE_PRIVATE)
         return GuardianAlertThrottle(
-            store  = { key -> prefs.getLong(key, 0L) },
+            store  = { key -> if (prefs.contains(key)) prefs.getLong(key, 0L) else null },
             save   = { key, value -> prefs.edit().putLong(key, value).apply() },
             remove = { key -> prefs.edit().remove(key).apply() }
         )
@@ -325,7 +325,7 @@ class GuardianAlertWorker(
 
             val prefs = applicationContext.getSharedPreferences(GuardianAlertSender.THROTTLE_PREFS, android.content.Context.MODE_PRIVATE)
             GuardianAlertThrottle(
-                store  = { key -> prefs.getLong(key, 0L) },
+                store  = { key -> if (prefs.contains(key)) prefs.getLong(key, 0L) else null },
                 save   = { key, value -> prefs.edit().putLong(key, value).apply() },
                 remove = { key -> prefs.edit().remove(key).apply() }
             ).recordAlertSent(contactHash, System.currentTimeMillis())

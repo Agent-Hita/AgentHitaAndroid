@@ -12,7 +12,7 @@ package com.agenthita.app.alert
  * making it testable with plain JUnit4.
  */
 class GuardianAlertThrottle(
-    private val store: (String) -> Long,
+    private val store: (String) -> Long?,
     private val save: (String, Long) -> Unit,
     private val remove: (String) -> Unit
 ) {
@@ -22,8 +22,8 @@ class GuardianAlertThrottle(
      * at least [throttleMs] milliseconds have elapsed since the last one.
      */
     fun shouldSendNow(contactHash: String, nowMs: Long, throttleMs: Long): Boolean {
-        val lastSent = store(contactHash)
-        return lastSent == 0L || (nowMs - lastSent) >= throttleMs
+        val lastSent = store(contactHash) ?: return true
+        return (nowMs - lastSent) >= throttleMs
     }
 
     /**
@@ -31,8 +31,7 @@ class GuardianAlertThrottle(
      * Returns 0 if no alert has been sent or the window has already elapsed.
      */
     fun remainingMs(contactHash: String, nowMs: Long, throttleMs: Long): Long {
-        val lastSent = store(contactHash)
-        if (lastSent == 0L) return 0L
+        val lastSent = store(contactHash) ?: return 0L
         return ((lastSent + throttleMs) - nowMs).coerceAtLeast(0L)
     }
 

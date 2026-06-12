@@ -19,7 +19,7 @@ class GuardianAlertThrottleTest {
     fun setUp() {
         storage.clear()
         throttle = GuardianAlertThrottle(
-            store  = { key -> storage[key] ?: 0L },
+            store  = { key -> storage[key] },
             save   = { key, value -> storage[key] = value },
             remove = { key -> storage.remove(key) }
         )
