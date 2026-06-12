@@ -21,6 +21,10 @@
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/hita_surface</item>
 
+        <!-- Opt out of Android 15 forced edge-to-edge so the toolbar and
+             bottom nav bar don't collide with system UI bars. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+
         <!-- Buttons — gradient primary, cyan outlined -->
         <item name="materialButtonStyle">@style/Widget.AgentHita.Button</item>
         <item name="materialButtonOutlinedStyle">@style/Widget.AgentHita.Button.Outlined</item>
