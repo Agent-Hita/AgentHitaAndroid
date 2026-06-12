@@ -72,10 +72,7 @@ jobs:
           cache: gradle
 
       - name: Copy secrets.properties
-        run: |
-          cp AgentHitaAndroidConfig/secrets.properties secrets.properties
-          # Point keystore to the file alongside this repo (checked out at AgentHitaAndroidConfig/)
-          sed -i 's|^KEYSTORE_FILE=.*|KEYSTORE_FILE=AgentHitaAndroidConfig/agenthita.jks|' secrets.properties
+        run: cp AgentHitaAndroidConfig/secrets.properties secrets.properties
 
       - name: Build signed release APK
         run: ./gradlew assembleRelease --no-daemon
