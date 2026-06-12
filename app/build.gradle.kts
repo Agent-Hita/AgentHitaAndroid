@@ -28,9 +28,19 @@ android {
         buildConfigField("String", "TELEMETRY_API_URL",  "\"${secrets.getProperty("TELEMETRY_API_URL",  "https://api.agenthita.org/telemetry")}\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile     = file(secrets.getProperty("KEYSTORE_FILE", ""))
+            storePassword = secrets.getProperty("KEYSTORE_PASSWORD", "")
+            keyAlias      = secrets.getProperty("KEY_ALIAS", "")
+            keyPassword   = secrets.getProperty("KEY_PASSWORD", "")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
