@@ -13,7 +13,7 @@ val secrets = Properties().apply {
 
 android {
     namespace = "com.agenthita.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.agenthita.app"
