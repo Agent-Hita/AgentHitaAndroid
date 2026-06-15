@@ -109,7 +109,7 @@ class GemmaClassifier(context: Context) {
             context.contentResolver.query(
                 collection,
                 arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME, MediaStore.Downloads.SIZE),
-                "${MediaStore.Downloads.SIZE} > ?",
+                "${MediaStore.Downloads.SIZE} > ? AND ${MediaStore.Downloads.IS_PENDING} = 0",
                 arrayOf("100000000"), null
             )
         }.getOrNull() ?: return null

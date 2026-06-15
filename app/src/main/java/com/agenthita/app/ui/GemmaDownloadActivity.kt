@@ -70,7 +70,12 @@ class GemmaDownloadActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val extractedPath = withContext(Dispatchers.IO) {
                 if (isTarGz) {
-                    contentResolver.openInputStream(uri)?.use { GemmaClassifier.extractTarGz(this@GemmaDownloadActivity, it) }
+                    runCatching {
+                        contentResolver.openInputStream(uri)?.use { GemmaClassifier.extractTarGz(this@GemmaDownloadActivity, it) }
+                    }.getOrElse {
+                        android.util.Log.e("GemmaImport", "Failed to open archive: ${it.message}")
+                        null
+                    }
                 } else {
                     val destName = if (lower.endsWith(".tflite")) fileName.dropLast(7) + ".bin" else fileName
                     val dest = File(filesDir, destName)
