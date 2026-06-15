@@ -3,8 +3,10 @@ package com.agenthita.app.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -72,6 +74,7 @@ class OnboardingActivity : AppCompatActivity() {
                 consentManager.consentTimestampMs = System.currentTimeMillis()
                 TelemetryManager.get(this).track("permission_notifications_granted")
                 TelemetryManager.get(this).flush()
+                requestBatteryOptimizationExemption()
                 startActivity(Intent(this, GuardianSetupActivity::class.java))
                 finish()
             } else {
@@ -96,6 +99,17 @@ class OnboardingActivity : AppCompatActivity() {
             contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: return false
         return enabled.contains(packageName, ignoreCase = true)
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+            runCatching {
+                startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                })
+            }
+        }
     }
 
     private fun goToDashboard() {

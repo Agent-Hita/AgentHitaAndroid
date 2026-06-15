@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.agenthita.app.BuildConfig
 import com.agenthita.app.HitaApplication
 import com.agenthita.app.alert.GuardianAlertSender
 import com.agenthita.app.config.RemoteConfig
@@ -267,7 +268,9 @@ class HitaAccessibilityService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> {
                 pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
-                processWindow(pkg)
+                val r = Runnable { processWindow(pkg) }
+                pendingRunnables[pkg] = r
+                mainHandler.postDelayed(r, 1500)
             }
         }
     }
@@ -281,7 +284,7 @@ class HitaAccessibilityService : AccessibilityService() {
         try {
             // Must be in a conversation screen — bail out on list/home screens
             if (!isConversationScreen(root, packageName)) {
-                if (packageName == "com.instagram.android") {
+                if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
                     android.util.Log.w(TAG_IG_DIAG, "isConversationScreen=false — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
                 }
@@ -299,7 +302,7 @@ class HitaAccessibilityService : AccessibilityService() {
 
             val contactName = extractContactName(root, packageName)
                 ?: run {
-                    if (packageName == "com.instagram.android") {
+                    if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
                         android.util.Log.w(TAG_IG_DIAG, "contactName=null — dumping hierarchy")
                         dumpHierarchy(root, "", 0)
                     }
@@ -358,7 +361,7 @@ class HitaAccessibilityService : AccessibilityService() {
 
             val messages = extractIncomingMessages(root, packageName)
             if (messages.isEmpty()) {
-                if (packageName == "com.instagram.android") {
+                if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
                     android.util.Log.w(TAG_IG_DIAG, "messages=empty for contact=$contactName — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
                 }
@@ -606,7 +609,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     subtitle.contains("people", ignoreCase = true) ||
                     subtitle.contains("member", ignoreCase = true) ||
                     subtitle.split(",").size >= 3
-                if (isGroup) {
+                if (BuildConfig.DEBUG && isGroup) {
                     android.util.Log.w(TAG_IG_DIAG, "isGroupConversation=true subtitle=\"$subtitle\" — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
                 }

@@ -252,7 +252,6 @@ else -> false
             // Opening this app unfreezes the process; give the heartbeat timer 3s to
             // write a fresh value before rechecking, so the UI recovers automatically.
             mainHandler.postDelayed({ updateStatusDot() }, FROZEN_RECHECK_DELAY_MS)
-            requestBatteryOptimizationExemption()
         } else {
             label?.setOnClickListener(null)
             DrawableCompat.setTint(drawable, Color.parseColor("#10B981"))
