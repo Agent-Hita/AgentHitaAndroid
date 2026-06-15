@@ -71,6 +71,13 @@ android {
     }
 }
 
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
+}
+
 dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.12.0")
