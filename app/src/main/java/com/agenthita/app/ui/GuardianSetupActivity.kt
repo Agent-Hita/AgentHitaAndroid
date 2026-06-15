@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.consent.UserCategory
@@ -33,6 +34,10 @@ class GuardianSetupActivity : AppCompatActivity() {
         // Pre-fill if re-entering setup
         consentManager.guardianEmail?.let { binding.etGuardianEmail.setText(it) }
         binding.switchAlerts.isChecked = consentManager.isGuardianAlertsEnabled
+        updateAlertsLabel(binding.switchAlerts.isChecked)
+        binding.switchAlerts.setOnCheckedChangeListener { _, isChecked ->
+            updateAlertsLabel(isChecked)
+        }
 
         // Pre-fill age checkboxes from saved category
         when (consentManager.userCategory) {
@@ -64,17 +69,15 @@ class GuardianSetupActivity : AppCompatActivity() {
 
             val previousEmail   = consentManager.guardianEmail
             val wasEnabled      = consentManager.isGuardianAlertsEnabled
+            val alertsEnabled   = emailValid && binding.switchAlerts.isChecked
 
             if (emailValid) {
                 consentManager.guardianEmail = email
-                consentManager.isGuardianAlertsEnabled = true
-                binding.switchAlerts.isChecked = true
-            } else {
-                consentManager.isGuardianAlertsEnabled = false
-                binding.switchAlerts.isChecked = false
             }
+            consentManager.isGuardianAlertsEnabled = alertsEnabled
+            if (!emailValid) binding.switchAlerts.isChecked = false
 
-            notifyGuardianChange(previousEmail, wasEnabled, email.ifEmpty { null }, emailValid)
+            notifyGuardianChange(previousEmail, wasEnabled, email.ifEmpty { null }, alertsEnabled)
             saveAgeCategory()
             goToDashboard()
         }
@@ -86,14 +89,8 @@ class GuardianSetupActivity : AppCompatActivity() {
         newEmail: String?,
         isNowEnabled: Boolean
     ) {
-        // REMOVED: alerts were active and are now being disabled or the email changed
-        if (wasEnabled && previousEmail != null && (!isNowEnabled || previousEmail != newEmail)) {
-            postGuardianConfig(previousEmail, "REMOVED")
-        }
-        // ADDED: valid email configured that is new, changed, or re-enabled
-        if (isNowEnabled && newEmail != null && (!wasEnabled || previousEmail != newEmail)) {
-            postGuardianConfig(newEmail, "ADDED")
-        }
+        GuardianAlertDecision.computeChanges(previousEmail, wasEnabled, newEmail, isNowEnabled)
+            .forEach { postGuardianConfig(it.email, it.action) }
     }
 
     private fun postGuardianConfig(email: String, action: String) {
@@ -126,6 +123,10 @@ class GuardianSetupActivity : AppCompatActivity() {
             binding.cbUnder21.isChecked -> UserCategory.ADOLESCENT
             else                        -> UserCategory.SELF_PROTECTING_ADULT
         }
+    }
+
+    private fun updateAlertsLabel(isChecked: Boolean) {
+        binding.tvAlertsLabel.text = GuardianAlertDecision.alertsLabel(isChecked)
     }
 
     companion object {

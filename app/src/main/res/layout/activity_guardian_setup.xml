@@ -112,9 +112,10 @@
                         android:orientation="vertical">
 
                         <TextView
+                            android:id="@+id/tv_alerts_label"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Enable guardian alerts"
+                            android:text="Guardian alerts (OFF)"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="@android:color/white" />
