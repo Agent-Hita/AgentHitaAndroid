@@ -23,7 +23,7 @@
     "input_truncation_chars":  300,
     "context_messages":        5,
     "context_message_length":  80,
-    "kaggle_url": "https://www.kaggle.com/models/google/gemma/tfLite/gemma3-1b-it-cpu-int4"
+    "kaggle_url": "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4"
   },
 
   "risk_thresholds": {

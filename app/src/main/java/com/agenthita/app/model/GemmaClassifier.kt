@@ -18,10 +18,10 @@ import java.util.zip.GZIPInputStream
  * Recommended model: Gemma 3 1B IT CPU INT4 (~600 MB, works on 4 GB RAM devices)
  *
  * Model setup:
- *   1. Download from Kaggle (select "TFLite" framework, "gemma3-1b-it-cpu-int4" variation):
+ *   1. Download from Kaggle (select "TFLite" framework, "gemma-2b-it-cpu-int4" variation):
  *      https://www.kaggle.com/models/google/gemma3/frameworks/tfLite
  *   2. Push to the device:
- *      adb push gemma3-1b-it-cpu-int4.bin /sdcard/Download/
+ *      adb push gemma-2b-it-cpu-int4.bin /sdcard/Download/
  *   3. The classifier will auto-detect it and activate.
  *
  * Also accepts the heavier Gemma 2B models if already downloaded.
@@ -320,9 +320,9 @@ class GemmaClassifier(context: Context) {
             "$appFiles/gemma.task",
             "$appFiles/gemma.bin",
             // Downloads — CPU variants only; GPU models require OpenCL which we don't use
-            "/sdcard/Download/gemma3-1b-it-cpu-int4.task",
-            "/storage/emulated/0/Download/gemma3-1b-it-cpu-int4.task",
-            "/sdcard/Download/gemma3-1b-it-cpu-int4.bin",
+            "/sdcard/Download/gemma-2b-it-cpu-int4.task",
+            "/storage/emulated/0/Download/gemma-2b-it-cpu-int4.task",
+            "/sdcard/Download/gemma-2b-it-cpu-int4.bin",
             "/sdcard/Download/gemma-2b-it-cpu-int4.bin",
             "/sdcard/Download/gemma2-cpu-int4.bin",
             "/sdcard/Download/gemma.task",

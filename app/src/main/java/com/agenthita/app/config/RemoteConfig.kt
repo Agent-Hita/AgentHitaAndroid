@@ -200,7 +200,7 @@ object RemoteConfig {
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
-        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma3-1b-it-cpu-int4",
+        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
         // SHA-256 hex digests of known-good model files. Empty = skip verification (POC default).
         // Populate via remote config once you have hashes for the shipped model variants.
         val gemmaModelHashes:          List<String> = emptyList(),

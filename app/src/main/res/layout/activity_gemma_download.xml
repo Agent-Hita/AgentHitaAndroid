@@ -273,21 +273,154 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Step 1 — Download the TFLite CPU model"
+                android:text="Step 1 — Download the AI model"
                 android:textColor="@color/hita_text_secondary"
                 android:textSize="12sp"
                 android:textAllCaps="true"
                 android:letterSpacing="0.08"
-                android:layout_marginBottom="6dp" />
+                android:layout_marginBottom="10dp" />
 
-            <TextView
+            <!-- Kaggle steps card -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="On Kaggle, select Framework: TFLite and Variation: gemma3-1b-it-cpu-int4"
-                android:textColor="@color/hita_text_secondary"
-                android:textSize="13sp"
-                android:lineSpacingMultiplier="1.4"
-                android:layout_marginBottom="10dp" />
+                android:orientation="vertical"
+                android:background="@drawable/bg_ai_card"
+                android:padding="18dp"
+                android:layout_marginBottom="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="What to do on Kaggle"
+                    android:textColor="@color/hita_text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.06"
+                    android:layout_marginBottom="12dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="1."
+                        android:textColor="@color/hita_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Sign in with Google or your Kaggle account if prompted"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.4" />
+                </LinearLayout>
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/install_guide"
+                    android:adjustViewBounds="true"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Kaggle Model Variations page — select LiteRT tab and gemma-2b-it-cpu-int4 variation"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="12dp"
+                    android:background="@android:color/transparent" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="2."
+                        android:textColor="@color/hita_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Scroll to Model Variations and select LiteRT (formerly TFLite)"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.4" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="3."
+                        android:textColor="@color/hita_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Under Variation, select gemma-2b-it-cpu-int4"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.4" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="10dp">
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="4."
+                        android:textColor="@color/hita_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Tap the download icon (&#8681;) — the file is ~600 MB, wait for it to finish"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.4" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <TextView
+                        android:layout_width="24dp"
+                        android:layout_height="wrap_content"
+                        android:text="5."
+                        android:textColor="@color/hita_primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Come back here and tap &quot;Select downloaded file&quot; below"
+                        android:textColor="@color/hita_text_primary"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.4" />
+                </LinearLayout>
+
+            </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_download"
@@ -312,7 +445,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Select the .bin, .tflite, or .tar.gz file from your Downloads folder."
+                android:text="Once the download finishes, tap below and pick the file from your Downloads folder. It will be named something like gemma-2b-it-cpu-int4.bin or archive.tar.gz."
                 android:textColor="@color/hita_text_secondary"
                 android:textSize="13sp"
                 android:lineSpacingMultiplier="1.4"
