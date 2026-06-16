@@ -125,14 +125,17 @@ class RiskScorer(
                 ruleResult.copy(
                     riskLevel   = RiskLevel.MEDIUM,
                     score       = 0.35f,
+                    signals     = listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.35f)),
                     explanation = "Detected by AI analysis — behavioural patterns in this conversation are consistent with ${ruleResult.category.name.lowercase().replace('_', ' ')}."
                 )
             // Rules LOW, Gemma MEDIUM → MEDIUM
             ruleLevel == RiskLevel.LOW  && gemmaSeverity == RiskLevel.MEDIUM ->
-                ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.40f)
+                ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.40f,
+                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.40f)) })
             // Rules LOW, Gemma HIGH → HIGH (corroborated)
             ruleLevel == RiskLevel.LOW  && gemmaSeverity == RiskLevel.HIGH ->
-                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.70f)
+                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.70f,
+                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.70f)) })
             // Rules MEDIUM, Gemma HIGH → HIGH
             ruleLevel == RiskLevel.MEDIUM && gemmaSeverity == RiskLevel.HIGH ->
                 ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.80f)

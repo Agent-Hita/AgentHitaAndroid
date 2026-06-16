@@ -372,6 +372,7 @@ class HitaAccessibilityService : AccessibilityService() {
 
             val messages = extractIncomingMessages(root, packageName)
             if (messages.isEmpty()) {
+                if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] no text messages extracted (media-only or empty) — skipping")
                 if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
                     android.util.Log.w(TAG_IG_DIAG, "messages=empty for contact=$contactName — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
@@ -701,10 +702,14 @@ class HitaAccessibilityService : AccessibilityService() {
         when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waMessageTextId}")
+                if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] extraction: ${nodes.size} text nodes found")
                 nodes.forEach { node ->
                     val text = node.text?.toString()
+                    val outgoing = isOutgoingWhatsApp(node)
+                    val media = text != null && isMediaMessage(text)
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] node text=\"${text?.take(40)}\" outgoing=$outgoing media=$media len=${text?.length}")
                     if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
-                        !isMediaMessage(text) && !isOutgoingWhatsApp(node)
+                        !media && !outgoing
                     ) {
                         messages.add(text)
                     }
