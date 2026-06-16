@@ -91,6 +91,16 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val DISAPPEARING_KEY_PREFIX = "disappearing_"
         private const val MAX_SEEN_PER_CONV       = 200
 
+        // Media-only messages that carry no conversational text and should be ignored.
+        private val MEDIA_LABEL_PATTERN = Regex(
+            """^(photo|image|video|gif|sticker|audio|voice\s*message|document|contact|location|file)$""",
+            RegexOption.IGNORE_CASE
+        )
+        private val MEDIA_FILE_EXTENSION = Regex(
+            """.*\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff?|svg|mp4|mov|avi|mkv|mp3|aac|ogg|m4a|pdf|doc|docx|xls|xlsx|ppt|pptx)$""",
+            RegexOption.IGNORE_CASE
+        )
+
         // Patterns that confirm disappearing messages were turned ON.
         // Matched case-insensitively; a node matches only if none of the OFF_PATTERNS
         // also appear in the same text (e.g. "turned off disappearing messages" must not alert).
@@ -693,10 +703,10 @@ class HitaAccessibilityService : AccessibilityService() {
                 val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waMessageTextId}")
                 nodes.forEach { node ->
                     val text = node.text?.toString()
-                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH) {
-                        // Exclude own messages: in WhatsApp own messages sit inside
-                        // a node with content-desc containing "You:" or similar.
-                        if (!isOutgoingWhatsApp(node)) messages.add(text)
+                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
+                        !isMediaMessage(text) && !isOutgoingWhatsApp(node)
+                    ) {
+                        messages.add(text)
                     }
                     node.recycle()
                 }
@@ -707,8 +717,10 @@ class HitaAccessibilityService : AccessibilityService() {
                     val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                     nodes.forEach { node ->
                         val text = node.text?.toString()
-                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH) {
-                            if (!isOutgoingInstagram(node)) messages.add(text)
+                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
+                            !isMediaMessage(text) && !isOutgoingInstagram(node)
+                        ) {
+                            messages.add(text)
                         }
                         node.recycle()
                     }
@@ -724,8 +736,8 @@ class HitaAccessibilityService : AccessibilityService() {
                     gmNodes.forEach { node ->
                         val desc = node.contentDescription?.toString() ?: ""
                         val text = node.text?.toString()
-                        // Exclude outgoing ("You said …"), timestamps, and UI labels
                         if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
+                            !isMediaMessage(text) &&
                             !desc.startsWith("You said", ignoreCase = true) &&
                             !isUIChrome(text)
                         ) {
@@ -741,6 +753,12 @@ class HitaAccessibilityService : AccessibilityService() {
         }
 
         return messages.takeLast(5)
+    }
+
+    /** Returns true if the text represents a media attachment rather than conversational text. */
+    private fun isMediaMessage(text: String): Boolean {
+        val trimmed = text.trim()
+        return MEDIA_LABEL_PATTERN.matches(trimmed) || MEDIA_FILE_EXTENSION.matches(trimmed)
     }
 
     /**
@@ -780,6 +798,7 @@ class HitaAccessibilityService : AccessibilityService() {
         if (!text.isNullOrBlank() &&
             text.length >= MIN_MESSAGE_LENGTH &&
             node.className?.contains("TextView") == true &&
+            !isMediaMessage(text) &&
             !isUIChrome(text)
         ) {
             out.add(text)
