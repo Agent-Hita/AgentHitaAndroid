@@ -97,6 +97,7 @@ class HitaAccessibilityService : AccessibilityService() {
         private val DISAPPEARING_ON_PATTERNS = listOf(
             Regex("messages set to disappear"),
             Regex("turned on disappearing"),
+            Regex("new messages will disappear"),
             Regex("you.re in vanish mode"),
             Regex("swipe up to exit vanish"),
             Regex("disappearing messages")   // broad catch-all — checked last, guarded by OFF list
