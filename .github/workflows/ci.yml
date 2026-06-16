@@ -74,10 +74,10 @@ jobs:
       - name: Copy secrets.properties
         run: cp AgentHitaAndroidConfig/secrets.properties secrets.properties
 
-      - name: Build signed release APK and AAB
-        run: ./gradlew assembleRelease bundleRelease --no-daemon
+      - name: Build signed release APK, AAB and debug APK
+        run: ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
           name: agenthita-release-apk-${{ github.sha }}
@@ -89,4 +89,11 @@ jobs:
         with:
           name: agenthita-release-aab-${{ github.sha }}
           path: app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: agenthita-debug-apk-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
