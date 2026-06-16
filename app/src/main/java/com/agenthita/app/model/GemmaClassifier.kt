@@ -15,7 +15,7 @@ import java.util.zip.GZIPInputStream
 /**
  * On-device Gemma classifier using MediaPipe LLM Inference API.
  *
- * Recommended model: Gemma 3 1B IT CPU INT4 (~600 MB, works on 4 GB RAM devices)
+ * Recommended model: Gemma 2B IT CPU INT4 (~900 MB, works on 4 GB RAM devices)
  *
  * Model setup:
  *   1. Download from Kaggle (select "TFLite" framework, "gemma-2b-it-cpu-int4" variation):
@@ -418,9 +418,9 @@ Severity: """.trimIndent()
     }
 
     /**
-     * Token-scanning parser — does NOT rely on Gemma 1B following a strict format.
+     * Token-scanning parser — does NOT rely on Gemma 2B following a strict format.
      *
-     * Gemma 1B produces inconsistent responses:
+     * Gemma 2B produces inconsistent responses:
      *   "SEXTORTION HIGH"           → ideal
      *   "IDENTITY_PHISHING"         → category only (default to MEDIUM)
      *   "Harm type: GROOMING\nSeverity: HIGH" → fill-in format (handled)

@@ -504,7 +504,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Catch all unchecked exceptions from any per-app parsing helper so a broken
             // selector in one app never crashes the service and silences all other apps.
             val shortPkg = pkgShortName(packageName)
@@ -600,7 +600,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 val subtitle = subtitleNodes.firstOrNull()?.text?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
                 subtitle.contains("member", ignoreCase = true) ||
-                subtitle.split(",").size >= 3
+                subtitle.split(",").size >= 2
             }
             "com.instagram.android" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderSubtitleId}")

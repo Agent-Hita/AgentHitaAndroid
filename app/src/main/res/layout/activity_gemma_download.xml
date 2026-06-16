@@ -213,7 +213,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="~600 MB"
+                        android:text="~900 MB"
                         android:textColor="@color/hita_text_primary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
@@ -393,7 +393,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="Tap the download icon (&#8681;) — the file is ~600 MB, wait for it to finish"
+                        android:text="Tap the download icon (&#8681;) — the file is ~900 MB, wait for it to finish"
                         android:textColor="@color/hita_text_primary"
                         android:textSize="13sp"
                         android:lineSpacingMultiplier="1.4" />

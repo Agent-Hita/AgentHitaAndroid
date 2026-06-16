@@ -360,7 +360,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Gemma 3"
+                            android:text="Gemma 2B"
                             android:textSize="10sp"
                             android:textColor="#8A9BBD"
                             android:background="@drawable/bg_risk_badge"
