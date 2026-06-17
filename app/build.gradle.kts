@@ -19,8 +19,8 @@ android {
         applicationId = "com.agenthita.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.4"
+        versionCode = 5
+        versionName = "1.0.5"
 
         buildConfigField("String", "FEEDBACK_API_KEY",   "\"${secrets.getProperty("FEEDBACK_API_KEY",   "")}\"")
         buildConfigField("String", "FEEDBACK_API_URL",   "\"${secrets.getProperty("FEEDBACK_API_URL",   "https://api.agenthita.org/feedback")}\"")

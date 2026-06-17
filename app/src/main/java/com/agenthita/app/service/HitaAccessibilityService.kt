@@ -649,7 +649,12 @@ class HitaAccessibilityService : AccessibilityService() {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waContactNameId}")
-                val name = nodes.firstOrNull()?.text?.toString()
+                val node = nodes.firstOrNull()
+                // Prefer node.text; fall back to content-desc which WhatsApp formats as
+                // "<name>, <status>" (e.g. "Alice, Disappearing messages on") — so strip after comma.
+                val name = node?.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: node?.contentDescription?.toString()
+                        ?.substringBefore(",")?.trim()?.takeIf { it.isNotBlank() }
                 nodes.forEach { it.recycle() }
                 name
             }
