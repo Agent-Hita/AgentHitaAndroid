@@ -568,16 +568,36 @@ else -> false
 
     private fun handlePrivateAiSettingsTap() {
         val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
-        val modelReady = aiPrefs.getBoolean("gemma_loaded", false) || modelOnDisk()
-        if (modelReady) {
-            androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
-                .setTitle("Private AI Model")
-                .setMessage("The on-device AI model is downloaded and enabled. All analysis runs privately on your device — no data leaves it.")
-                .setPositiveButton("OK") { d, _ -> d.dismiss() }
-                .show()
+        if (aiPrefs.getBoolean("gemma_loaded", false) || modelOnDisk()) {
+            showAiInfoDialog(
+                title   = "Private AI Model",
+                message = "The on-device AI model is downloaded and enabled. All analysis runs privately on your device — no data leaves it."
+            )
+            return
+        }
+        val downloading = WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWork(ModelDownloadWorker.WORK_NAME).get()
+            .any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+        if (downloading) {
+            showAiInfoDialog(
+                title   = "Private AI Model",
+                message = "The model is currently downloading in the background. This may take a few minutes."
+            )
             return
         }
         showGemmaTermsDialog()
+    }
+
+    private fun showAiInfoDialog(title: String, message: String) {
+        val view = layoutInflater.inflate(R.layout.dialog_ai_info, null)
+        view.findViewById<android.widget.TextView>(R.id.tv_dialog_title).text   = title
+        view.findViewById<android.widget.TextView>(R.id.tv_dialog_message).text = message
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .create()
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_ok)
+            .setOnClickListener { dialog.dismiss() }
+        dialog.show()
     }
 
     private fun showGemmaTermsDialog() {
