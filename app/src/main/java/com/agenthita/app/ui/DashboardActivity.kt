@@ -633,7 +633,10 @@ else -> false
             startModelDownload()
         }
 
-        btnNotNow.setOnClickListener { dialog.dismiss() }
+        btnNotNow.setOnClickListener {
+            TelemetryManager.get(this).track("gemma_terms_declined")
+            dialog.dismiss()
+        }
 
         dialog.show()
     }

@@ -8,6 +8,7 @@ import androidx.work.workDataOf
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.service.HitaAccessibilityService
+import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -43,6 +44,7 @@ class ModelDownloadWorker(
         }
 
         val archiveDest = File(appContext.cacheDir, "gemma_model_download.tar.gz")
+        val startMs = System.currentTimeMillis()
 
         return@withContext try {
             // ── Phase 1: Download ─────────────────────────────────────────────
@@ -113,16 +115,22 @@ class ModelDownloadWorker(
 
             if (extractedPath == null) {
                 android.util.Log.e("ModelDownloadWorker", "Extraction failed")
+                TelemetryManager.get(appContext).track("gemma_download_failed")
                 return@withContext Result.retry()
             }
 
-            android.util.Log.i("ModelDownloadWorker", "Extraction complete: $extractedPath")
+            val durationMs = System.currentTimeMillis() - startMs
+            android.util.Log.i("ModelDownloadWorker", "Extraction complete: $extractedPath (${durationMs / 1000}s total)")
+            TelemetryManager.get(appContext).track("gemma_download_success")
+            TelemetryManager.get(appContext).track("gemma_download_duration_ms", durationMs.toDouble())
+            TelemetryManager.get(appContext).flush()
             setProgress(workDataOf(KEY_PHASE to PHASE_DONE, KEY_PROGRESS to 100))
             notifyModelReady()
             Result.success()
 
         } catch (e: Exception) {
             android.util.Log.e("ModelDownloadWorker", "Download/extract failed: ${e.message}")
+            TelemetryManager.get(appContext).track("gemma_download_failed")
             // Keep the partial archive so the next retry can resume
             Result.retry()
         }
