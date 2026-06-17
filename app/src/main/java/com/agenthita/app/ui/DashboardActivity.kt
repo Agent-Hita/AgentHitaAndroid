@@ -25,6 +25,12 @@ import com.agenthita.app.R
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityDashboardBinding
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import com.agenthita.app.model.ModelDownloadWorker
+import com.agenthita.app.storage.ContactNameDao
 import com.agenthita.app.storage.RiskEvent
 import com.agenthita.app.storage.RiskEventStore
 import com.agenthita.app.telemetry.TelemetryManager
@@ -43,6 +49,78 @@ class DashboardActivity : AppCompatActivity() {
         // After detecting frozen, recheck after this delay — gives the unfreezing
         // process time to write a fresh heartbeat before we update the UI.
         private const val FROZEN_RECHECK_DELAY_MS = 3_000L
+
+        private val GEMMA_TERMS = """
+            GOOGLE GEMMA TERMS OF USE
+            Last Updated: February 21, 2024
+
+            By using or distributing any portion of the Gemma model(s), you agree to be bound by these Terms of Use ("Terms"). If you do not agree to these Terms, do not use the Gemma model(s).
+
+            1. DEFINITIONS
+            "Google" means Google LLC. "Gemma" means the machine learning model(s) and any accompanying software, documentation, and other materials made available by Google under these Terms. "Outputs" means any content generated through use of the Gemma model(s).
+
+            2. USE RIGHTS
+            Subject to these Terms, Google grants you a non-exclusive, worldwide, non-transferable, non-sublicensable, royalty-free limited license to: (a) use and reproduce the Gemma model(s); (b) distribute the Gemma model(s); and (c) create and distribute derivative works of the Gemma model(s).
+
+            3. DISTRIBUTION
+            If you distribute or make available Gemma or any derivative works, you must: (a) include a copy of or a link to these Terms with any distribution; (b) not misrepresent the origin of the model(s); and (c) retain all copyright, patent, trademark, and attribution notices.
+
+            4. ADDITIONAL COMMERCIAL TERMS
+            If your business or the organization you represent has total annual gross revenues exceeding $10 million USD, you may not use Gemma under these Terms and must contact Google to obtain a separate commercial license.
+
+            5. GEMMA PROHIBITED USE POLICY
+            You agree that you will not use, and will not permit others to use, Gemma or its Outputs to:
+
+            (a) Violate any applicable law or regulation, or the rights of any person or entity, including intellectual property rights, privacy rights, or rights of personality;
+
+            (b) Engage in, promote, incite, facilitate, or assist in harassment, abuse, threatening, or bullying of individuals or groups;
+
+            (c) Generate content that is hateful or discriminatory based on race, ethnicity, national origin, religion, sex, gender, sexual orientation, disability, or caste;
+
+            (d) Generate, distribute, or facilitate disinformation, misinformation, or propaganda intended to cause harm or deceive;
+
+            (e) Generate or distribute sexually explicit content, or any content that sexualizes minors;
+
+            (f) Facilitate the sexual exploitation or abuse of minors in any way;
+
+            (g) Develop, assist in developing, or deploy weapons of mass destruction, including biological, chemical, nuclear, or radiological weapons;
+
+            (h) Plan or facilitate attacks on critical infrastructure or public safety systems;
+
+            (i) Create cyberweapons, malicious code, or tools designed to cause significant damage if deployed;
+
+            (j) Infringe, misappropriate, or violate the intellectual property rights of any third party;
+
+            (k) Engage in unauthorized collection, processing, or use of personal data;
+
+            (l) Impersonate any person or entity, or misrepresent your affiliation with any person or entity.
+
+            6. INTELLECTUAL PROPERTY
+            Google retains all ownership and intellectual property rights in and to Gemma. Except for the licenses expressly granted in these Terms, Google does not grant you any rights in Google's trademarks, trade names, or service marks.
+
+            7. FEEDBACK
+            If you provide Google with feedback, ideas, or suggestions regarding Gemma, you grant Google a perpetual, irrevocable, fully paid-up, royalty-free, worldwide license to use and incorporate that feedback without restriction or obligation to you.
+
+            8. DISCLAIMER OF WARRANTIES
+            GEMMA IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, ANY WARRANTIES OF TITLE, NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. GOOGLE DOES NOT WARRANT THAT THE OUTPUTS WILL BE ACCURATE, COMPLETE, OR SUITABLE FOR ANY PARTICULAR PURPOSE.
+
+            9. LIMITATION OF LIABILITY
+            TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT WILL GOOGLE OR ITS AFFILIATES, DIRECTORS, OFFICERS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR EXEMPLARY DAMAGES ARISING FROM OR IN ANY WAY CONNECTED WITH YOUR ACCESS TO OR USE OF GEMMA, EVEN IF GOOGLE HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+            10. INDEMNIFICATION
+            You agree to indemnify, defend, and hold harmless Google and its affiliates, directors, officers, employees, and agents from and against any and all claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of or in any way connected with: (a) your access to or use of Gemma; (b) your Outputs; or (c) your violation of these Terms.
+
+            11. TERM AND TERMINATION
+            These Terms will remain in effect until terminated. Google may terminate your rights under these Terms immediately and without notice for any breach of these Terms. Upon termination, all licenses granted to you under these Terms will immediately cease.
+
+            12. CHANGES TO TERMS
+            Google may update these Terms from time to time at its sole discretion. Your continued use of Gemma after any such changes constitutes your acceptance of the revised Terms.
+
+            13. GOVERNING LAW
+            These Terms are governed by and construed in accordance with the laws of the State of Delaware, USA, without regard to its conflict of law provisions.
+
+            Full terms: ai.google.dev/gemma/terms
+        """.trimIndent()
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -50,6 +128,7 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDashboardBinding
     private lateinit var consentManager: ConsentManager
     private lateinit var eventStore: RiskEventStore
+    private lateinit var contactNameDao: ContactNameDao
     private lateinit var antiCoercionMonitor: AntiCoercionMonitor
     private lateinit var eventAdapter: RiskEventAdapter
 
@@ -74,6 +153,7 @@ class DashboardActivity : AppCompatActivity() {
         val app = application as HitaApplication
         consentManager      = ConsentManager(this)
         eventStore          = RiskEventStore(app.database.riskEventDao())
+        contactNameDao      = app.database.contactNameDao()
         antiCoercionMonitor = AntiCoercionMonitor(this, consentManager)
 
         eventAdapter = RiskEventAdapter { event ->
@@ -89,9 +169,10 @@ class DashboardActivity : AppCompatActivity() {
         updateStatusDot()
         updateAiStatus()
 
-        binding.layoutAiStatus.setOnClickListener {
-            startActivity(Intent(this, GemmaDownloadActivity::class.java))
-        }
+        binding.layoutAiStatus.setOnClickListener { showGemmaTermsDialog() }
+
+        observeModelDownload()
+        maybePromptModelDownload()
 
         binding.chipGroupDate.setOnCheckedStateChangeListener { _, checkedIds ->
             activeDateChipId = checkedIds.firstOrNull() ?: R.id.chip_date_all
@@ -109,6 +190,10 @@ class DashboardActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 eventStore.getRecentEvents().collectLatest { events ->
                     allEvents = events
+                    val nameMap = withContext(Dispatchers.IO) {
+                        contactNameDao.getAll().associate { it.contactHash to it.displayName }
+                    }
+                    eventAdapter.nameMap = nameMap
                     applyFilters()
                 }
             }
@@ -160,7 +245,7 @@ class DashboardActivity : AppCompatActivity() {
                         true
                     }
                     R.id.popup_private_ai -> {
-                        startActivity(Intent(this, GemmaDownloadActivity::class.java))
+                        handlePrivateAiSettingsTap()
                         true
                     }
 else -> false
@@ -320,16 +405,22 @@ else -> false
         val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
         val loadFailed = aiPrefs.getBoolean("gemma_load_failed", false)
 
-        // Model found but MediaPipe failed to initialise it (corrupt file, OOM, etc.).
-        // Show the chip with an error label regardless of any other state — user must reinstall.
         if (loadFailed) {
             binding.tvAiStatus.text = "Private AI Model: Error — tap to reinstall"
             binding.layoutAiStatus.visibility = View.VISIBLE
             return
         }
 
-        // Model loaded successfully — hide the chip.
         if (aiPrefs.getBoolean("gemma_loaded", false)) {
+            binding.layoutAiStatus.visibility = View.GONE
+            return
+        }
+
+        // Hide the chip while download is running — the banner above handles that state
+        val downloading = WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWork(ModelDownloadWorker.WORK_NAME).get()
+            .any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+        if (downloading) {
             binding.layoutAiStatus.visibility = View.GONE
             return
         }
@@ -342,7 +433,11 @@ else -> false
         val inFilesDir = filesDir.listFiles()?.any { f ->
             (f.name.endsWith(".bin") || f.name.endsWith(".task")) && f.length() > 100_000_000L
         } == true
-        if (inFilesDir) { binding.layoutAiStatus.visibility = View.GONE; return }
+        if (inFilesDir) {
+            healGemmaLoadedPref()
+            binding.layoutAiStatus.visibility = View.GONE
+            return
+        }
 
         // All remaining checks involve I/O — run off the main thread.
         // Cancel any previous pending check so a stale result can't overwrite a later correct state.
@@ -433,11 +528,171 @@ else -> false
         return lower.endsWith(".bin") || lower.endsWith(".task") || lower.endsWith(".gz")
     }
 
+    private fun modelOnDisk(): Boolean =
+        filesDir.listFiles()?.any { f ->
+            (f.name.endsWith(".bin") || f.name.endsWith(".task")) && f.length() > 100_000_000L
+        } == true
+
+    private fun healGemmaLoadedPref() {
+        getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+            .edit().putBoolean("gemma_loaded", true).apply()
+    }
+
     private fun isNotificationListenerEnabled(): Boolean {
         val enabledServices = Settings.Secure.getString(
             contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: return false
         return enabledServices.contains(packageName, ignoreCase = true)
+    }
+
+    private fun maybePromptModelDownload() {
+        val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+        val modelReady = aiPrefs.getBoolean("gemma_loaded", false)
+        if (modelReady) return
+
+        val onDisk = modelOnDisk()
+        if (onDisk) {
+            healGemmaLoadedPref()
+            return
+        }
+
+        val alreadyRunning = WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWork(ModelDownloadWorker.WORK_NAME).get()
+            .any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+        if (alreadyRunning) return
+
+        val termsAccepted = aiPrefs.getBoolean("gemma_terms_accepted", false)
+        if (!termsAccepted) showGemmaTermsDialog()
+        else startModelDownload()
+    }
+
+    private fun handlePrivateAiSettingsTap() {
+        val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+        val modelReady = aiPrefs.getBoolean("gemma_loaded", false) || modelOnDisk()
+        if (modelReady) {
+            androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+                .setTitle("Private AI Model")
+                .setMessage("The on-device AI model is downloaded and enabled. All analysis runs privately on your device — no data leaves it.")
+                .setPositiveButton("OK") { d, _ -> d.dismiss() }
+                .show()
+            return
+        }
+        showGemmaTermsDialog()
+    }
+
+    private fun showGemmaTermsDialog() {
+        val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+
+        val view = layoutInflater.inflate(R.layout.dialog_gemma_terms, null)
+        val scrollTerms  = view.findViewById<android.widget.ScrollView>(R.id.scroll_terms)
+        val tvTerms      = view.findViewById<android.widget.TextView>(R.id.tv_terms_content)
+        val tvScrollHint = view.findViewById<android.widget.TextView>(R.id.tv_scroll_hint)
+        val btnAccept    = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_accept_download)
+        val btnNotNow    = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_not_now)
+
+        tvTerms.text = GEMMA_TERMS
+
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .create()
+
+        fun onScrolled() {
+            if (!scrollTerms.canScrollVertically(1)) {
+                btnAccept.isEnabled = true
+                tvScrollHint.visibility = View.GONE
+            }
+        }
+
+        scrollTerms.setOnScrollChangeListener { _, _, _, _, _ -> onScrolled() }
+        // If the terms text fits without scrolling, unlock immediately after layout.
+        scrollTerms.post { onScrolled() }
+
+        btnAccept.setOnClickListener {
+            aiPrefs.edit().putBoolean("gemma_terms_accepted", true).apply()
+            dialog.dismiss()
+            startModelDownload()
+        }
+
+        btnNotNow.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
+    }
+
+    private fun startModelDownload() {
+        val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>().build()
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            ModelDownloadWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+        TelemetryManager.get(this).track("gemma_download_started")
+    }
+
+    private fun observeModelDownload() {
+        WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWorkLiveData(ModelDownloadWorker.WORK_NAME)
+            .observe(this) { workInfos ->
+                val info = workInfos?.firstOrNull()
+                when (info?.state) {
+                    WorkInfo.State.RUNNING -> {
+                        val phase = info.progress.getString(ModelDownloadWorker.KEY_PHASE)
+                        val pct   = info.progress.getInt(ModelDownloadWorker.KEY_PROGRESS, -1)
+                        showDownloadBanner(phase, pct)
+                    }
+                    WorkInfo.State.ENQUEUED -> {
+                        // runAttemptCount > 0 means this is waiting to retry after a failure.
+                        // Only show the banner if the file isn't already on disk — the worker
+                        // will find it and succeed on the next run without actually downloading.
+                        if (info.runAttemptCount > 0 && !modelOnDisk()) {
+                            showDownloadBanner(ModelDownloadWorker.PHASE_DOWNLOAD, -1)
+                        } else {
+                            binding.layoutModelDownload.visibility = View.GONE
+                        }
+                    }
+                    WorkInfo.State.SUCCEEDED -> {
+                        binding.layoutModelDownload.visibility = View.GONE
+                        binding.layoutAiStatus.visibility = View.GONE
+                    }
+                    WorkInfo.State.FAILED -> {
+                        // The OS may have killed the worker after extraction completed but before
+                        // it could write gemma_loaded=true. Check disk before showing an error.
+                        if (modelOnDisk()) {
+                            healGemmaLoadedPref()
+                            binding.layoutModelDownload.visibility = View.GONE
+                            binding.layoutAiStatus.visibility = View.GONE
+                        } else {
+                            binding.layoutModelDownload.visibility = View.GONE
+                            binding.tvAiStatus.text = "Private AI Model: Download failed — tap to retry"
+                            binding.layoutAiStatus.visibility = View.VISIBLE
+                        }
+                    }
+                    else -> binding.layoutModelDownload.visibility = View.GONE
+                }
+            }
+    }
+
+    private fun showDownloadBanner(phase: String?, pct: Int) {
+        binding.layoutAiStatus.visibility = View.GONE
+        binding.layoutModelDownload.visibility = View.VISIBLE
+        when (phase) {
+            ModelDownloadWorker.PHASE_DOWNLOAD -> {
+                if (pct >= 0) {
+                    binding.progressModelDownload.isIndeterminate = false
+                    binding.progressModelDownload.progress = pct
+                    binding.tvModelDownloadLabel.text = "Downloading private AI model… $pct%"
+                } else {
+                    binding.progressModelDownload.isIndeterminate = true
+                    binding.tvModelDownloadLabel.text = "Downloading private AI model…"
+                }
+            }
+            ModelDownloadWorker.PHASE_EXTRACT -> {
+                binding.progressModelDownload.isIndeterminate = true
+                binding.tvModelDownloadLabel.text = "Extracting private AI model…"
+            }
+            ModelDownloadWorker.PHASE_DONE -> {
+                binding.layoutModelDownload.visibility = View.GONE
+            }
+        }
     }
 
     private fun showAutonomyPrompt() {

@@ -9,10 +9,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SupportFactory
 
-@Database(entities = [RiskEvent::class], version = 2, exportSchema = false)
+@Database(entities = [RiskEvent::class, ContactNameEntry::class], version = 3, exportSchema = false)
 abstract class HitaDatabase : RoomDatabase() {
 
     abstract fun riskEventDao(): RiskEventDao
+    abstract fun contactNameDao(): ContactNameDao
 
     companion object {
         @Volatile private var instance: HitaDatabase? = null
@@ -21,6 +22,14 @@ abstract class HitaDatabase : RoomDatabase() {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
                     "ALTER TABLE risk_events ADD COLUMN gemmaAnalysis TEXT"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS contact_names (contactHash TEXT NOT NULL PRIMARY KEY, displayName TEXT NOT NULL)"
                 )
             }
         }
@@ -42,7 +51,7 @@ abstract class HitaDatabase : RoomDatabase() {
                     "hita_events.db"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
             } catch (e: Exception) {
                 android.util.Log.e("HitaDatabase", "SQLCipher init failed, falling back to unencrypted DB", e)
@@ -50,7 +59,7 @@ abstract class HitaDatabase : RoomDatabase() {
                     context.applicationContext,
                     HitaDatabase::class.java,
                     "hita_events_fallback.db"
-                ).addMigrations(MIGRATION_1_2).build()
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
             }
         }
     }

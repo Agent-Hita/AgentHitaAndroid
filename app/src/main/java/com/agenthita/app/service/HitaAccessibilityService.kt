@@ -20,6 +20,8 @@ import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.detection.RiskLevel
 import com.agenthita.app.detection.RiskScorer
 import com.agenthita.app.model.OnDeviceClassifier
+import com.agenthita.app.storage.ContactNameDao
+import com.agenthita.app.storage.ContactNameEntry
 import com.agenthita.app.storage.RiskEventStore
 import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +58,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private lateinit var riskEventStore: RiskEventStore
     private lateinit var consentManager: ConsentManager
     private lateinit var antiCoercionMonitor: AntiCoercionMonitor
+    private lateinit var contactNameDao: ContactNameDao
 
     // Persistent dedup: SHA-256(pkg + contact + ALL visible messages) → timestamp seen
     // Survives service restarts. Entries expire after DEDUP_TTL_MS so new messages
@@ -161,6 +164,7 @@ class HitaAccessibilityService : AccessibilityService() {
         localNotificationManager = LocalNotificationManager(this)
         guardianAlertSender      = GuardianAlertSender(this, consentManager)
         riskEventStore           = RiskEventStore(app.database.riskEventDao())
+        contactNameDao           = app.database.contactNameDao()
         antiCoercionMonitor      = AntiCoercionMonitor(this, consentManager)
 
         dedupPrefs = getSharedPreferences(DEDUP_PREFS, MODE_PRIVATE)
@@ -323,6 +327,12 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
 
             val convHash = sha256("$packageName|$contactName")
+
+            // Persist the display name locally so the UI can show it on this device.
+            // The hash sent in alerts never changes — only the local DB gains the name mapping.
+            serviceScope.launch {
+                contactNameDao.upsert(ContactNameEntry(sha256(contactName), contactName))
+            }
 
             // If the user switched to a different conversation within the same app, flush the old one
             if (activeConvHash != null && activeConvHash != convHash) {

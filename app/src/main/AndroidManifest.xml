@@ -63,10 +63,6 @@
             android:name=".ui.FeedbackActivity"
             android:exported="false" />
 
-        <activity
-            android:name=".ui.GemmaDownloadActivity"
-            android:exported="false" />
-
         <!--
             AccessibilityService — requires user to grant access via
             Settings > Accessibility > Agent Hita.

@@ -188,6 +188,7 @@ class TelemetryManager private constructor(private val context: Context) {
             "gemma_load_success",
             "gemma_load_failed",
             "gemma_download_tapped",
+            "gemma_download_started",
             "gemma_import_success",
             "gemma_hash_mismatch",
             "guardian_alert_sent",

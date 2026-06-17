@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.HitaApplication
 import com.agenthita.app.databinding.ActivityEventDetailBinding
+import com.agenthita.app.storage.ContactNameDao
 import com.agenthita.app.storage.RiskEvent
 import com.agenthita.app.storage.RiskEventStore
 import com.google.android.material.chip.Chip
@@ -39,15 +40,17 @@ class EventDetailActivity : AppCompatActivity() {
 
         val app = application as HitaApplication
         val store = RiskEventStore(app.database.riskEventDao())
+        val contactNameDao: ContactNameDao = app.database.contactNameDao()
 
         lifecycleScope.launch {
             val event = withContext(Dispatchers.IO) { store.getById(eventId) }
             if (event == null) { finish(); return@launch }
-            bindEvent(event)
+            val displayName = withContext(Dispatchers.IO) { contactNameDao.getName(event.contactHash) }
+            bindEvent(event, displayName)
         }
     }
 
-    private fun bindEvent(event: RiskEvent) {
+    private fun bindEvent(event: RiskEvent, displayName: String? = null) {
         val riskColor = when (event.riskLevel) {
             "HIGH"   -> Color.parseColor("#EF4444")
             "MEDIUM" -> Color.parseColor("#F59E0B")
@@ -66,13 +69,13 @@ class EventDetailActivity : AppCompatActivity() {
         binding.tvRiskBadge.text = "${event.riskLevel} RISK"
 
         // Sender section
-        binding.tvDetailSenderAvatar.text = event.contactHash.take(2).uppercase()
+        binding.tvDetailSenderAvatar.text = displayName?.toInitials() ?: event.contactHash.take(2).uppercase()
         DrawableCompat.setTint(
             binding.tvDetailSenderAvatar.background.mutate(),
             event.contactHash.toAvatarColor()
         )
         binding.tvDetailApp.text = event.appPackage.toAppName()
-        binding.tvDetailIdentity.text = "Protected (privacy by design)"
+        binding.tvDetailIdentity.text = displayName ?: "Unknown contact"
 
         // Detection section
         binding.tvDetailCategory.text = event.harmCategory.toCategoryLabel()
@@ -109,6 +112,12 @@ class EventDetailActivity : AppCompatActivity() {
             ?: "Generating analysis..."
         Linkify.addLinks(binding.tvGemmaAnalysis, Linkify.WEB_URLS)
         binding.tvGemmaAnalysis.movementMethod = LinkMovementMethod.getInstance()
+    }
+
+    private fun String.toInitials(): String {
+        val parts = trim().split(Regex("\\s+"))
+        return if (parts.size >= 2) "${parts[0].first()}${parts[1].first()}".uppercase()
+        else take(2).uppercase()
     }
 
     private fun String.toAppName() = when (this) {

@@ -38,6 +38,38 @@
 
     </com.google.android.material.appbar.MaterialToolbar>
 
+    <!-- Model download progress banner — visible only while downloading/extracting -->
+    <LinearLayout
+        android:id="@+id/layout_model_download"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="10dp"
+        android:background="@color/hita_surface"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_model_download_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Downloading private AI model…"
+            android:textSize="13sp"
+            android:textColor="@color/hita_primary"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
+
+        <ProgressBar
+            android:id="@+id/progress_model_download"
+            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:max="100"
+            android:progress="0" />
+
+    </LinearLayout>
+
     <!-- Status strip -->
     <LinearLayout
         android:layout_width="match_parent"

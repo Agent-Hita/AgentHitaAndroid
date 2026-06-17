@@ -124,6 +124,8 @@ object RemoteConfig {
     val gemmaInputTruncationChars: Int  get() = current.gemmaInputTruncationChars
     val gemmaContextMessages: Int       get() = current.gemmaContextMessages
     val gemmaContextMessageLength: Int  get() = current.gemmaContextMessageLength
+    val modelDownloadUrl: String        get() = current.modelDownloadUrl
+    val modelSignedUrlEndpoint: String  get() = current.modelSignedUrlEndpoint
     val kaggleUrl: String              get() = current.kaggleUrl
     val gemmaModelHashes: List<String>  get() = current.gemmaModelHashes
     val gemmaMaxFileSizeBytes: Long     get() = current.gemmaMaxFileSizeBytes
@@ -200,6 +202,8 @@ object RemoteConfig {
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
+        val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz",
+        val modelSignedUrlEndpoint:    String = "https://api.agenthita.org/model/download-url",
         val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
         // SHA-256 hex digests of known-good model files. Empty = skip verification (POC default).
         // Populate via remote config once you have hashes for the shipped model variants.
@@ -312,7 +316,9 @@ object RemoteConfig {
             gemmaInputTruncationChars = gem?.optInt("input_truncation_chars", defaults.gemmaInputTruncationChars) ?: defaults.gemmaInputTruncationChars,
             gemmaContextMessages      = gem?.optInt("context_messages",       defaults.gemmaContextMessages)      ?: defaults.gemmaContextMessages,
             gemmaContextMessageLength = gem?.optInt("context_message_length", defaults.gemmaContextMessageLength) ?: defaults.gemmaContextMessageLength,
-            kaggleUrl                 = gem?.optString("kaggle_url",          defaults.kaggleUrl)                 ?: defaults.kaggleUrl,
+            modelDownloadUrl          = gem?.optString("model_download_url",    defaults.modelDownloadUrl)          ?: defaults.modelDownloadUrl,
+            modelSignedUrlEndpoint    = gem?.optString("model_signed_url_endpoint", defaults.modelSignedUrlEndpoint) ?: defaults.modelSignedUrlEndpoint,
+            kaggleUrl                 = gem?.optString("kaggle_url",           defaults.kaggleUrl)                 ?: defaults.kaggleUrl,
             gemmaModelHashes          = gem?.optJSONArray("model_hashes")?.let { arr ->
                 (0 until arr.length()).mapNotNull { arr.optString(it).takeIf { s -> s.length == 64 } }
             } ?: defaults.gemmaModelHashes,

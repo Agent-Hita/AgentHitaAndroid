@@ -18,6 +18,8 @@ class RiskEventAdapter(
     private val onItemClick: (RiskEvent) -> Unit = {}
 ) : ListAdapter<RiskEvent, RiskEventAdapter.ViewHolder>(DIFF) {
 
+    var nameMap: Map<String, String> = emptyMap()
+
     inner class ViewHolder(private val b: ItemRiskEventBinding) :
         RecyclerView.ViewHolder(b.root) {
 
@@ -25,7 +27,8 @@ class RiskEventAdapter(
             b.root.setOnClickListener { onItemClick(event) }
             val color = event.riskLevel.toColor()
             b.viewRiskBar.setBackgroundColor(color)
-            b.tvSenderAvatar.text = event.contactHash.take(2).uppercase()
+            val displayName = nameMap[event.contactHash]
+            b.tvSenderAvatar.text = displayName?.toInitials() ?: event.contactHash.take(2).uppercase()
             DrawableCompat.setTint(
                 b.tvSenderAvatar.background.mutate(),
                 event.contactHash.toAvatarColor()
@@ -53,6 +56,12 @@ class RiskEventAdapter(
             override fun areContentsTheSame(a: RiskEvent, b: RiskEvent) = a == b
         }
     }
+}
+
+private fun String.toInitials(): String {
+    val parts = trim().split(Regex("\\s+"))
+    return if (parts.size >= 2) "${parts[0].first()}${parts[1].first()}".uppercase()
+    else take(2).uppercase()
 }
 
 private fun String.toColor() = when (this) {
