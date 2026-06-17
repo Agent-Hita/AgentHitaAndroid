@@ -9,8 +9,8 @@ import com.agenthita.app.detection.ConversationBuffer
 import com.agenthita.app.detection.WordLexicon
 import com.agenthita.app.service.HitaAccessibilityService
 import com.agenthita.app.telemetry.TelemetryManager
+import com.agenthita.app.model.ModelDownloadWorker
 import com.agenthita.app.ui.DashboardActivity
-import com.agenthita.app.ui.GemmaDownloadActivity
 import com.agenthita.app.ui.GuardianSetupActivity
 import com.agenthita.app.ui.OnboardingActivity
 import com.agenthita.app.ui.TermsActivity
@@ -110,8 +110,8 @@ class ComponentExistenceTest {
     }
 
     @Test
-    fun `GemmaDownloadActivity class exists`() {
-        val klass: Class<*> = GemmaDownloadActivity::class.java
+    fun `ModelDownloadWorker class exists`() {
+        val klass: Class<*> = ModelDownloadWorker::class.java
         assertNotNull(klass)
     }
 
