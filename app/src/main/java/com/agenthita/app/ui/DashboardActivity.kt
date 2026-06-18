@@ -421,6 +421,7 @@ else -> false
 
         if (aiPrefs.getBoolean("gemma_loaded", false)) {
             binding.layoutAiStatus.visibility = View.GONE
+            applyFilters()
             return
         }
 

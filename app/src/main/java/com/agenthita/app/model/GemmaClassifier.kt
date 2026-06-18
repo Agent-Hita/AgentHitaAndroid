@@ -516,7 +516,8 @@ Category: $categoryLabel
 Signals: $signalList
 $conversationBlock
 
-In 2-3 sentences, explain why this conversation is concerning. Then give exactly 2 safety tips starting with "Tip 1:" and "Tip 2:". Be clear and supportive.""".trimIndent()
+In 2-3 sentences, explain why this conversation is concerning. Then give exactly 2 safety tips starting with "Tip 1:" and "Tip 2:". Be clear and supportive.
+IMPORTANT: Do NOT advise contacting, responding to, or engaging further with the sender. Do NOT suggest meeting or replying to them. Tips must focus on blocking, reporting, and seeking help.""".trimIndent()
     }
 
     fun close() {
