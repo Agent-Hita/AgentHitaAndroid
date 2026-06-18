@@ -71,7 +71,7 @@ class ModelDownloadWorker(
 
             val conn = URL(signedUrl).openConnection() as HttpURLConnection
             conn.connectTimeout = 30_000
-            conn.readTimeout    = 120_000
+            conn.readTimeout    = 600_000
 
             // Resume partial download if the file exists and server supports range requests
             val existingBytes = if (archiveDest.exists()) archiveDest.length() else 0L
