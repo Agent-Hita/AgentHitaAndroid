@@ -292,6 +292,46 @@
 
     </HorizontalScrollView>
 
+    <!-- Empty state — shown when model is ready and no alerts have been detected -->
+    <LinearLayout
+        android:id="@+id/layout_empty_state"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:paddingHorizontal="40dp"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="✓"
+            android:textSize="48sp"
+            android:textColor="@color/hita_primary"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="You're all set!"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/hita_text_primary"
+            android:gravity="center"
+            android:layout_marginBottom="10dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Use your phone normally. Agent Hita is now protecting you."
+            android:textSize="14sp"
+            android:textColor="@color/hita_text_secondary"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.4" />
+
+    </LinearLayout>
+
     <!-- Scrollable events list — fills remaining screen space -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rv_recent_events"

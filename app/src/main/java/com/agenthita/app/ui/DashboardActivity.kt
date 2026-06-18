@@ -288,7 +288,15 @@ else -> false
         val medCount   = filtered.count { it.riskLevel == "MEDIUM" }
         val totalCount = highCount + medCount
 
+        val modelReady = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+            .getBoolean("gemma_loaded", false)
+        val showEmptyState = filtered.isEmpty() && allEvents.isEmpty() && modelReady
+
+        binding.layoutEmptyState.visibility = if (showEmptyState) View.VISIBLE else View.GONE
+        binding.rvRecentEvents.visibility   = if (showEmptyState) View.GONE else View.VISIBLE
+
         binding.tvEventSummary.text = when {
+            showEmptyState -> ""
             filtered.isEmpty() && allEvents.isEmpty() -> "No alerts detected yet."
             filtered.isEmpty() -> "No alerts match the current filter."
             else -> buildString {
