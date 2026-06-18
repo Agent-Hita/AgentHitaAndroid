@@ -782,18 +782,15 @@ class HitaAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * WhatsApp outgoing messages have a parent with a "status" node (tick marks).
-     * Walk up two levels and check for the status view id.
+     * WhatsApp outgoing messages are right-aligned; incoming are left-aligned.
+     * Using left-bound (not center) so long incoming messages that extend past the
+     * midpoint are not misclassified.
      */
     private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
-        val parent  = messageNode.parent ?: return false
-        val gParent = parent.parent ?: return false
-        val statusNodes = gParent.findAccessibilityNodeInfosByViewId("com.whatsapp:id/${RemoteConfig.uiTags.waStatusId}")
-        val isOutgoing = statusNodes.isNotEmpty()
-        statusNodes.forEach { it.recycle() }
-        parent.recycle()
-        gParent.recycle()
-        return isOutgoing
+        val rect = Rect()
+        messageNode.getBoundsInScreen(rect)
+        val screenWidth = resources.displayMetrics.widthPixels
+        return rect.left > screenWidth / 2
     }
 
     /**

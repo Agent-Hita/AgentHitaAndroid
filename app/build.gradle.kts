@@ -8,6 +8,8 @@ plugins {
 
 val secrets = Properties().apply {
     val f = rootProject.file("secrets.properties")
+        .takeIf { it.exists() }
+        ?: rootProject.file("../AgentHitaAndroidConfig/secrets.properties")
     if (f.exists()) load(f.inputStream())
 }
 
@@ -31,7 +33,7 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = secrets.getProperty("KEYSTORE_FILE", "")
-            if (ksFile.isNotEmpty()) storeFile = file(ksFile)
+            if (ksFile.isNotEmpty()) storeFile = rootProject.file(ksFile)
             storePassword = secrets.getProperty("KEYSTORE_PASSWORD", "")
             keyAlias      = secrets.getProperty("KEY_ALIAS", "")
             keyPassword   = secrets.getProperty("KEY_PASSWORD", "")
