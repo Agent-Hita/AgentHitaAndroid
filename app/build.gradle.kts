@@ -33,7 +33,13 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = secrets.getProperty("KEYSTORE_FILE", "")
-            if (ksFile.isNotEmpty()) storeFile = rootProject.file(ksFile)
+            if (ksFile.isNotEmpty()) {
+                // rootProject-relative works locally; module-relative works in CI
+                // (CI checks out AgentHitaAndroidConfig as a subdirectory of the workspace)
+                val fromRoot   = rootProject.file(ksFile)
+                val fromModule = file(ksFile)
+                storeFile = if (fromRoot.exists()) fromRoot else fromModule
+            }
             storePassword = secrets.getProperty("KEYSTORE_PASSWORD", "")
             keyAlias      = secrets.getProperty("KEY_ALIAS", "")
             keyPassword   = secrets.getProperty("KEY_PASSWORD", "")
