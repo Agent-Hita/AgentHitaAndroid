@@ -518,16 +518,6 @@ else -> false
             }
         }
 
-        // 3. Direct directory scan — requires MANAGE_EXTERNAL_STORAGE; last resort.
-        for (dir in listOf("/sdcard/Download", "/storage/emulated/0/Download").map { java.io.File(it) }) {
-            val files = runCatching { dir.listFiles() }.getOrNull() ?: continue
-            for (f in files) {
-                if (f.length() > 100_000_000L && isModelFile(f.name)) {
-                    android.util.Log.i("HitaAI", "Model found via dir scan: ${f.absolutePath}")
-                    return true
-                }
-            }
-        }
         return false
     }
 
