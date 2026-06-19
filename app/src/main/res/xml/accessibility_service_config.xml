@@ -6,4 +6,5 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_service_description"
     android:notificationTimeout="300"
+    android:isAccessibilityTool="false"
     android:packageNames="com.whatsapp,com.whatsapp.w4b,com.instagram.android,com.google.android.apps.messaging,com.samsung.android.messaging,com.android.messaging,com.android.mms" />
