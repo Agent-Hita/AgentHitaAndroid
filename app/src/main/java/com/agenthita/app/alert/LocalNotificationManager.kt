@@ -95,8 +95,15 @@ class LocalNotificationManager(private val context: Context) {
         notificationManager.notify(NOTIFICATION_ID_STATUS, buildStatusNotification())
     }
 
-    fun buildStatusNotification(): android.app.Notification =
-        NotificationCompat.Builder(context, HitaApplication.CHANNEL_STATUS)
+    fun buildStatusNotification(): android.app.Notification {
+        val intent = Intent(context, DashboardActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            context, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(context, HitaApplication.CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_hita_shield)
             .setContentTitle("Agent Hita is active")
             .setContentText("Monitoring for harmful patterns. Tap to manage settings.")
@@ -104,7 +111,9 @@ class LocalNotificationManager(private val context: Context) {
             .setOngoing(true)
             .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE)
             .setNumber(0)
+            .setContentIntent(pendingIntent)
             .build()
+    }
 
     fun dismissStatusIndicator() {
         notificationManager.cancel(NOTIFICATION_ID_STATUS)
