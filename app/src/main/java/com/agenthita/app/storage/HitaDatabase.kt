@@ -54,12 +54,8 @@ abstract class HitaDatabase : RoomDatabase() {
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
             } catch (e: Exception) {
-                android.util.Log.e("HitaDatabase", "SQLCipher init failed, falling back to unencrypted DB", e)
-                Room.databaseBuilder(
-                    context.applicationContext,
-                    HitaDatabase::class.java,
-                    "hita_events_fallback.db"
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
+                android.util.Log.e("HitaDatabase", "SQLCipher init failed — refusing to open unencrypted DB", e)
+                throw IllegalStateException("Encrypted database unavailable. Cannot store risk events without encryption.", e)
             }
         }
     }

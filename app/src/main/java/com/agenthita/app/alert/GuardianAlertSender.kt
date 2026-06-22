@@ -90,7 +90,7 @@ class GuardianAlertSender(
                 .build()
 
             WorkManager.getInstance(context).enqueue(request)
-            android.util.Log.i(TAG, "Guardian alert enqueued immediately: category=${result.category} level=${result.riskLevel} eventId=$eventId to=$guardianEmail")
+            android.util.Log.i(TAG, "Guardian alert enqueued immediately: category=${result.category} level=${result.riskLevel} eventId=$eventId")
             true
         } else {
             val delayMs = throttle.remainingMs(contactHash, nowMs, throttleMs)

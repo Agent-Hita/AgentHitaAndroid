@@ -94,9 +94,8 @@ class ConsentManager(context: Context) {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            // Fallback to plain prefs if encrypted storage fails (e.g. keystore unavailable)
-            android.util.Log.e("ConsentManager", "EncryptedSharedPreferences failed, using plain prefs", e)
-            context.getSharedPreferences("hita_consent_prefs_plain", Context.MODE_PRIVATE)
+            android.util.Log.e("ConsentManager", "EncryptedSharedPreferences unavailable — cannot store consent data without encryption", e)
+            throw IllegalStateException("Encrypted storage unavailable. Consent data cannot be stored securely.", e)
         }
     }
 
