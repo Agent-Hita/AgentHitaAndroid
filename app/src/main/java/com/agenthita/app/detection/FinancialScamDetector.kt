@@ -96,9 +96,11 @@ class FinancialScamDetector : PatternMatcher {
         "do not speak to anyone"
     )
 
-    // URLs or link patterns commonly used in phishing / smishing
+    // URLs or link patterns commonly used in phishing / smishing.
+    // Bare "http://" and "https://" are intentionally excluded — any legitimate
+    // invite or business message can contain a URL. Only specific path patterns
+    // (payment, verify, etc.) and URL shorteners are treated as suspicious.
     private val suspiciousLinkSignals = listOf(
-        "http://", "https://",
         "click here", "click the link", "tap the link",
         "follow this link", "visit this link", "open this link",
         ".com/payment", ".net/payment", ".org/payment",
