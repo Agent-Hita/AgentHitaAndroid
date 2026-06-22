@@ -621,7 +621,8 @@ class HitaAccessibilityService : AccessibilityService() {
                 val subtitle = subtitleNodes.firstOrNull()?.text?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
                 subtitle.contains("member", ignoreCase = true) ||
-                subtitle.split(",").size >= 2
+                subtitle.split(",").size >= 2 ||
+                subtitle.matches(Regex("\\d+\\s+online.*", RegexOption.IGNORE_CASE))
             }
             "com.instagram.android" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderSubtitleId}")
