@@ -118,10 +118,12 @@ class RiskScorer(
         val ruleLevel = ruleResult.riskLevel
         return when {
             gemmaSeverity == RiskLevel.NONE                               -> ruleResult
-            // Rules NONE, Gemma MEDIUM/HIGH → raise to MEDIUM.
-            // Gemma runs unconditionally so it can rescue messages patterns missed entirely.
-            // Capped at MEDIUM to guard against hallucinations on genuinely safe messages.
-            ruleLevel == RiskLevel.NONE && gemmaSeverity >= RiskLevel.MEDIUM ->
+            // Rules NONE, Gemma MEDIUM/HIGH → raise to MEDIUM for children/adolescents,
+            // or when Gemma is HIGH for adults. Adults require a HIGH Gemma verdict before
+            // a pure-Gemma result triggers a notification — MEDIUM alone is too noisy given
+            // the higher false-positive rate on the 1B quantized model for adult contexts.
+            ruleLevel == RiskLevel.NONE && gemmaSeverity >= RiskLevel.MEDIUM &&
+                    (userCategory != com.agenthita.app.consent.UserCategory.SELF_PROTECTING_ADULT || gemmaSeverity == RiskLevel.HIGH) ->
                 ruleResult.copy(
                     riskLevel   = RiskLevel.MEDIUM,
                     score       = 0.35f,
