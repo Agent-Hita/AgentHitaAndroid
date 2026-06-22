@@ -215,7 +215,9 @@ class TelemetryManager private constructor(private val context: Context) {
             "permission_notifications_granted",
             "permission_accessibility_denied",
             "feedback_submit_failed",
-            "service_frozen"
+            "service_frozen",
+            "terms_accepted",
+            "terms_declined"
         )
 
         @Volatile

@@ -169,7 +169,10 @@ class DashboardActivity : AppCompatActivity() {
         updateStatusDot()
         updateAiStatus()
 
-        binding.layoutAiStatus.setOnClickListener { showGemmaTermsDialog() }
+        binding.layoutAiStatus.setOnClickListener {
+            TelemetryManager.get(this).track("gemma_download_tapped")
+            showGemmaTermsDialog()
+        }
 
         observeModelDownload()
         maybePromptModelDownload()

@@ -10,12 +10,14 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityTermsBinding
+import com.agenthita.app.telemetry.TelemetryManager
 
 class TermsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTermsBinding
     private lateinit var consentManager: ConsentManager
     private var hasScrolledToBottom = false
+    private var agreed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,11 +30,18 @@ class TermsActivity : AppCompatActivity() {
         setupWebView()
 
         binding.btnAgree.setOnClickListener {
+            agreed = true
+            TelemetryManager.get(this).track("terms_accepted")
             consentManager.hasAcceptedTerms = true
             consentManager.acceptedTermsVersion = ConsentManager.CURRENT_TERMS_VERSION
             startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        if (!agreed) TelemetryManager.get(this).track("terms_declined")
     }
 
     private fun setupWebView() {
