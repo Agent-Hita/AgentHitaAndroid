@@ -95,8 +95,12 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val MAX_SEEN_PER_CONV       = 200
 
         // Media-only messages that carry no conversational text and should be ignored.
+        // Handles bare labels ("Video"), metadata suffixes ("Video · 0:21", "Voice message (5.4 MB)"),
+        // and leading emoji ("🎥 Video"). The suffix anchor [·•()\d] prevents natural-language
+        // captions like "Video of us at the party" from being filtered — only suffixes that start
+        // with a bullet, parenthesis, or digit are treated as media metadata.
         private val MEDIA_LABEL_PATTERN = Regex(
-            """^(photo|image|video|gif|sticker|audio|voice\s*message|document|contact|location|file)$""",
+            """^[^a-zA-Z]*(photo|image|video|gif|sticker|audio|voice\s*message|document|contact|location|file)(\s*[·•()\d].*)?$""",
             RegexOption.IGNORE_CASE
         )
         private val MEDIA_FILE_EXTENSION = Regex(
