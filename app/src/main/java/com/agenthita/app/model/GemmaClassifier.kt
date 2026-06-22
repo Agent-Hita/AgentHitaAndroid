@@ -195,7 +195,11 @@ class GemmaClassifier(context: Context) {
 
         private fun verifyModelFile(context: Context, file: File): Boolean {
         val allowedHashes = RemoteConfig.gemmaModelHashes
-        if (allowedHashes.isEmpty()) return true  // No hashes configured yet — skip check
+        if (allowedHashes.isEmpty()) {
+            android.util.Log.e("GemmaClassifier", "gemmaModelHashes is empty — model loaded without integrity check. Populate via remote config.")
+            TelemetryManager.get(context).track("gemma_hash_verification_skipped")
+            return true
+        }
 
         return try {
             val digest = java.security.MessageDigest.getInstance("SHA-256")

@@ -205,9 +205,12 @@ object RemoteConfig {
         val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz",
         val modelSignedUrlEndpoint:    String = "https://api.agenthita.org/model/download-url",
         val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
-        // SHA-256 hex digests of known-good model files. Empty = skip verification (POC default).
-        // Populate via remote config once you have hashes for the shipped model variants.
-        val gemmaModelHashes:          List<String> = emptyList(),
+        // SHA-256 hex digests of known-good extracted model binaries.
+        // Verified against gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
+        // Add new entries here (or via remote config) when shipping updated model versions.
+        val gemmaModelHashes:          List<String> = listOf(
+            "176452e0eef32e7cd477e5609160278f3f5cbfeeb46d2cb2d37bd631af1b0bea"
+        ),
         val gemmaMaxFileSizeBytes:     Long   = 5_000_000_000L,
 
         // Thresholds
