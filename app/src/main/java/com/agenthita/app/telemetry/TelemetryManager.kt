@@ -5,6 +5,7 @@ import android.os.Build
 import android.telephony.TelephonyManager
 import android.util.Log
 import com.agenthita.app.config.RemoteConfig
+import com.agenthita.app.security.DeviceTokenManager
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -79,11 +80,12 @@ class TelemetryManager private constructor(private val context: Context) {
         }
 
         scope.launch {
-            sendBatch(batch)
+            val token = DeviceTokenManager.getToken(context)
+            sendBatch(batch, token)
         }
     }
 
-    private fun sendBatch(events: List<AggregatedEvent>) {
+    private fun sendBatch(events: List<AggregatedEvent>, token: String) {
         try {
             val payload = JSONObject().apply {
                 put("appVersion",     RemoteConfig.appVersion)
@@ -108,7 +110,7 @@ class TelemetryManager private constructor(private val context: Context) {
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")
             conn.setRequestProperty("Accept", "application/json")
-            conn.setRequestProperty("X-API-Key", RemoteConfig.apiKey)
+            conn.setRequestProperty("X-Device-Token", token)
             conn.doOutput = true
             conn.connectTimeout = RemoteConfig.connectTimeoutMs
             conn.readTimeout    = RemoteConfig.readTimeoutMs

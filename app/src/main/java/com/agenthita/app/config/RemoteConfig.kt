@@ -108,7 +108,7 @@ object RemoteConfig {
     val alertEndpoint: String           get() = current.alertEndpoint
     val guardianConfigEndpoint: String  get() = current.guardianConfigEndpoint
     val feedbackEndpoint: String        get() = current.feedbackEndpoint
-    val apiKey: String             get() = current.apiKey
+    val deviceRegisterEndpoint: String  get() = current.deviceRegisterEndpoint
     val connectTimeoutMs:            Int  get() = current.connectTimeoutMs
     val readTimeoutMs:               Int  get() = current.readTimeoutMs
     val configConnectTimeoutMs:      Int  get() = current.configConnectTimeoutMs
@@ -184,9 +184,7 @@ object RemoteConfig {
         val alertEndpoint:          String = "https://api.agenthita.org/alert/guardian",
         val guardianConfigEndpoint: String = "https://api.agenthita.org/alert/guardian/configure",
         val feedbackEndpoint:       String = "https://api.agenthita.org/feedback",
-        // Intentionally blank — populated exclusively via the cert-pinned remote config
-        // (api_key field). Never baked into the APK.
-        val apiKey:            String = "",
+        val deviceRegisterEndpoint: String = "https://api.agenthita.org/device/register",
         val connectTimeoutMs:           Int  = 10_000,
         val readTimeoutMs:              Int  = 15_000,
         val configConnectTimeoutMs:     Int  = 5_000,
@@ -303,7 +301,7 @@ object RemoteConfig {
             alertEndpoint          = api?.optString("alert_endpoint",           defaults.alertEndpoint)          ?: defaults.alertEndpoint,
             guardianConfigEndpoint = api?.optString("guardian_config_endpoint", defaults.guardianConfigEndpoint) ?: defaults.guardianConfigEndpoint,
             feedbackEndpoint       = api?.optString("feedback_endpoint",        defaults.feedbackEndpoint)       ?: defaults.feedbackEndpoint,
-            apiKey            = api?.optString("api_key").takeIf { !it.isNullOrBlank() } ?: defaults.apiKey,
+            deviceRegisterEndpoint = api?.optString("device_register_endpoint", defaults.deviceRegisterEndpoint) ?: defaults.deviceRegisterEndpoint,
             connectTimeoutMs        = api?.optInt("connect_timeout_ms",          defaults.connectTimeoutMs)        ?: defaults.connectTimeoutMs,
             readTimeoutMs           = api?.optInt("read_timeout_ms",            defaults.readTimeoutMs)           ?: defaults.readTimeoutMs,
             configConnectTimeoutMs  = api?.optInt("config_connect_timeout_ms",  defaults.configConnectTimeoutMs)  ?: defaults.configConnectTimeoutMs,

@@ -13,6 +13,7 @@ import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
+import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.detection.DetectionResult
 import com.agenthita.app.detection.HarmCategory
 import com.agenthita.app.storage.HitaDatabase
@@ -265,6 +266,7 @@ class GuardianAlertWorker(
             true
         }
 
+        val token = DeviceTokenManager.getToken(applicationContext)
         return try {
             sendAlert(
                 deviceId     = deviceId,
@@ -273,7 +275,8 @@ class GuardianAlertWorker(
                 riskLevel    = riskLevel,
                 eventId      = eventId,
                 appName      = appName,
-                isFirstAlert = isFirstAlert
+                isFirstAlert = isFirstAlert,
+                token        = token
             )
             android.util.Log.i(TAG, "Guardian alert sent: category=$categoryName level=$riskLevel eventId=$eventId")
             TelemetryManager.get(applicationContext).track("guardian_alert_sent")
@@ -312,6 +315,7 @@ class GuardianAlertWorker(
         val category = HarmCategory.valueOf(topEvent.harmCategory)
         val appName  = APP_NAMES[topEvent.appPackage] ?: topEvent.appPackage
 
+        val token = DeviceTokenManager.getToken(applicationContext)
         return try {
             sendAlert(
                 deviceId     = deviceId,
@@ -322,7 +326,8 @@ class GuardianAlertWorker(
                 appName      = appName,
                 isFirstAlert = false,
                 isAggregated = true,
-                eventCount   = unsentEvents.size
+                eventCount   = unsentEvents.size,
+                token        = token
             )
             dao.markAllUnsentAlertsSent(contactHash)
 
@@ -356,7 +361,8 @@ class GuardianAlertWorker(
         appName: String,
         isFirstAlert: Boolean,
         isAggregated: Boolean = false,
-        eventCount: Int = 1
+        eventCount: Int = 1,
+        token: String = ""
     ) {
         val whatYouCanDo = WHAT_YOU_CAN_DO[category.name] ?: emptyList()
 
@@ -377,7 +383,7 @@ class GuardianAlertWorker(
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("X-API-Key", RemoteConfig.apiKey)
+        conn.setRequestProperty("X-Device-Token", token)
         conn.doOutput = true
         conn.connectTimeout = RemoteConfig.connectTimeoutMs
         conn.readTimeout    = RemoteConfig.readTimeoutMs

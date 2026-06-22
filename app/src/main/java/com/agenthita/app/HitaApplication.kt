@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.util.Log
 import android.webkit.WebView
 import com.agenthita.app.config.RemoteConfig
+import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.storage.HitaDatabase
 import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -27,6 +28,10 @@ class HitaApplication : Application() {
         super.onCreate()
         RemoteConfig.init(this)
         RemoteConfig.fetchAsync(this)
+        GlobalScope.launch(Dispatchers.IO) {
+            try { DeviceTokenManager.getToken(this@HitaApplication) }
+            catch (e: Exception) { Log.w("HitaApplication", "Device token pre-warm failed: ${e.message}") }
+        }
         createNotificationChannels()
         installCrashHandler()
         installForegroundTracker()

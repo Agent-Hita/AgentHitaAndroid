@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
+import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.service.HitaAccessibilityService
 import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.Dispatchers
@@ -52,11 +53,12 @@ class ModelDownloadWorker(
 
             // /model/* on CloudFront requires a signed URL — fetch one from the backend first.
             val deviceId = ConsentManager(appContext).userId
+            val deviceToken = DeviceTokenManager.getToken(appContext)
             val signedUrlConn = URL(RemoteConfig.modelSignedUrlEndpoint).openConnection() as HttpURLConnection
             signedUrlConn.connectTimeout = 15_000
             signedUrlConn.readTimeout    = 15_000
-            signedUrlConn.setRequestProperty("X-Api-Key",   RemoteConfig.apiKey)
-            signedUrlConn.setRequestProperty("X-Device-Id", deviceId)
+            signedUrlConn.setRequestProperty("X-Device-Token", deviceToken)
+            signedUrlConn.setRequestProperty("X-Device-Id",    deviceId)
             signedUrlConn.connect()
 
             val signedUrlStatus = signedUrlConn.responseCode

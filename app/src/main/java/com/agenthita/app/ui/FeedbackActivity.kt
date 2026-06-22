@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.databinding.ActivityFeedbackBinding
+import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -54,7 +55,8 @@ class FeedbackActivity : AppCompatActivity() {
         binding.btnSubmit.text = "Submitting…"
 
         lifecycleScope.launch {
-            val error = withContext(Dispatchers.IO) { postFeedback(rating, text) }
+            val token = DeviceTokenManager.getToken(this@FeedbackActivity)
+            val error = withContext(Dispatchers.IO) { postFeedback(rating, text, token) }
 
             if (error == null) {
                 binding.btnSubmit.visibility = View.GONE
@@ -72,7 +74,7 @@ class FeedbackActivity : AppCompatActivity() {
     }
 
     /** Returns null on success, or an error message string to show the user on failure. */
-    private fun postFeedback(rating: Int, text: String): String? {
+    private fun postFeedback(rating: Int, text: String, token: String): String? {
         return try {
             val payload = JSONObject().apply {
                 put("userId", getOrCreateUserId())
@@ -86,7 +88,7 @@ class FeedbackActivity : AppCompatActivity() {
             connection.requestMethod = "POST"
             connection.setRequestProperty("Content-Type", "application/json")
             connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty("X-API-Key", RemoteConfig.apiKey)
+            connection.setRequestProperty("X-Device-Token", token)
             connection.doOutput = true
             connection.connectTimeout = RemoteConfig.connectTimeoutMs
             connection.readTimeout    = RemoteConfig.readTimeoutMs

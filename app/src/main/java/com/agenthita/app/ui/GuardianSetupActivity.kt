@@ -8,6 +8,7 @@ import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
+import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.consent.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +97,7 @@ class GuardianSetupActivity : AppCompatActivity() {
     private fun postGuardianConfig(email: String, action: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
+                val token = DeviceTokenManager.getToken(this@GuardianSetupActivity)
                 val payload = JSONObject().apply {
                     put("deviceId",     consentManager.userId)
                     put("guardianEmail", email)
@@ -104,7 +106,7 @@ class GuardianSetupActivity : AppCompatActivity() {
                 val conn = URL(RemoteConfig.guardianConfigEndpoint).openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("X-API-Key", RemoteConfig.apiKey)
+                conn.setRequestProperty("X-Device-Token", token)
                 conn.doOutput = true
                 conn.connectTimeout = RemoteConfig.connectTimeoutMs
                 conn.readTimeout    = RemoteConfig.readTimeoutMs
