@@ -123,6 +123,7 @@ class TelemetryManager private constructor(private val context: Context) {
             if (code in 200..299) {
                 Log.d(TAG, "Telemetry batch sent: ${events.size} events")
             } else {
+                if (code == 401) DeviceTokenManager.invalidate(context)
                 Log.w(TAG, "Telemetry batch rejected: HTTP $code")
             }
         } catch (e: Exception) {

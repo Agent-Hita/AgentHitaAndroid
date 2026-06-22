@@ -65,6 +65,7 @@ class ModelDownloadWorker(
             if (signedUrlStatus !in 200..299) {
                 android.util.Log.w("ModelDownloadWorker", "Signed-URL request failed: HTTP $signedUrlStatus")
                 signedUrlConn.disconnect()
+                if (signedUrlStatus == 401) DeviceTokenManager.invalidate(appContext)
                 return@withContext Result.retry()
             }
             val signedUrl = JSONObject(signedUrlConn.inputStream.bufferedReader().readText()).getString("url")

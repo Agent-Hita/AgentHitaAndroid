@@ -87,6 +87,16 @@ object DeviceTokenManager {
         return JSONObject(responseBody).getString("token")
     }
 
+    fun invalidate(context: Context) {
+        cached = null
+        try {
+            buildEncryptedPrefs(context.applicationContext).edit().remove(KEY_TOKEN).apply()
+            Log.i(TAG, "Device token invalidated — will re-register on next request")
+        } catch (e: Exception) {
+            Log.w(TAG, "Token invalidation failed: ${e.message}")
+        }
+    }
+
     private fun buildEncryptedPrefs(context: Context) = EncryptedSharedPreferences.create(
         context,
         PREFS_FILE,

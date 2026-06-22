@@ -101,7 +101,7 @@ class FeedbackActivity : AppCompatActivity() {
                 return null
             }
 
-            // Read error body and extract "message" if present
+            if (responseCode == 401) DeviceTokenManager.invalidate(this@FeedbackActivity)
             val errorBody = connection.errorStream?.bufferedReader()?.readText()
             connection.disconnect()
             val serverMessage = errorBody?.let {

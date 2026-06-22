@@ -150,6 +150,8 @@ class GuardianAlertSender(
     }
 }
 
+private class UnauthorizedException : RuntimeException("HTTP 401")
+
 class GuardianAlertWorker(
     context: Context,
     params: WorkerParameters
@@ -281,6 +283,11 @@ class GuardianAlertWorker(
             android.util.Log.i(TAG, "Guardian alert sent: category=$categoryName level=$riskLevel eventId=$eventId")
             TelemetryManager.get(applicationContext).track("guardian_alert_sent")
             Result.success()
+        } catch (e: UnauthorizedException) {
+            DeviceTokenManager.invalidate(applicationContext)
+            android.util.Log.w(TAG, "Guardian alert: token rejected (401) — invalidated, will re-register on retry")
+            TelemetryManager.get(applicationContext).track("guardian_alert_failed")
+            Result.retry()
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Guardian alert send failed (will retry): ${e.message}")
             TelemetryManager.get(applicationContext).track("guardian_alert_failed")
@@ -341,6 +348,11 @@ class GuardianAlertWorker(
             android.util.Log.i(TAG, "Aggregated alert sent: ${unsentEvents.size} events for contact=$contactHash topCategory=${category.name}")
             TelemetryManager.get(applicationContext).track("guardian_alert_aggregated_sent")
             Result.success()
+        } catch (e: UnauthorizedException) {
+            DeviceTokenManager.invalidate(applicationContext)
+            android.util.Log.w(TAG, "Aggregated alert: token rejected (401) — invalidated, will re-register on retry")
+            TelemetryManager.get(applicationContext).track("guardian_alert_failed")
+            Result.retry()
         } catch (e: Exception) {
             android.util.Log.e(TAG, "Aggregated alert send failed (will retry): ${e.message}")
             TelemetryManager.get(applicationContext).track("guardian_alert_failed")
@@ -394,6 +406,7 @@ class GuardianAlertWorker(
         if (code !in 200..299) {
             val body = conn.errorStream?.bufferedReader()?.readText()?.take(200) ?: ""
             conn.disconnect()
+            if (code == 401) throw UnauthorizedException()
             throw RuntimeException("Alert endpoint returned HTTP $code: $body")
         }
         conn.disconnect()
