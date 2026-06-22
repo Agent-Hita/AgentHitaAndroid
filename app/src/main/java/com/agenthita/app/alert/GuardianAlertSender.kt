@@ -75,7 +75,6 @@ class GuardianAlertSender(
 
             val data = Data.Builder()
                 .putString(KEY_DEVICE_ID, consentManager.userId)
-                .putString(KEY_GUARDIAN_EMAIL, guardianEmail)
                 .putString(KEY_CATEGORY, result.category.name)
                 .putString(KEY_RISK_LEVEL, result.riskLevel.name)
                 .putLong(KEY_EVENT_ID, eventId)
@@ -98,7 +97,6 @@ class GuardianAlertSender(
             val data = Data.Builder()
                 .putBoolean(KEY_IS_AGGREGATED, true)
                 .putString(KEY_DEVICE_ID, consentManager.userId)
-                .putString(KEY_GUARDIAN_EMAIL, guardianEmail)
                 .putString(KEY_CONTACT_HASH, contactHash)
                 .build()
 
@@ -136,7 +134,6 @@ class GuardianAlertSender(
         internal const val THROTTLE_PREFS   = "hita_guardian_throttle"
 
         const val KEY_DEVICE_ID             = "device_id"
-        const val KEY_GUARDIAN_EMAIL        = "guardian_email"
         const val KEY_CATEGORY              = "category"
         const val KEY_RISK_LEVEL            = "risk_level"
         const val KEY_EVENT_ID              = "event_id"
@@ -244,8 +241,11 @@ class GuardianAlertWorker(
 
     private suspend fun doImmediateWork(): Result {
         val deviceId     = inputData.getString(GuardianAlertSender.KEY_DEVICE_ID) ?: return Result.failure()
-        val guardianEmail = inputData.getString(GuardianAlertSender.KEY_GUARDIAN_EMAIL)
-            ?: return Result.failure()
+        val guardianEmail = ConsentManager(applicationContext).guardianEmail
+            ?: run {
+                android.util.Log.w(TAG, "Immediate alert: no guardian email configured — dropping job")
+                return Result.failure()
+            }
         val categoryName = inputData.getString(GuardianAlertSender.KEY_CATEGORY)
             ?: return Result.failure()
         val riskLevel    = inputData.getString(GuardianAlertSender.KEY_RISK_LEVEL) ?: "HIGH"
@@ -287,8 +287,11 @@ class GuardianAlertWorker(
 
     private suspend fun doAggregatedWork(): Result {
         val deviceId = inputData.getString(GuardianAlertSender.KEY_DEVICE_ID) ?: return Result.failure()
-        val guardianEmail = inputData.getString(GuardianAlertSender.KEY_GUARDIAN_EMAIL)
-            ?: return Result.failure()
+        val guardianEmail = ConsentManager(applicationContext).guardianEmail
+            ?: run {
+                android.util.Log.w(TAG, "Aggregated alert: no guardian email configured — dropping job")
+                return Result.failure()
+            }
         val contactHash = inputData.getString(GuardianAlertSender.KEY_CONTACT_HASH)
             ?: return Result.failure()
 
