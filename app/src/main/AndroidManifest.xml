@@ -32,11 +32,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter>
+            <!--
+                Verified App Link — android:autoVerify requires a matching
+                /.well-known/assetlinks.json on agenthita.org. Without it
+                Android falls back to the app chooser; with it, verified links
+                open directly and other apps cannot spoof this intent.
+                Path is restricted to /app/* so arbitrary agenthita.org URLs
+                (blog posts, privacy policy, etc.) do not trigger the app.
+                OnboardingActivity intentionally ignores intent.data — the URI
+                is used only as an "open the app" signal, never parsed.
+            -->
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="agenthita.org" />
+                <data android:scheme="https"
+                    android:host="agenthita.org"
+                    android:pathPrefix="/app/" />
             </intent-filter>
         </activity>
 

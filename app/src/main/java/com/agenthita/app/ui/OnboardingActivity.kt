@@ -31,6 +31,10 @@ class OnboardingActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         consentManager = ConsentManager(this)
 
+        // Deep link intents (https://agenthita.org/app/*) open the app as an entry point only.
+        // intent.data is deliberately not read — no URI parameters are trusted or processed.
+        // If deep link routing ever needs to carry data, validate the URI strictly here before use.
+
         if (!consentManager.hasAcceptedTerms) {
             startActivity(Intent(this, TermsActivity::class.java))
             finish()
