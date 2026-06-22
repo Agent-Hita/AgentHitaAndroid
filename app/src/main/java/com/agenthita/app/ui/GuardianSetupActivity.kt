@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.agenthita.app.R
 import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
@@ -40,19 +41,14 @@ class GuardianSetupActivity : AppCompatActivity() {
             updateAlertsLabel(isChecked)
         }
 
-        // Pre-fill age checkboxes from saved category
-        when (consentManager.userCategory) {
-            UserCategory.CHILD      -> binding.cbUnder13.isChecked = true
-            UserCategory.ADOLESCENT -> binding.cbUnder21.isChecked = true
-            else                    -> {}
+        // Pre-fill RadioGroup from saved category
+        val radioId = when (consentManager.userCategory) {
+            UserCategory.CHILD               -> R.id.rb_under_13
+            UserCategory.ADOLESCENT          -> R.id.rb_under_21
+            UserCategory.VULNERABLE_ADULT    -> R.id.rb_vulnerable_adult
+            UserCategory.SELF_PROTECTING_ADULT -> R.id.rb_self
         }
-        // Mutually exclusive: selecting one clears the other
-        binding.cbUnder13.setOnCheckedChangeListener { _, checked ->
-            if (checked) binding.cbUnder21.isChecked = false
-        }
-        binding.cbUnder21.setOnCheckedChangeListener { _, checked ->
-            if (checked) binding.cbUnder13.isChecked = false
-        }
+        binding.rgUserCategory.check(radioId)
 
         binding.btnSkip.setOnClickListener {
             saveAgeCategory()
@@ -120,10 +116,11 @@ class GuardianSetupActivity : AppCompatActivity() {
     }
 
     private fun saveAgeCategory() {
-        consentManager.userCategory = when {
-            binding.cbUnder13.isChecked -> UserCategory.CHILD
-            binding.cbUnder21.isChecked -> UserCategory.ADOLESCENT
-            else                        -> UserCategory.SELF_PROTECTING_ADULT
+        consentManager.userCategory = when (binding.rgUserCategory.checkedRadioButtonId) {
+            R.id.rb_under_13        -> UserCategory.CHILD
+            R.id.rb_under_21        -> UserCategory.ADOLESCENT
+            R.id.rb_vulnerable_adult -> UserCategory.VULNERABLE_ADULT
+            else                    -> UserCategory.SELF_PROTECTING_ADULT
         }
     }
 

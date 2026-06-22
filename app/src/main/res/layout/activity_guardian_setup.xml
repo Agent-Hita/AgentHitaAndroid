@@ -70,21 +70,45 @@
                         android:lineSpacingMultiplier="1.3"
                         android:layout_marginBottom="12dp" />
 
-                    <CheckBox
-                        android:id="@+id/cb_under_21"
+                    <RadioGroup
+                        android:id="@+id/rg_user_category"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Under 21 years old"
-                        android:textColor="@color/hita_text_primary"
-                        android:textSize="14sp" />
+                        android:layout_height="wrap_content">
 
-                    <CheckBox
-                        android:id="@+id/cb_under_13"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Under 13 years old (child)"
-                        android:textColor="@color/hita_text_primary"
-                        android:textSize="14sp" />
+                        <RadioButton
+                            android:id="@+id/rb_self"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Myself (adult)"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp"
+                            android:checked="true" />
+
+                        <RadioButton
+                            android:id="@+id/rb_vulnerable_adult"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Vulnerable adult"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_under_21"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Adolescent (13–21)"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_under_13"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Child (under 13)"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp" />
+
+                    </RadioGroup>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>

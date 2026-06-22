@@ -2,7 +2,6 @@ package com.agenthita.app.detection
 
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.UserCategory
-import com.agenthita.app.model.OnDeviceClassifier
 
 /**
  * Orchestrates the two-layer detection pipeline:
@@ -15,7 +14,7 @@ import com.agenthita.app.model.OnDeviceClassifier
  * Returns only results with RiskLevel > NONE.
  */
 class RiskScorer(
-    private val classifier: OnDeviceClassifier,
+    private val classifier: Classifier,
     private val userCategory: UserCategory = UserCategory.SELF_PROTECTING_ADULT
 ) {
 
@@ -55,7 +54,14 @@ class RiskScorer(
         // Always calls scoreToRiskLevel (even with zero word boost) so age-adjusted
         // thresholds apply to pure-phrase results too.
         val wordBoosted: Map<HarmCategory, DetectionResult> = ruleResults.mapValues { (cat, result) ->
-            val wordScore = WordLexicon.score(text, cat)
+            val rawWordScore = WordLexicon.score(text, cat)
+            // Teens use "kill", "destroy", "attack" etc. in gaming/social contexts constantly.
+            // Dampen HARASSMENT word-lexicon weight for younger users so accumulation of
+            // hyperbolic vocabulary doesn't cross the threshold without a phrase-level signal.
+            val wordScore = if (
+                cat == HarmCategory.HARASSMENT &&
+                (userCategory == UserCategory.ADOLESCENT || userCategory == UserCategory.CHILD)
+            ) rawWordScore * 0.4f else rawWordScore
             val boost = if (wordScore > 0f) (wordScore * 0.5f).coerceAtMost(0.26f) else 0f
             val combined = (result.score + boost).coerceIn(0f, 1f)
             result.copy(score = combined, riskLevel = scoreToRiskLevel(combined))
@@ -81,7 +87,7 @@ class RiskScorer(
         // for an adult may be clearly harmful for a child.
         val ageHint: String? = when (userCategory) {
             UserCategory.CHILD      -> "child under 13 years old"
-            UserCategory.ADOLESCENT -> "adolescent aged 13 to 17"
+            UserCategory.ADOLESCENT -> "adolescent aged 13 to 17; note that casual profanity and hyperbolic language (e.g. 'this kills', 'I'll destroy you at the game') are developmentally normal for this age group and should not alone be treated as harassment — only flag if there are specific targeting signals such as explicit threats, doxxing, or coercive control"
             else                    -> null
         }
         val gemmaResult: Pair<HarmCategory, RiskLevel>? = if (classifier.isLoaded) {

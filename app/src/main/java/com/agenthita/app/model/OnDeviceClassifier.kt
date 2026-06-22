@@ -19,12 +19,13 @@ import java.util.concurrent.atomic.AtomicReference
  * generateAnalysis() always returns a result: Gemma text if the model is loaded,
  * otherwise a rules-based explanation built from category + signals.
  */
-class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?) {
+class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?) :
+        com.agenthita.app.detection.Classifier {
 
     // Atomic reference allows safe hot-swap from background thread
     private val activeGemma = AtomicReference(gemma)
 
-    val isLoaded: Boolean get() = activeGemma.get()?.isLoaded == true
+    override val isLoaded: Boolean get() = activeGemma.get()?.isLoaded == true
 
     /** True when a model file was found but MediaPipe threw during initialisation. */
     val loadFailed: Boolean get() = activeGemma.get()?.loadFailed == true
@@ -41,7 +42,7 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
      * [ageHint] is an optional natural-language hint (e.g. "child under 13 years old")
      * that is injected into the prompt to bias Gemma toward age-relevant harm categories.
      */
-    fun classify(text: String, context: List<String> = emptyList(), ageHint: String? = null): Pair<HarmCategory, RiskLevel>? {
+    override fun classify(text: String, context: List<String>, ageHint: String?): Pair<HarmCategory, RiskLevel>? {
         val g = activeGemma.get() ?: return null
         if (!g.isLoaded) return null
         return g.classifyMessage(text, context, ageHint)
