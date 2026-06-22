@@ -46,8 +46,11 @@ class RemoteConfigDefaultsTest {
     }
 
     @Test
-    fun `apiKey is non-blank`() {
-        assertTrue("apiKey must not be blank", defaults.apiKey.isNotBlank())
+    fun `apiKey default is blank — key is delivered via remote config only`() {
+        // The API key must never be baked into the APK. It is populated exclusively
+        // from the cert-pinned remote config response (api.api_key field). An empty
+        // default is correct; requests without a key are rejected server-side.
+        assertTrue("apiKey default must be blank", defaults.apiKey.isBlank())
     }
 
     // ── Timeout values are positive ───────────────────────────────────────────

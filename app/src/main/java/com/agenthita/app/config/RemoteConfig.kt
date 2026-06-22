@@ -184,7 +184,9 @@ object RemoteConfig {
         val alertEndpoint:          String = "https://api.agenthita.org/alert/guardian",
         val guardianConfigEndpoint: String = "https://api.agenthita.org/alert/guardian/configure",
         val feedbackEndpoint:       String = "https://api.agenthita.org/feedback",
-        val apiKey:            String = com.agenthita.app.BuildConfig.FEEDBACK_API_KEY,
+        // Intentionally blank — populated exclusively via the cert-pinned remote config
+        // (api_key field). Never baked into the APK.
+        val apiKey:            String = "",
         val connectTimeoutMs:           Int  = 10_000,
         val readTimeoutMs:              Int  = 15_000,
         val configConnectTimeoutMs:     Int  = 5_000,

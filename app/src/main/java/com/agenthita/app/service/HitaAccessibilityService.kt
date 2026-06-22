@@ -346,7 +346,7 @@ class HitaAccessibilityService : AccessibilityService() {
             val disappearingKey = "$DISAPPEARING_KEY_PREFIX$convHash"
             if (!dedupPrefs.getBoolean(disappearingKey, false) && detectDisappearingMessages(root)) {
                 dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
-                android.util.Log.i(TAG, "[$packageName] Disappearing messages detected for contact=$contactName")
+                if (BuildConfig.DEBUG) android.util.Log.i(TAG, "[$packageName] Disappearing messages detected for contact=$contactName")
                 localNotificationManager.showDisappearingMessagesWarning()
                 val syntheticResult = com.agenthita.app.detection.DetectionResult(
                     category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES,
@@ -421,7 +421,7 @@ class HitaAccessibilityService : AccessibilityService() {
             persistConvState(convStateKey, lastMessage)
             unseenMessages.forEach { addToSeenMessages(seenKey, sha256(it)) }
 
-            android.util.Log.d(TAG, "[$packageName] Contact=$contactName ${unseenMessages.size} new msg(s), latest=\"${lastMessage.take(60)}\"")
+            if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] Contact=$contactName ${unseenMessages.size} new msg(s), latest=\"${lastMessage.take(60)}\"")
 
             // Safe-exit check on latest message
             val safeExit = antiCoercionMonitor.checkForSafeExitIntent(lastMessage)
