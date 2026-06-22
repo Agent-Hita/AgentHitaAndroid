@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+
+    <!-- Block all plain-text HTTP traffic globally. -->
+    <base-config cleartextTrafficPermitted="false" />
+
+    <!--
+        Certificate pinning for AgentHita API endpoints.
+
+        We pin the Amazon intermediate CA (Amazon RSA 2048 M04) rather than the
+        leaf certificate because ACM auto-renews leaf certs (~13-month lifetime);
+        pinning the leaf would break the app on the next renewal.
+
+        The Amazon Root CA 1 pin is a permanent backup in case Amazon rotates
+        the intermediate. Both pins must be present for the connection to succeed.
+
+        Pins verified: 2026-06-21
+        Intermediate: C=US, O=Amazon, CN=Amazon RSA 2048 M04
+        Root:         C=US, O=Amazon, CN=Amazon Root CA 1
+
+        expiration: Android falls back to normal CA validation (not hard failure)
+        if this date passes without an app update — intentional safety net.
+    -->
+    <domain-config>
+        <domain includeSubdomains="false">api.agenthita.org</domain>
+        <domain includeSubdomains="false">config.agenthita.org</domain>
+        <domain includeSubdomains="false">www.agenthita.org</domain>
+        <pin-set expiration="2027-06-21">
+            <!-- Amazon RSA 2048 M04 (intermediate CA) -->
+            <pin digest="SHA-256">G9LNNAql897egYsabashkzUCTEJkWBzgoEtk8X/678c=</pin>
+            <!-- Amazon Root CA 1 (backup) -->
+            <pin digest="SHA-256">++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=</pin>
+        </pin-set>
+    </domain-config>
+
+</network-security-config>
