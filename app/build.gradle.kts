@@ -33,11 +33,12 @@ android {
         create("release") {
             val ksFile = secrets.getProperty("KEYSTORE_FILE", "")
             if (ksFile.isNotEmpty()) {
-                // rootProject-relative works locally; module-relative works in CI
-                // (CI checks out AgentHitaAndroidConfig as a subdirectory of the workspace)
+                // CI: config repo checked out at AgentHitaAndroidConfig/ inside workspace → fromRoot hits
+                // Local: config repo sits one level up at ../AgentHitaAndroidConfig/ → fromParent hits
                 val fromRoot   = rootProject.file(ksFile)
+                val fromParent = rootProject.file("../$ksFile")
                 val fromModule = file(ksFile)
-                storeFile = if (fromRoot.exists()) fromRoot else fromModule
+                storeFile = listOf(fromRoot, fromParent, fromModule).firstOrNull { it.exists() }
             }
             storePassword = secrets.getProperty("KEYSTORE_PASSWORD", "")
             keyAlias      = secrets.getProperty("KEY_ALIAS", "")
