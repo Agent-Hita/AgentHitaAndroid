@@ -31,7 +31,7 @@ class TermsActivity : AppCompatActivity() {
 
         binding.btnAgree.setOnClickListener {
             agreed = true
-            TelemetryManager.get(this).track("terms_accepted")
+            TelemetryManager.get(this).track("hita_terms_accepted")
             TelemetryManager.get(this).flush()
             consentManager.hasAcceptedTerms = true
             consentManager.acceptedTermsVersion = ConsentManager.CURRENT_TERMS_VERSION
@@ -43,7 +43,7 @@ class TermsActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         if (!agreed) {
-            TelemetryManager.get(this).track("terms_declined")
+            TelemetryManager.get(this).track("hita_terms_declined")
             TelemetryManager.get(this).flush()
         }
     }

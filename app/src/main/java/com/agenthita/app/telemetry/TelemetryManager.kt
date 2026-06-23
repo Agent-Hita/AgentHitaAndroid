@@ -217,8 +217,9 @@ class TelemetryManager private constructor(private val context: Context) {
             "feedback_submit_failed",
             "false_positive_reported",
             "service_frozen",
-            "terms_accepted",
-            "terms_declined",
+            "hita_terms_accepted",
+            "hita_terms_declined",
+            "gemma_terms_accepted",
             "event_prune_run",
             "event_prune_failed"
         )
