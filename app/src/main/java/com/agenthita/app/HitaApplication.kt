@@ -7,6 +7,7 @@ import android.app.NotificationManager
 import android.os.Bundle
 import android.util.Log
 import android.webkit.WebView
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -51,7 +52,9 @@ class HitaApplication : Application() {
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             EventPruneWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
-            PeriodicWorkRequestBuilder<EventPruneWorker>(1, TimeUnit.DAYS).build()
+            PeriodicWorkRequestBuilder<EventPruneWorker>(1, TimeUnit.DAYS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 3, TimeUnit.HOURS)
+                .build()
         )
     }
 
