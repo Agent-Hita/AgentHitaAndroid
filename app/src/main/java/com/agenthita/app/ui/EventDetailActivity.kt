@@ -1,19 +1,18 @@
 package com.agenthita.app.ui
 
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
 import androidx.core.graphics.drawable.DrawableCompat
 import android.os.Bundle
 import android.view.View
-import android.widget.ScrollView
-import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.HitaApplication
+import com.agenthita.app.R
 import com.agenthita.app.alert.FalsePositiveSender
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityEventDetailBinding
@@ -22,7 +21,6 @@ import com.agenthita.app.storage.RiskEvent
 import com.agenthita.app.storage.RiskEventStore
 import com.agenthita.app.telemetry.TelemetryManager
 import com.google.android.material.chip.Chip
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -138,24 +136,30 @@ class EventDetailActivity : AppCompatActivity() {
     }
 
     private fun showConsentDialog(event: RiskEvent) {
-        val preview = FalsePositiveSender.buildConsentPreview(event, userCategory)
+        val view = layoutInflater.inflate(R.layout.dialog_false_positive_consent, null)
 
-        val dp = resources.displayMetrics.density.toInt()
-        val textView = TextView(this).apply {
-            text = preview
-            typeface = Typeface.MONOSPACE
-            textSize = 12f
-            setTextColor(Color.parseColor("#3A4A6B"))
-            setPadding(20 * dp, 8 * dp, 20 * dp, 8 * dp)
+        val tvPreview   = view.findViewById<android.widget.TextView>(R.id.tv_consent_preview)
+        val scrollView  = view.findViewById<android.widget.ScrollView>(R.id.scroll_consent)
+        val tvScrollHint = view.findViewById<android.widget.TextView>(R.id.tv_scroll_hint)
+        val btnShare    = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_share_report)
+        val btnCancel   = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_cancel)
+
+        tvPreview.text = FalsePositiveSender.buildConsentPreview(event, userCategory)
+
+        val dialog = AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .create()
+
+        fun onScrolled() {
+            if (!scrollView.canScrollVertically(1)) tvScrollHint.visibility = View.GONE
         }
-        val scrollView = ScrollView(this).apply { addView(textView) }
+        scrollView.setOnScrollChangeListener { _, _, _, _, _ -> onScrolled() }
+        scrollView.post { onScrolled() }
 
-        MaterialAlertDialogBuilder(this)
-            .setTitle("Share to improve Agent Hita?")
-            .setView(scrollView)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Share & Report") { _, _ -> submitFalsePositive(event) }
-            .show()
+        btnShare.setOnClickListener  { dialog.dismiss(); submitFalsePositive(event) }
+        btnCancel.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
     }
 
     private fun submitFalsePositive(event: RiskEvent) {
