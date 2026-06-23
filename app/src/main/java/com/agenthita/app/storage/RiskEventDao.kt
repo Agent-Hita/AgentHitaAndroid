@@ -35,6 +35,12 @@ interface RiskEventDao {
     @Query("UPDATE risk_events SET feedbackState = 'FALSE_POSITIVE' WHERE id = :id")
     suspend fun markFalsePositive(id: Long)
 
-    @Query("DELETE FROM risk_events WHERE timestampMs < :cutoffMs")
-    suspend fun deleteOlderThan(cutoffMs: Long)
+    @Query("DELETE FROM risk_events WHERE riskLevel = 'LOW' AND timestampMs < :cutoffMs")
+    suspend fun deleteLowOlderThan(cutoffMs: Long)
+
+    @Query("DELETE FROM risk_events WHERE riskLevel = 'MEDIUM' AND timestampMs < :cutoffMs")
+    suspend fun deleteMediumOlderThan(cutoffMs: Long)
+
+    @Query("DELETE FROM risk_events WHERE riskLevel = 'HIGH' AND timestampMs < :cutoffMs")
+    suspend fun deleteHighOlderThan(cutoffMs: Long)
 }

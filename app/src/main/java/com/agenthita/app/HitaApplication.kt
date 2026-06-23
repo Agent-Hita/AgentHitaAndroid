@@ -7,14 +7,19 @@ import android.app.NotificationManager
 import android.os.Bundle
 import android.util.Log
 import android.webkit.WebView
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.security.DeviceTokenManager
+import com.agenthita.app.storage.EventPruneWorker
 import com.agenthita.app.storage.HitaDatabase
 import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class HitaApplication : Application() {
 
@@ -43,6 +48,11 @@ class HitaApplication : Application() {
         // Pre-warm SQLCipher + Room on a background thread so the first
         // access in DashboardActivity doesn't block the main thread
         GlobalScope.launch(Dispatchers.IO) { database.riskEventDao() }
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            EventPruneWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<EventPruneWorker>(1, TimeUnit.DAYS).build()
+        )
     }
 
     /**

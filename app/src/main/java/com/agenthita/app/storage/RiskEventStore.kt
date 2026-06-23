@@ -36,9 +36,16 @@ class RiskEventStore(private val dao: RiskEventDao) {
     suspend fun updateGemmaAnalysis(eventId: Long, analysis: String) =
         dao.updateGemmaAnalysis(eventId, analysis)
 
-    /** Prune events older than maxAgeMs (default: 30 days). Call periodically. */
-    suspend fun pruneOldEvents(maxAgeMs: Long = 30L * 24 * 60 * 60 * 1000) {
-        dao.deleteOlderThan(System.currentTimeMillis() - maxAgeMs)
+    /** Prune events by tier: LOW after 30 days, MEDIUM after 60 days, HIGH after 180 days. */
+    suspend fun pruneByTier(
+        lowMaxDays:    Long = 30,
+        mediumMaxDays: Long = 60,
+        highMaxDays:   Long = 180
+    ) {
+        val now = System.currentTimeMillis()
+        dao.deleteLowOlderThan(now    - lowMaxDays    * 86_400_000L)
+        dao.deleteMediumOlderThan(now - mediumMaxDays * 86_400_000L)
+        dao.deleteHighOlderThan(now   - highMaxDays   * 86_400_000L)
     }
 
     private fun sha256(input: String): String {
