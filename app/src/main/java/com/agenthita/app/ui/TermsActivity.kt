@@ -32,6 +32,7 @@ class TermsActivity : AppCompatActivity() {
         binding.btnAgree.setOnClickListener {
             agreed = true
             TelemetryManager.get(this).track("terms_accepted")
+            TelemetryManager.get(this).flush()
             consentManager.hasAcceptedTerms = true
             consentManager.acceptedTermsVersion = ConsentManager.CURRENT_TERMS_VERSION
             startActivity(Intent(this, OnboardingActivity::class.java))
@@ -41,7 +42,10 @@ class TermsActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!agreed) TelemetryManager.get(this).track("terms_declined")
+        if (!agreed) {
+            TelemetryManager.get(this).track("terms_declined")
+            TelemetryManager.get(this).flush()
+        }
     }
 
     private fun setupWebView() {

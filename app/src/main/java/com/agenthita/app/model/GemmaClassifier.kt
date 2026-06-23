@@ -78,9 +78,11 @@ class GemmaClassifier(context: Context) {
                 .build()
             llm = LlmInference.createFromOptions(context, options)
             android.util.Log.i("GemmaClassifier", "Gemma loaded from $modelPath")
+            TelemetryManager.get(context).track("gemma_load_success")
         } catch (e: Throwable) {
             loadFailed = true
             android.util.Log.w("GemmaClassifier", "Failed to load Gemma from $modelPath (${e.javaClass.simpleName}): ${e.message}")
+            TelemetryManager.get(context).track("gemma_load_failed")
         }
     }
 
