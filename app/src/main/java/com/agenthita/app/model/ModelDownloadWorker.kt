@@ -153,6 +153,7 @@ class ModelDownloadWorker(
         val bytesDownloaded = AtomicLong(0L)
 
         try {
+            val parallelStartMs = System.currentTimeMillis()
             coroutineScope {
                 val chunkSize = fileSize / NUM_CHUNKS
                 (0 until NUM_CHUNKS).map { i ->
@@ -163,11 +164,16 @@ class ModelDownloadWorker(
                     }
                 }.awaitAll()
             }
+            val parallelMs = System.currentTimeMillis() - parallelStartMs
+            val mbps = (fileSize / 1_000_000.0) / (parallelMs / 1000.0)
+            android.util.Log.i(TAG, "All $NUM_CHUNKS chunks complete — ${parallelMs / 1000}s total, %.1f MB/s".format(mbps))
 
             // Concatenate chunks in order
+            val concatStartMs = System.currentTimeMillis()
             FileOutputStream(dest).use { out ->
                 chunkFiles.forEach { chunk -> chunk.inputStream().use { it.copyTo(out) } }
             }
+            android.util.Log.i(TAG, "Chunk concat complete — ${System.currentTimeMillis() - concatStartMs}ms")
         } finally {
             chunkFiles.forEach { it.delete() }
         }
@@ -185,12 +191,16 @@ class ModelDownloadWorker(
         totalFileSize: Long,
         bytesDownloaded: AtomicLong
     ) {
+        val chunkStartMs = System.currentTimeMillis()
+        val chunkMb = (end - start + 1) / 1_000_000
+
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.setRequestProperty("Range", "bytes=$start-$end")
         conn.connectTimeout = 30_000
         conn.readTimeout    = 600_000
         conn.connect()
 
+        val connectMs = System.currentTimeMillis() - chunkStartMs
         val code = conn.responseCode
         if (code != HttpURLConnection.HTTP_PARTIAL) {
             conn.disconnect()
@@ -210,7 +220,10 @@ class ModelDownloadWorker(
             }
         }
         conn.disconnect()
-        android.util.Log.i(TAG, "Chunk $start-$end complete (${(end - start + 1) / 1_000_000} MB)")
+
+        val chunkMs = System.currentTimeMillis() - chunkStartMs
+        val chunkMbps = chunkMb.toDouble() / (chunkMs / 1000.0)
+        android.util.Log.i(TAG, "Chunk $start-$end: ${chunkMb}MB in ${chunkMs / 1000}s (connect ${connectMs}ms, %.1f MB/s)".format(chunkMbps))
     }
 
     /**
