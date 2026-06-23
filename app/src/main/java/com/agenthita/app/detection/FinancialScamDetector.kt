@@ -87,6 +87,19 @@ class FinancialScamDetector : PatternMatcher {
         "call to avoid", "call to prevent", "contact us at", "reach us at"
     )
 
+    // Phrases indicating the sender is sharing information rather than making a demand.
+    // Used to suppress phone_number_demand when a numeric ID (tax, EIN, SSN) is shared
+    // in a document-forwarding context and no authority/urgency signals corroborate a scam.
+    private val providingContextSignals = listOf(
+        "here is", "here's", "here are",
+        "i am sharing", "i am sending",
+        "i have sent", "i have attached", "i have included", "i have forwarded",
+        "please find",
+        "for your reference", "for your information",
+        "as requested", "as discussed",
+        "attached is", "attaching"
+    )
+
     private val isolationSignals = listOf(
         "do not tell your family", "do not tell anyone",
         "keep this between us", "do not discuss this with anyone",
@@ -132,11 +145,16 @@ class FinancialScamDetector : PatternMatcher {
             if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("suspicious_link", signal, 0.6f))
         }
 
-        // Phone numbers embedded in text are a strong scam signal — legitimate businesses
-        // never demand you call a number sent via chat. Matches 7–15 digit sequences
-        // in any common format: bare digits, spaces, dashes, dots, or +country-code prefix.
+        // Phone numbers embedded in text are a strong scam signal when combined with
+        // authority/urgency — but numeric tax IDs, EINs, and SSNs share the same format.
+        // Suppress phone_number_demand when the sender is clearly sharing a document AND
+        // no authority/urgency signal corroborates a scam interpretation.
         if (PHONE_NUMBER_REGEX.containsMatchIn(text)) {
-            matches.add(SignalMatch("phone_number_demand", "embedded phone number", 0.7f))
+            val hasProvidingContext = providingContextSignals.any { lower.contains(it) }
+            val hasSupportingSignals = matches.any { it.signal == "authority_claim" || it.signal == "urgency" }
+            if (!hasProvidingContext || hasSupportingSignals) {
+                matches.add(SignalMatch("phone_number_demand", "embedded phone number", 0.7f))
+            }
         }
 
         val score = computeScore(matches)

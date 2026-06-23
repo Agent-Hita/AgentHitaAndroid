@@ -50,6 +50,52 @@ class FinancialScamDetectorTest {
         assertEquals(RiskLevel.NONE, result.riskLevel)
     }
 
+    // ── False-positive: numeric IDs in document-sharing context ──────────────
+    // Tax IDs, EINs, and SSNs share the phone-number regex format. They must not
+    // fire phone_number_demand when the message is clearly a document share.
+
+    @Test
+    fun `parent sharing EIN in tax document scores NONE`() {
+        val result = detector.analyze(
+            "Here is your tax document. The employer identification number is 12-3456789."
+        )
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `please find attached with numeric ID scores NONE`() {
+        val result = detector.analyze(
+            "Please find attached the completed form. Reference number: 123456789."
+        )
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `as requested SSN share scores NONE`() {
+        val result = detector.analyze(
+            "As requested, here is the social security number: 123-456-789 for your records."
+        )
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    // Providing context does NOT suppress when authority/urgency also fires
+    @Test
+    fun `here is with IRS authority still scores HIGH`() {
+        val result = detector.analyze(
+            "Here is the IRS notice. You owe back taxes. Pay immediately via gift card or face arrest."
+        )
+        assertEquals(RiskLevel.HIGH, result.riskLevel)
+    }
+
+    @Test
+    fun `here is with urgency phone demand still fires`() {
+        val result = detector.analyze(
+            "Here is the situation — your account will be closed. Call us at 800-555-0199 immediately."
+        )
+        assertTrue(result.riskLevel >= RiskLevel.MEDIUM)
+        assertTrue(result.signals.any { it.signal == "phone_number_demand" })
+    }
+
     // ── Suspicious link signals that MUST still fire ──────────────────────────
 
     @Test

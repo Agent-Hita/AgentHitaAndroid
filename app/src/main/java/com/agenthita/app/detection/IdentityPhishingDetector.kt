@@ -48,6 +48,20 @@ class IdentityPhishingDetector : PatternMatcher {
         "action required immediately", "your account has been flagged"
     )
 
+    // Phrases that indicate the sender is PROVIDING personal information, not requesting it.
+    // When present (and no code/credential request signals also fire), personalInfoSignals
+    // are suppressed — "here is your SSN" must not flag the same as "send me your SSN".
+    private val providingContextSignals = listOf(
+        "here is", "here's", "here are",
+        "i am sharing", "i am sending",
+        "i have sent", "i have attached", "i have included", "i have forwarded",
+        "please find",
+        "for your reference", "for your information", "fyi",
+        "as requested", "as discussed",
+        "attached is", "attaching",
+        "i am providing", "i am giving you"
+    )
+
     private val fakeSenderSignals = listOf(
         "from your bank", "bank security team", "fraud department",
         "from google", "google security", "google account team",
@@ -69,8 +83,16 @@ class IdentityPhishingDetector : PatternMatcher {
         credentialRequestSignals.forEach { signal ->
             if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("credential_request", signal, 0.9f))
         }
-        personalInfoSignals.forEach { signal ->
-            if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
+        // Suppress personal-info signals when the sender is clearly providing information
+        // rather than requesting it, and no explicit code/credential request also fired.
+        // A scam message that says "here is your SSN, now send me your password" still
+        // triggers because hasRequestSignals catches the credential request.
+        val isProvidingContext = providingContextSignals.any { lower.contains(it) }
+        val hasRequestSignals = matches.any { it.signal == "code_request" || it.signal == "credential_request" }
+        if (!isProvidingContext || hasRequestSignals) {
+            personalInfoSignals.forEach { signal ->
+                if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
+            }
         }
         urgencySignals.forEach { signal ->
             if (lower.contains(normalizeContractions(signal))) matches.add(SignalMatch("urgency", signal, 0.5f))
