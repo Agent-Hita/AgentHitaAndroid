@@ -40,12 +40,12 @@ class RiskEventStore(private val dao: RiskEventDao) {
     suspend fun pruneByTier(
         lowMaxDays:    Long = 30,
         mediumMaxDays: Long = 60,
-        highMaxDays:   Long = 180
+        highMaxDays:   Long = 180,
+        nowMs:         Long = System.currentTimeMillis()
     ) {
-        val now = System.currentTimeMillis()
-        dao.deleteLowOlderThan(now    - lowMaxDays    * 86_400_000L)
-        dao.deleteMediumOlderThan(now - mediumMaxDays * 86_400_000L)
-        dao.deleteHighOlderThan(now   - highMaxDays   * 86_400_000L)
+        dao.deleteLowOlderThan(nowMs    - lowMaxDays    * 86_400_000L)
+        dao.deleteMediumOlderThan(nowMs - mediumMaxDays * 86_400_000L)
+        dao.deleteHighOlderThan(nowMs   - highMaxDays   * 86_400_000L)
     }
 
     private fun sha256(input: String): String {

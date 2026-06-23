@@ -16,11 +16,17 @@ class EventPruneWorker(
     }
 
     override suspend fun doWork(): Result {
-        val store = RiskEventStore(
-            (applicationContext as HitaApplication).database.riskEventDao()
-        )
-        store.pruneByTier()
-        TelemetryManager.get(applicationContext).track("event_prune_run")
-        return Result.success()
+        return try {
+            val store = RiskEventStore(
+                (applicationContext as HitaApplication).database.riskEventDao()
+            )
+            store.pruneByTier()
+            TelemetryManager.get(applicationContext).track("event_prune_run")
+            Result.success()
+        } catch (e: Exception) {
+            android.util.Log.e("EventPruneWorker", "Prune failed: ${e.message}", e)
+            TelemetryManager.get(applicationContext).track("event_prune_failed")
+            Result.retry()
+        }
     }
 }
