@@ -40,6 +40,9 @@ class RiskEventAdapter(
             b.tvExplanation.text = event.explanation
             b.tvTime.text = event.timestampMs.toFullDateTime()
             b.tvApp.text = event.appPackage.toAppName()
+            b.tvFalsePositiveBadge.visibility =
+                if (event.feedbackState == "FALSE_POSITIVE") android.view.View.VISIBLE
+                else android.view.View.GONE
         }
     }
 

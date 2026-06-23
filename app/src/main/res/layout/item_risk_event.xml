@@ -138,6 +138,18 @@
 
             </LinearLayout>
 
+            <!-- Shown only when user has flagged this as a false alarm -->
+            <TextView
+                android:id="@+id/tv_false_positive_badge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Reported as false alarm"
+                android:textSize="11sp"
+                android:textColor="#F59E0B"
+                android:textStyle="italic"
+                android:visibility="gone" />
+
         </LinearLayout>
     </LinearLayout>
 

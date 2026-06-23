@@ -1,19 +1,28 @@
 package com.agenthita.app.ui
 
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
 import androidx.core.graphics.drawable.DrawableCompat
 import android.os.Bundle
+import android.view.View
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.HitaApplication
+import com.agenthita.app.alert.FalsePositiveSender
+import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityEventDetailBinding
 import com.agenthita.app.storage.ContactNameDao
 import com.agenthita.app.storage.RiskEvent
 import com.agenthita.app.storage.RiskEventStore
+import com.agenthita.app.telemetry.TelemetryManager
 import com.google.android.material.chip.Chip
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -25,6 +34,8 @@ import java.util.Locale
 class EventDetailActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityEventDetailBinding
+    private lateinit var store: RiskEventStore
+    private lateinit var userCategory: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +50,8 @@ class EventDetailActivity : AppCompatActivity() {
         if (eventId == -1L) { finish(); return }
 
         val app = application as HitaApplication
-        val store = RiskEventStore(app.database.riskEventDao())
+        store = RiskEventStore(app.database.riskEventDao())
+        userCategory = ConsentManager(applicationContext).userCategory.name
         val contactNameDao: ContactNameDao = app.database.contactNameDao()
 
         lifecycleScope.launch {
@@ -67,6 +79,19 @@ class EventDetailActivity : AppCompatActivity() {
         badgeDrawable.setColor(riskColor)
         binding.tvRiskBadge.background = badgeDrawable
         binding.tvRiskBadge.text = "${event.riskLevel} RISK"
+
+        // False-alarm flag button — only for HIGH and MEDIUM, hidden if already reported
+        val showFlag = event.riskLevel in setOf("HIGH", "MEDIUM")
+        if (showFlag) {
+            if (event.feedbackState == "FALSE_POSITIVE") {
+                showReportedState()
+            } else {
+                binding.btnFalsePositive.visibility = View.VISIBLE
+                binding.btnFalsePositive.setOnClickListener {
+                    showConsentDialog(event)
+                }
+            }
+        }
 
         // Sender section
         binding.tvDetailSenderAvatar.text = displayName?.toInitials() ?: event.contactHash.take(2).uppercase()
@@ -100,18 +125,61 @@ class EventDetailActivity : AppCompatActivity() {
                 )
                 chip.setTextColor(Color.WHITE)
                 chip.textSize = 13f
-
                 binding.chipGroupSignals.addView(chip)
             }
 
         // Explanation
         binding.tvDetailExplanation.text = event.explanation
 
-        // AI safety analysis (Gemma if loaded, rules-based fallback otherwise)
-        binding.tvGemmaAnalysis.text = event.gemmaAnalysis
-            ?: "Generating analysis..."
+        // AI safety analysis
+        binding.tvGemmaAnalysis.text = event.gemmaAnalysis ?: "Generating analysis..."
         Linkify.addLinks(binding.tvGemmaAnalysis, Linkify.WEB_URLS)
         binding.tvGemmaAnalysis.movementMethod = LinkMovementMethod.getInstance()
+    }
+
+    private fun showConsentDialog(event: RiskEvent) {
+        val preview = FalsePositiveSender.buildConsentPreview(event, userCategory)
+
+        val dp = resources.displayMetrics.density.toInt()
+        val textView = TextView(this).apply {
+            text = preview
+            typeface = Typeface.MONOSPACE
+            textSize = 12f
+            setTextColor(Color.parseColor("#3A4A6B"))
+            setPadding(20 * dp, 8 * dp, 20 * dp, 8 * dp)
+        }
+        val scrollView = ScrollView(this).apply { addView(textView) }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Share to improve Agent Hita?")
+            .setView(scrollView)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Share & Report") { _, _ -> submitFalsePositive(event) }
+            .show()
+    }
+
+    private fun submitFalsePositive(event: RiskEvent) {
+        binding.btnFalsePositive.isEnabled = false
+        binding.btnFalsePositive.text = "Sending…"
+
+        lifecycleScope.launch {
+            val error = FalsePositiveSender.send(this@EventDetailActivity, event)
+            if (error == null) {
+                withContext(Dispatchers.IO) { store.markFalsePositive(event.id) }
+                TelemetryManager.get(this@EventDetailActivity).track("false_positive_reported")
+                showReportedState()
+            } else {
+                binding.btnFalsePositive.isEnabled = true
+                binding.btnFalsePositive.text = "Flag as false alarm"
+                Toast.makeText(this@EventDetailActivity, error, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showReportedState() {
+        binding.btnFalsePositive.visibility = View.VISIBLE
+        binding.btnFalsePositive.isEnabled = false
+        binding.btnFalsePositive.text = "Reported — thank you"
     }
 
     private fun String.toInitials(): String {
@@ -136,18 +204,17 @@ class EventDetailActivity : AppCompatActivity() {
     }
 
     private fun String.toCategoryLabel() = when (this) {
-        "SEXTORTION"        -> "Sexual Manipulation"
-        "FINANCIAL_SCAM"    -> "Financial Scam"
-        "GROOMING"          -> "Grooming"
-        "ROMANCE_SCAM"      -> "Romance Scam"
-        "IDENTITY_PHISHING" -> "Identity Phishing"
-        "LURING"                 -> "Luring / Fake Offer"
-        "HARASSMENT"             -> "Harassment"
-        "DISAPPEARING_MESSAGES"  -> "Disappearing Messages"
-        else                     -> this
+        "SEXTORTION"            -> "Sexual Manipulation"
+        "FINANCIAL_SCAM"        -> "Financial Scam"
+        "GROOMING"              -> "Grooming"
+        "ROMANCE_SCAM"          -> "Romance Scam"
+        "IDENTITY_PHISHING"     -> "Identity Phishing"
+        "LURING"                -> "Luring / Fake Offer"
+        "HARASSMENT"            -> "Harassment"
+        "DISAPPEARING_MESSAGES" -> "Disappearing Messages"
+        else                    -> this
     }
 
-    /** Maps a signal type key to a human-readable label. */
     private fun String.toSignalLabel() = when (this) {
         "age_probing"        -> "Age probing"
         "trust_building"     -> "Trust building"
@@ -163,26 +230,28 @@ class EventDetailActivity : AppCompatActivity() {
         "threat"             -> "Threat"
         "identity_harvest"   -> "Identity harvesting"
         "fake_offer"         -> "Fake offer"
+        "ai_analysis"        -> "AI analysis"
+        "activation_confirmed" -> "Messages set to disappear"
+        "activation_request"   -> "Disappearing mode requested"
+        "view_once"            -> "View-once request"
+        "hiding_intent"        -> "Hiding intent"
         else                 -> replace("_", " ").replaceFirstChar { it.uppercase() }
     }
 
-    /**
-     * Maps a signal type to a severity color.
-     * Escalation / boundary testing / threat → danger red
-     * Isolation / secrecy / urgency           → warning amber
-     * Everything else                          → info blue
-     */
     private fun String.toSignalColor(): Int = when (this) {
         "escalation",
         "boundary_testing",
         "threat",
         "photo_request",
-        "location_request"  -> Color.parseColor("#EF4444") // danger
+        "location_request",
+        "activation_confirmed" -> Color.parseColor("#EF4444")
         "isolation",
         "secrecy",
         "urgency",
-        "financial_pressure" -> Color.parseColor("#F59E0B") // warning
-        else                 -> Color.parseColor("#5B8DEF") // info blue
+        "financial_pressure",
+        "activation_request",
+        "view_once"            -> Color.parseColor("#F59E0B")
+        else                   -> Color.parseColor("#5B8DEF")
     }
 
     private fun String.toAvatarColor(): Int {

@@ -32,6 +32,9 @@ interface RiskEventDao {
     @Query("UPDATE risk_events SET guardianAlertSent = 1 WHERE contactHash = :hash AND guardianAlertSent = 0")
     suspend fun markAllUnsentAlertsSent(hash: String)
 
+    @Query("UPDATE risk_events SET feedbackState = 'FALSE_POSITIVE' WHERE id = :id")
+    suspend fun markFalsePositive(id: Long)
+
     @Query("DELETE FROM risk_events WHERE timestampMs < :cutoffMs")
     suspend fun deleteOlderThan(cutoffMs: Long)
 }

@@ -18,7 +18,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-@Database(entities = [RiskEvent::class, ContactNameEntry::class], version = 3, exportSchema = false)
+@Database(entities = [RiskEvent::class, ContactNameEntry::class], version = 4, exportSchema = false)
 abstract class HitaDatabase : RoomDatabase() {
 
     abstract fun riskEventDao(): RiskEventDao
@@ -46,6 +46,14 @@ abstract class HitaDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS contact_names (contactHash TEXT NOT NULL PRIMARY KEY, displayName TEXT NOT NULL)"
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE risk_events ADD COLUMN feedbackState TEXT NOT NULL DEFAULT 'NONE'"
                 )
             }
         }
@@ -120,7 +128,7 @@ abstract class HitaDatabase : RoomDatabase() {
                     "hita_events.db"
                 )
                     .openHelperFactory(factory)
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
             } catch (e: Exception) {
                 android.util.Log.e("HitaDatabase", "SQLCipher init failed — refusing to open unencrypted DB", e)

@@ -31,6 +31,8 @@ class RiskEventStore(private val dao: RiskEventDao) {
 
     suspend fun markAlertSent(eventId: Long) = dao.markAlertSent(eventId)
 
+    suspend fun markFalsePositive(eventId: Long) = dao.markFalsePositive(eventId)
+
     suspend fun updateGemmaAnalysis(eventId: Long, analysis: String) =
         dao.updateGemmaAnalysis(eventId, analysis)
 

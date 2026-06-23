@@ -23,5 +23,6 @@ data class RiskEvent(
     val signals: String,          // Comma-separated signal type names
     val explanation: String,
     val gemmaAnalysis: String? = null,   // Gemma-generated analysis & recommendations (populated async)
-    val guardianAlertSent: Boolean = false
+    val guardianAlertSent: Boolean = false,
+    val feedbackState: String = "NONE"  // "NONE" | "FALSE_POSITIVE"
 )
