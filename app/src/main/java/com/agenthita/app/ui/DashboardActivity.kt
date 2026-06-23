@@ -638,6 +638,7 @@ else -> false
 
         btnNotNow.setOnClickListener {
             TelemetryManager.get(this).track("gemma_terms_declined")
+            TelemetryManager.get(this).flush()
             dialog.dismiss()
         }
 
