@@ -7,7 +7,6 @@ on:
     branches: [main]
 
 jobs:
-  # ── Job 1: Test ───────────────────────────────────────────────────────────────
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -16,12 +15,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout config repo
-        uses: actions/checkout@v4
-        with:
-          repository: Agent-Hita/AgentHitaAndroidConfig
-          token: ${{ secrets.CONFIG_REPO_PAT }}
-          path: AgentHitaAndroidConfig
+      - name: Set up secrets.properties
+        run: |
+          cp secrets.properties.example secrets.properties
+          sed -i 's|^KEYSTORE_FILE=.*|KEYSTORE_FILE=|' secrets.properties
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -29,12 +26,6 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: gradle
-
-      - name: Copy secrets.properties
-        run: |
-          cp AgentHitaAndroidConfig/secrets.properties secrets.properties
-          # Unit tests don't sign an APK — clear the keystore path to avoid errors
-          sed -i 's|^KEYSTORE_FILE=.*|KEYSTORE_FILE=|' secrets.properties
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
@@ -45,55 +36,4 @@ jobs:
         with:
           name: test-results
           path: app/build/reports/tests/
-
-  # ── Job 2: Build signed release APK (main branch only) ───────────────────────
-  build:
-    name: Build Release APK
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Checkout config repo
-        uses: actions/checkout@v4
-        with:
-          repository: Agent-Hita/AgentHitaAndroidConfig
-          token: ${{ secrets.CONFIG_REPO_PAT }}
-          path: AgentHitaAndroidConfig
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
-
-      - name: Copy secrets.properties
-        run: cp AgentHitaAndroidConfig/secrets.properties secrets.properties
-
-      - name: Build signed release APK, AAB and debug APK
-        run: ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon
-
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: agenthita-release-apk-${{ github.sha }}
-          path: app/build/outputs/apk/release/app-release.apk
-          retention-days: 30
-
-      - name: Upload AAB
-        uses: actions/upload-artifact@v4
-        with:
-          name: agenthita-release-aab-${{ github.sha }}
-          path: app/build/outputs/bundle/release/app-release.aab
-          retention-days: 30
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: agenthita-debug-apk-${{ github.sha }}
-          path: app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          retention-days: 14
