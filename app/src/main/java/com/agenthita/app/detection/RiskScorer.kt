@@ -132,21 +132,21 @@ class RiskScorer(
                     (userCategory != com.agenthita.app.consent.UserCategory.SELF_PROTECTING_ADULT || gemmaSeverity == RiskLevel.HIGH) ->
                 ruleResult.copy(
                     riskLevel   = RiskLevel.MEDIUM,
-                    score       = 0.35f,
-                    signals     = listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.35f)),
+                    score       = 0.65f,
+                    signals     = listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.65f)),
                     explanation = "Detected by AI analysis — behavioural patterns in this conversation are consistent with ${ruleResult.category.name.lowercase().replace('_', ' ')}."
                 )
             // Rules LOW, Gemma MEDIUM → MEDIUM
             ruleLevel == RiskLevel.LOW  && gemmaSeverity == RiskLevel.MEDIUM ->
-                ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.40f,
-                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.40f)) })
+                ruleResult.copy(riskLevel = RiskLevel.MEDIUM, score = 0.65f,
+                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.65f)) })
             // Rules LOW, Gemma HIGH → HIGH (corroborated)
             ruleLevel == RiskLevel.LOW  && gemmaSeverity == RiskLevel.HIGH ->
-                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.70f,
-                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.70f)) })
+                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.82f,
+                    signals = ruleResult.signals.ifEmpty { listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.82f)) })
             // Rules MEDIUM, Gemma HIGH → HIGH
             ruleLevel == RiskLevel.MEDIUM && gemmaSeverity == RiskLevel.HIGH ->
-                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.80f)
+                ruleResult.copy(riskLevel = RiskLevel.HIGH,   score = 0.83f)
             else                                                          -> ruleResult
         }
     }
@@ -160,14 +160,16 @@ class RiskScorer(
      *
      * Thresholds are lowered for younger protected persons so the same message
      * triggers a higher alert level for a child than for an adult.
-     * Default values: CHILD HIGH≥0.40 | ADOLESCENT HIGH≥0.48 | ADULT HIGH≥0.55
+     * Default values: CHILD HIGH≥0.80 MEDIUM≥0.62 | ADOLESCENT HIGH≥0.82 MEDIUM≥0.65 |
+     *                 ADULT/VULNERABLE_ADULT HIGH≥0.85 MEDIUM≥0.70
      */
     private fun scoreToRiskLevel(score: Float): RiskLevel {
         val t = RemoteConfig.riskThresholds
         val band = when (userCategory) {
-            UserCategory.CHILD      -> t.child
-            UserCategory.ADOLESCENT -> t.adolescent
-            else                    -> t.adult
+            UserCategory.CHILD            -> t.child
+            UserCategory.ADOLESCENT       -> t.adolescent
+            UserCategory.VULNERABLE_ADULT -> t.vulnerableAdult
+            else                          -> t.adult
         }
         return when {
             score >= band.high   -> RiskLevel.HIGH

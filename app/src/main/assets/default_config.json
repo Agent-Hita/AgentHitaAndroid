@@ -28,9 +28,10 @@
   },
 
   "risk_thresholds": {
-    "child":      { "high": 0.40, "medium": 0.18, "low": 0.08 },
-    "adolescent": { "high": 0.48, "medium": 0.22, "low": 0.10 },
-    "adult":      { "high": 0.55, "medium": 0.28, "low": 0.12 }
+    "child":           { "high": 0.80, "medium": 0.62, "low": 0.32 },
+    "adolescent":      { "high": 0.82, "medium": 0.65, "low": 0.36 },
+    "adult":           { "high": 0.85, "medium": 0.70, "low": 0.40 },
+    "vulnerable_adult":{ "high": 0.85, "medium": 0.70, "low": 0.40 }
   },
 
   "monitoring": {

@@ -143,9 +143,10 @@ object RemoteConfig {
     data class RiskBand(val high: Float, val medium: Float, val low: Float)
 
     data class RiskThresholds(
-        val child:      RiskBand = RiskBand(0.40f, 0.18f, 0.08f),
-        val adolescent: RiskBand = RiskBand(0.48f, 0.22f, 0.10f),
-        val adult:      RiskBand = RiskBand(0.55f, 0.28f, 0.12f)
+        val child:           RiskBand = RiskBand(0.80f, 0.62f, 0.32f),
+        val adolescent:      RiskBand = RiskBand(0.82f, 0.65f, 0.36f),
+        val adult:           RiskBand = RiskBand(0.85f, 0.70f, 0.40f),
+        val vulnerableAdult: RiskBand = RiskBand(0.85f, 0.70f, 0.40f)
     )
 
     data class CategoryResources(val tip1Url: String, val tip2Url: String)
@@ -386,9 +387,10 @@ object RemoteConfig {
     )
 
     private fun parseBands(thr: JSONObject, defaults: RiskThresholds) = RiskThresholds(
-        child      = thr.optJSONObject("child")?.let      { parseBand(it, defaults.child) }      ?: defaults.child,
-        adolescent = thr.optJSONObject("adolescent")?.let { parseBand(it, defaults.adolescent) } ?: defaults.adolescent,
-        adult      = thr.optJSONObject("adult")?.let      { parseBand(it, defaults.adult) }      ?: defaults.adult
+        child           = thr.optJSONObject("child")?.let           { parseBand(it, defaults.child) }           ?: defaults.child,
+        adolescent      = thr.optJSONObject("adolescent")?.let      { parseBand(it, defaults.adolescent) }      ?: defaults.adolescent,
+        adult           = thr.optJSONObject("adult")?.let           { parseBand(it, defaults.adult) }           ?: defaults.adult,
+        vulnerableAdult = thr.optJSONObject("vulnerable_adult")?.let { parseBand(it, defaults.vulnerableAdult) } ?: defaults.vulnerableAdult
     )
 
     private fun parseCategoryResources(obj: JSONObject?, default: CategoryResources) =

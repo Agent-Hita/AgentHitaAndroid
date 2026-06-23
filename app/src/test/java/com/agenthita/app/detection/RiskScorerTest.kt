@@ -131,8 +131,8 @@ class RiskScorerTest {
 
     @Test
     fun `rules LOW plus Gemma MEDIUM raises to MEDIUM`() {
-        // A message with a single grooming signal (boundary testing weight 0.8 / 3 ≈ 0.27 → LOW)
-        val lowRuleText = "Are you home alone right now?"
+        // Two boundary signals, same type: (0.8+0.8)/3 = 0.53 → LOW for adult (≥0.40, <0.70)
+        val lowRuleText = "Are you home alone? Come over when your parents are not home."
         val results = scorer(
             gemmaResult  = HarmCategory.GROOMING to RiskLevel.MEDIUM,
             userCategory = UserCategory.SELF_PROTECTING_ADULT
@@ -145,7 +145,8 @@ class RiskScorerTest {
 
     @Test
     fun `rules LOW plus Gemma HIGH raises to HIGH`() {
-        val lowRuleText = "Are you home alone right now?"
+        // Two boundary signals, same type: (0.8+0.8)/3 = 0.53 → LOW for adult (≥0.40, <0.70)
+        val lowRuleText = "Are you home alone? Come over when your parents are not home."
         val results = scorer(
             gemmaResult  = HarmCategory.GROOMING to RiskLevel.HIGH,
             userCategory = UserCategory.SELF_PROTECTING_ADULT
@@ -157,8 +158,8 @@ class RiskScorerTest {
 
     @Test
     fun `rules MEDIUM plus Gemma HIGH raises to HIGH`() {
-        // Two grooming boundary signals → score crosses MEDIUM threshold
-        val mediumRuleText = "Are you home alone? Come over when your parents are not home."
+        // Isolation + escalation, two arc types: (0.7+0.9)/3 + 0.18 = 0.71 → MEDIUM for adult (≥0.70, <0.85)
+        val mediumRuleText = "Don't tell anyone. You'll enjoy it."
         val results = scorer(
             gemmaResult  = HarmCategory.GROOMING to RiskLevel.HIGH,
             userCategory = UserCategory.SELF_PROTECTING_ADULT
