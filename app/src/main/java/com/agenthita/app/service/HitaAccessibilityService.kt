@@ -82,10 +82,8 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val TAG_IG_DIAG        = "HitaIG"
         private const val MIN_MESSAGE_LENGTH = 8
         private const val DEDUP_PREFS        = "hita_dedup"
-        // Disappearing message timers at or below this threshold are treated as
-        // targeted (per-contact) activation. Above it we assume a global default
-        // (e.g. WhatsApp's 90-day setting) and only flag when a threat co-exists.
-        private const val SHORT_TIMER_THRESHOLD_DAYS = 7
+        // Threshold imported from DisappearingMessageUtils — kept as alias here for log messages.
+        private val SHORT_TIMER_THRESHOLD_DAYS = com.agenthita.app.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
         private const val AI_PREFS           = "hita_ai_prefs"
         private const val KEY_GEMMA_LOADED       = "gemma_loaded"
         private const val KEY_GEMMA_FAILED       = "gemma_load_failed"
@@ -374,13 +372,8 @@ class HitaAccessibilityService : AccessibilityService() {
             if (!alreadyFlagged && (!alreadySuppressed || hasExistingThreat)) {
                 val matchedText = detectDisappearingMessages(root)
                 if (matchedText != null) {
-                    val durationDays = parseDurationDays(matchedText)
-                    val isLongDefault = durationDays != null && durationDays > SHORT_TIMER_THRESHOLD_DAYS
-                    val riskLevel = when {
-                        !isLongDefault    -> RiskLevel.HIGH
-                        hasExistingThreat -> RiskLevel.MEDIUM
-                        else              -> null
-                    }
+                    val durationDays = com.agenthita.app.detection.parseDurationDays(matchedText)
+                    val riskLevel = com.agenthita.app.detection.disappearingRiskLevel(durationDays, hasExistingThreat)
                     if (riskLevel != null) {
                         dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
                         disappearingMessagesSuppressed.remove(convHash)
@@ -905,27 +898,6 @@ class HitaAccessibilityService : AccessibilityService() {
             if (found != null) return found
         }
         return null
-    }
-
-    /**
-     * Parses a duration in days from disappearing-message banner text.
-     * Handles "24 hours", "7 days", "4 weeks", "90 days", "1 year" etc.
-     * Returns null if no recognisable duration is present (treated as short/unknown).
-     */
-    private fun parseDurationDays(text: String): Int? {
-        val match = Regex("""(\d+)\s*(second|minute|hour|day|week|month|year)s?""", RegexOption.IGNORE_CASE)
-            .find(text) ?: return null
-        val amount = match.groupValues[1].toIntOrNull() ?: return null
-        return when (match.groupValues[2].lowercase()) {
-            "second" -> 0
-            "minute" -> 0
-            "hour"   -> if (amount >= 24) 1 else 0
-            "day"    -> amount
-            "week"   -> amount * 7
-            "month"  -> amount * 30
-            "year"   -> amount * 365
-            else     -> null
-        }
     }
 
     /** Heuristic: short strings that look like UI labels rather than message content. */
