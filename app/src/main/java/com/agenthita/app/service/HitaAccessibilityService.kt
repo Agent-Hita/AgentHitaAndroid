@@ -82,6 +82,10 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val TAG_IG_DIAG        = "HitaIG"
         private const val MIN_MESSAGE_LENGTH = 8
         private const val DEDUP_PREFS        = "hita_dedup"
+        // Disappearing message timers at or below this threshold are treated as
+        // targeted (per-contact) activation. Above it we assume a global default
+        // (e.g. WhatsApp's 90-day setting) and only flag when a threat co-exists.
+        private const val SHORT_TIMER_THRESHOLD_DAYS = 7
         private const val AI_PREFS           = "hita_ai_prefs"
         private const val KEY_GEMMA_LOADED       = "gemma_loaded"
         private const val KEY_GEMMA_FAILED       = "gemma_load_failed"
@@ -129,6 +133,12 @@ class HitaAccessibilityService : AccessibilityService() {
             Regex("vanish mode (is |has been )?turned off")
         )
     }
+
+    // Conversations where disappearing messages were seen but suppressed (long default timer,
+    // no active threat). Cleared on conversation exit so if a threat develops in a later
+    // session we re-evaluate. Not persisted — the persistent dedup key is only set when we
+    // actually fire, so a suppressed conv can be upgraded to MEDIUM if a threat is later found.
+    private val disappearingMessagesSuppressed = mutableSetOf<String>()
 
     // Tracks the highest-risk event seen while the user is inside a single conversation.
     // Only the first MEDIUM+ detection per session is saved to DB; subsequent detections
@@ -347,39 +357,74 @@ class HitaAccessibilityService : AccessibilityService() {
             // ── Disappearing messages detection ────────────────────────────────
             // Runs before the messages-empty check: the vanish/disappearing banner
             // is a UI-level signal independent of whether any new text is visible.
+            //
+            // Flagging policy:
+            //   Short timer (≤7 days): HIGH — targeted per-contact activation.
+            //   Long timer (>7 days) + active threat this session: MEDIUM amplifier.
+            //   Long timer + no threat: suppress (global default, not harmful on its own).
+            //
+            // The persistent dedup key is only set when we fire, so a suppressed
+            // conversation is re-evaluated each session and can be upgraded to MEDIUM
+            // once a threat is detected. The in-memory suppression set prevents
+            // redundant scans within a session when no threat has developed yet.
             val disappearingKey = "$DISAPPEARING_KEY_PREFIX$convHash"
-            if (!dedupPrefs.getBoolean(disappearingKey, false) && detectDisappearingMessages(root)) {
-                dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
-                if (BuildConfig.DEBUG) android.util.Log.i(TAG, "[$packageName] Disappearing messages detected for contact=$contactName")
-                localNotificationManager.showDisappearingMessagesWarning()
-                val syntheticResult = com.agenthita.app.detection.DetectionResult(
-                    category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES,
-                    riskLevel   = RiskLevel.HIGH,
-                    score       = 1.0f,
-                    signals     = listOf(com.agenthita.app.detection.SignalMatch("activation_confirmed", "disappearing messages detected", 0.95f)),
-                    explanation = "Contact enabled disappearing messages"
-                )
-                serviceScope.launch {
-                    val eventId = riskEventStore.save(
-                        appPackage        = packageName,
-                        contactIdentifier = contactName,
-                        result            = syntheticResult
-                    )
-                    val analysis = classifier.generateAnalysis(
-                        lastMessage = "Disappearing messages mode was activated in this conversation.",
-                        context     = emptyList(),
-                        signals     = listOf("activation_confirmed"),
-                        category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES
-                    )
-                    riskEventStore.updateGemmaAnalysis(eventId, analysis)
-                    withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        val sending = guardianAlertSender.sendIfConfigured(
-                            result      = syntheticResult,
-                            eventId     = eventId,
-                            packageName = packageName,
-                            contactHash = sha256(contactName)
+            val alreadyFlagged = dedupPrefs.getBoolean(disappearingKey, false)
+            val alreadySuppressed = convHash in disappearingMessagesSuppressed
+            val hasExistingThreat = sessionRecords.containsKey(convHash)
+            if (!alreadyFlagged && (!alreadySuppressed || hasExistingThreat)) {
+                val matchedText = detectDisappearingMessages(root)
+                if (matchedText != null) {
+                    val durationDays = parseDurationDays(matchedText)
+                    val isLongDefault = durationDays != null && durationDays > SHORT_TIMER_THRESHOLD_DAYS
+                    val riskLevel = when {
+                        !isLongDefault    -> RiskLevel.HIGH
+                        hasExistingThreat -> RiskLevel.MEDIUM
+                        else              -> null
+                    }
+                    if (riskLevel != null) {
+                        dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
+                        disappearingMessagesSuppressed.remove(convHash)
+                        if (BuildConfig.DEBUG) android.util.Log.i(TAG, "[$packageName] Disappearing messages: contact=$contactName duration=${durationDays}d risk=$riskLevel")
+                        localNotificationManager.showDisappearingMessagesWarning()
+                        val explanation = if (riskLevel == RiskLevel.HIGH)
+                            "Contact enabled disappearing messages"
+                        else
+                            "Contact has disappearing messages enabled alongside detected risk"
+                        val syntheticResult = com.agenthita.app.detection.DetectionResult(
+                            category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES,
+                            riskLevel   = riskLevel,
+                            score       = if (riskLevel == RiskLevel.HIGH) 1.0f else 0.75f,
+                            signals     = listOf(com.agenthita.app.detection.SignalMatch("activation_confirmed", "disappearing messages detected", 0.95f)),
+                            explanation = explanation
                         )
-                        if (sending) riskEventStore.markAlertSent(eventId)
+                        serviceScope.launch {
+                            val eventId = riskEventStore.save(
+                                appPackage        = packageName,
+                                contactIdentifier = contactName,
+                                result            = syntheticResult
+                            )
+                            val analysis = classifier.generateAnalysis(
+                                lastMessage = "Disappearing messages mode was activated in this conversation.",
+                                context     = emptyList(),
+                                signals     = listOf("activation_confirmed"),
+                                category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES
+                            )
+                            riskEventStore.updateGemmaAnalysis(eventId, analysis)
+                            if (riskLevel == RiskLevel.HIGH) {
+                                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                    val sending = guardianAlertSender.sendIfConfigured(
+                                        result      = syntheticResult,
+                                        eventId     = eventId,
+                                        packageName = packageName,
+                                        contactHash = sha256(contactName)
+                                    )
+                                    if (sending) riskEventStore.markAlertSent(eventId)
+                                }
+                            }
+                        }
+                    } else {
+                        disappearingMessagesSuppressed.add(convHash)
+                        if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] Disappearing messages suppressed — long default timer (${durationDays}d), no active threat")
                     }
                 }
             }
@@ -837,30 +882,50 @@ class HitaAccessibilityService : AccessibilityService() {
     // -------------------------------------------------------------------------
 
     /**
-     * Returns true if any visible text node in [root] matches one of the known
-     * phrases that apps display when disappearing/vanish mode is enabled.
-     *
-     * Matching is purely textual so it survives app version updates that change
-     * view IDs. Depth-limited to 12 levels to stay fast on the main thread.
+     * Returns the matched node's text if any visible node in [root] matches a known
+     * disappearing/vanish mode activation phrase, null otherwise.
+     * The text is returned so the caller can extract the timer duration from it.
+     * Depth-limited to 12 levels to stay fast on the main thread.
      */
-    private fun detectDisappearingMessages(root: AccessibilityNodeInfo): Boolean =
+    private fun detectDisappearingMessages(root: AccessibilityNodeInfo): String? =
         scanNodeForOnPatterns(root, 0)
 
-    private fun scanNodeForOnPatterns(node: AccessibilityNodeInfo, depth: Int): Boolean {
-        if (depth > 12) return false
+    private fun scanNodeForOnPatterns(node: AccessibilityNodeInfo, depth: Int): String? {
+        if (depth > 12) return null
         val text = (node.text?.toString() ?: node.contentDescription?.toString())
             ?.lowercase() ?: ""
         if (text.isNotBlank() &&
             DISAPPEARING_ON_PATTERNS.any  { it.containsMatchIn(text) } &&
             DISAPPEARING_OFF_PATTERNS.none { it.containsMatchIn(text) }
-        ) return true
+        ) return text
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             val found = scanNodeForOnPatterns(child, depth + 1)
             child.recycle()
-            if (found) return true
+            if (found != null) return found
         }
-        return false
+        return null
+    }
+
+    /**
+     * Parses a duration in days from disappearing-message banner text.
+     * Handles "24 hours", "7 days", "4 weeks", "90 days", "1 year" etc.
+     * Returns null if no recognisable duration is present (treated as short/unknown).
+     */
+    private fun parseDurationDays(text: String): Int? {
+        val match = Regex("""(\d+)\s*(second|minute|hour|day|week|month|year)s?""", RegexOption.IGNORE_CASE)
+            .find(text) ?: return null
+        val amount = match.groupValues[1].toIntOrNull() ?: return null
+        return when (match.groupValues[2].lowercase()) {
+            "second" -> 0
+            "minute" -> 0
+            "hour"   -> if (amount >= 24) 1 else 0
+            "day"    -> amount
+            "week"   -> amount * 7
+            "month"  -> amount * 30
+            "year"   -> amount * 365
+            else     -> null
+        }
     }
 
     /** Heuristic: short strings that look like UI labels rather than message content. */
@@ -905,6 +970,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun flushPendingAlert(convHash: String) {
         sessionRecords.remove(convHash)
         alertedConvHashes.remove(convHash)
+        disappearingMessagesSuppressed.remove(convHash)
         // disappearing-messages dedup lives in dedupPrefs (persistent) — not cleared here
         // so switching apps or restarting the service never re-fires the same alert.
         // Clear the seen-message hash set so that when the user returns to this
