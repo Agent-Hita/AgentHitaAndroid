@@ -416,6 +416,7 @@ class GemmaClassifier(context: Context) {
 
 Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
 Valid severity levels: HIGH MEDIUM LOW NONE
+IDENTITY_PHISHING applies only when the sender is REQUESTING personal information or credentials (e.g. "send me your SSN", "give me the code"). If the sender is PROVIDING or SHARING that information, use NONE.
 $recipientLine$contextBlock
 Latest message: "$truncated"
 
