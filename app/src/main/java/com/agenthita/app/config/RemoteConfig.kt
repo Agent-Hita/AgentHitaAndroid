@@ -201,7 +201,7 @@ object RemoteConfig {
         val buildType:               String = "release",
 
         // Gemma
-        val gemmaMaxTokens:            Int    = 200,
+        val gemmaMaxTokens:            Int    = 512,
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,

@@ -10,6 +10,7 @@ import com.agenthita.app.telemetry.TelemetryManager
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import java.io.File
 import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.GZIPInputStream
 
 /**
@@ -41,6 +42,12 @@ class GemmaClassifier(context: Context) {
      */
     var loadFailed: Boolean = false
         private set
+
+    // LlmInference is not thread-safe. Multiple accessibility events can trigger concurrent
+    // coroutines on Dispatchers.IO; if two calls race on the native session the result is
+    // a SIGSEGV (memcpy into a buffer being written by another thread). We use a non-blocking
+    // trylock so that a concurrent caller skips inference rather than queuing behind it.
+    private val inferenceInProgress = AtomicBoolean(false)
 
     // Single-entry cache — avoids re-running inference when the test pipeline calls
     // classifier.classify(text) immediately after scorer.score(text) with the same inputs.
@@ -408,13 +415,26 @@ class GemmaClassifier(context: Context) {
         }
         return try {
             val prompt = buildMultiClassPrompt(text, context, ageHint)
-            val t0 = System.currentTimeMillis()
-            val response = inference.generateResponse(prompt).trim().uppercase()
-            val ms = System.currentTimeMillis() - t0
-            android.util.Log.i("GemmaClassifier", "Inference took ${ms}ms | response: \"$response\"")
-            parseMultiClassResponse(response).also {
-                cacheKey = key
-                cacheVal = it
+            val estimatedTokens = prompt.length / 3
+            if (estimatedTokens > RemoteConfig.gemmaMaxTokens - 50) {
+                android.util.Log.w("GemmaClassifier", "Prompt too long (~$estimatedTokens tokens vs limit ${RemoteConfig.gemmaMaxTokens}), skipping inference")
+                return null
+            }
+            if (!inferenceInProgress.compareAndSet(false, true)) {
+                android.util.Log.d("GemmaClassifier", "Inference already in progress, skipping concurrent call")
+                return null
+            }
+            try {
+                val t0 = System.currentTimeMillis()
+                val response = inference.generateResponse(prompt).trim().uppercase()
+                val ms = System.currentTimeMillis() - t0
+                android.util.Log.i("GemmaClassifier", "Inference took ${ms}ms | response: \"$response\"")
+                parseMultiClassResponse(response).also {
+                    cacheKey = key
+                    cacheVal = it
+                }
+            } finally {
+                inferenceInProgress.set(false)
             }
         } catch (e: Exception) {
             android.util.Log.w("GemmaClassifier", "Multi-class inference error: ${e.message}")
@@ -423,8 +443,8 @@ class GemmaClassifier(context: Context) {
     }
 
     private fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
-        // Budget: 512 tokens total. Reserve ~80 for prompt overhead + ~150 for response.
-        // Split remaining ~280 between context (up to 3 prior msgs × 60 chars) and latest message.
+        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~620 chars
+        // (~177 tokens); the guard in classifyMessage enforces the hard limit before calling inference.
         val truncated = text.take(RemoteConfig.gemmaInputTruncationChars)
         val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
         val contextBlock = if (context.isEmpty()) "" else {
@@ -463,7 +483,15 @@ Severity: """.trimIndent()
         val normalized = response.replace(Regex("[^A-Z0-9_\\s]"), " ")
         val tokens = normalized.split(Regex("\\s+")).filter { it.isNotBlank() }
 
-        val category = tokens.firstNotNullOfOrNull { token ->
+        // Anchor to the last "HARM TYPE" label pair in the token list. When Gemma echoes
+        // the prompt back verbatim it repeats the valid-harm-types list (which contains
+        // "SEXTORTION", "GROOMING" etc.) before printing the actual fill-in answer. Scanning
+        // from the last "HARM TYPE" label means we read Gemma's answer, not the echoed list.
+        val harmTypeIdx = (tokens.indices).lastOrNull { i ->
+            tokens[i] == "HARM" && tokens.getOrNull(i + 1) == "TYPE"
+        }?.plus(2) ?: 0
+
+        val category = tokens.drop(harmTypeIdx).firstNotNullOfOrNull { token ->
             when (token) {
                 "SEXTORTION"        -> HarmCategory.SEXTORTION
                 "FINANCIAL_SCAM"    -> HarmCategory.FINANCIAL_SCAM
@@ -472,11 +500,17 @@ Severity: """.trimIndent()
                 "IDENTITY_PHISHING", "PHISHING" -> HarmCategory.IDENTITY_PHISHING
                 "LURING"            -> HarmCategory.LURING
                 "HARASSMENT"        -> HarmCategory.HARASSMENT
+                "NONE"              -> null  // explicit NONE answer → safe
                 else                -> null
             }
         } ?: return null  // No recognised category → safe / unparseable
 
-        val severity = tokens.firstNotNullOfOrNull { token ->
+        // Anchor severity search after the last "SEVERITY" label token similarly.
+        val severityIdx = (tokens.indices).lastOrNull { i ->
+            tokens[i] == "SEVERITY"
+        }?.plus(1) ?: 0
+
+        val severity = tokens.drop(severityIdx).firstNotNullOfOrNull { token ->
             when (token) {
                 "HIGH"   -> RiskLevel.HIGH
                 "MEDIUM" -> RiskLevel.MEDIUM
@@ -499,6 +533,10 @@ Severity: """.trimIndent()
         category: HarmCategory
     ): String? {
         val inference = llm ?: return null
+        if (!inferenceInProgress.compareAndSet(false, true)) {
+            android.util.Log.d("GemmaClassifier", "Inference busy, skipping analysis")
+            return null
+        }
         return try {
             val prompt = buildAnalysisPrompt(lastMessage, context, signals, category)
             val response = inference.generateResponse(prompt).trim()
@@ -507,6 +545,8 @@ Severity: """.trimIndent()
         } catch (e: Exception) {
             android.util.Log.w("GemmaClassifier", "Analysis inference error: ${e.message}")
             null
+        } finally {
+            inferenceInProgress.set(false)
         }
     }
 

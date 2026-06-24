@@ -20,7 +20,7 @@
   },
 
   "gemma": {
-    "max_tokens":              200,
+    "max_tokens":              512,
     "input_truncation_chars":  300,
     "context_messages":        5,
     "context_message_length":  80,

@@ -492,7 +492,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 // attack signals split across consecutive messages (e.g. "are your
                 // parents home?" followed by "come meet me") are caught together.
                 // Previously seen messages become the context window for mild boosting.
-                val unseenText   = unseenMessages.joinToString("\n")
+                val unseenText   = unseenMessages.joinToString("\n").take(300)
                 val seenMessages = messages.filter { sha256(it) in seen }
 
                 val results = try {
