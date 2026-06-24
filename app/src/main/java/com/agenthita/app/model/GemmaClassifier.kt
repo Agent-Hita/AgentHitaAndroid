@@ -59,6 +59,19 @@ class GemmaClassifier(context: Context) {
                 if (f.delete()) android.util.Log.i("GemmaClassifier", "Removed incompatible GPU model: ${f.name}")
             }
 
+        // Remove undersized model files — they are interrupted/partial copies that will
+        // pass the open-file check but crash MediaPipe's native parser on first inference.
+        // Valid Gemma CPU INT4 models are ≥ 900 MB; 500 MB is a safe floor to catch truncations.
+        context.filesDir.listFiles()
+            ?.filter { f ->
+                (f.name.endsWith(".bin") || f.name.endsWith(".task")) &&
+                !f.name.lowercase().contains("gpu") &&
+                f.length() < 500_000_000L
+            }
+            ?.forEach { f ->
+                if (f.delete()) android.util.Log.w("GemmaClassifier", "Removed undersized model (likely partial copy): ${f.name}")
+            }
+
         // 1. Try direct file access first (fast path)
         val modelPath = findModelPath(context)
             // 2. Fall back to copying model from MediaStore Downloads into internal storage.
@@ -96,9 +109,11 @@ class GemmaClassifier(context: Context) {
      * Returns the path of the staged copy, or null if the file is not in MediaStore.
      */
     private fun copyModelFromMediaStore(context: Context): String? {
-        // Skip copy if already staged from a previous run
+        // Skip copy if already staged from a previous run.
+        // Use 500 MB as the minimum — valid Gemma CPU INT4 models are ≥ 900 MB, so anything
+        // smaller is a corrupted/partial copy that must not be reused.
         context.filesDir.listFiles()?.forEach { f ->
-            if ((f.name.endsWith(".bin") || f.name.endsWith(".task")) && f.length() > 100_000_000L) {
+            if ((f.name.endsWith(".bin") || f.name.endsWith(".task")) && f.length() > 500_000_000L) {
                 android.util.Log.i("GemmaClassifier", "Using pre-staged model: ${f.absolutePath}")
                 return f.absolutePath
             }
@@ -156,7 +171,11 @@ class GemmaClassifier(context: Context) {
                         FileOutputStream(dest).use { out -> input.copyTo(out, bufferSize = 8 * 1024 * 1024) }
                     }
                 }.isSuccess
-                if (copied && dest.length() > 100_000_000L) {
+                // Verify the copy is complete by comparing byte-for-byte against the source size
+                // from MediaStore. A partial copy (e.g. interrupted transfer) would pass a simple
+                // > 100 MB check but crash MediaPipe's native parser on first inference (SIGSEGV
+                // in LlmInferenceEngine_CreateSession via resetImplicitSession).
+                if (copied && dest.length() == entry.size) {
                     android.util.Log.i("GemmaClassifier", "Copy complete: ${dest.length() / 1_000_000} MB")
                     // Remove from Downloads — model is now in private app storage where
                     // the user can't accidentally delete it. Best-effort: if the entry is
@@ -313,7 +332,7 @@ class GemmaClassifier(context: Context) {
         context.filesDir.listFiles()?.firstOrNull { f ->
             (f.name.endsWith(".bin") || f.name.endsWith(".task")) &&
             !f.name.lowercase().contains("gpu") &&
-            f.length() > 100_000_000L &&
+            f.length() > 500_000_000L &&
             try { java.io.FileInputStream(f).use { true } } catch (_: Exception) { false }
         }?.let {
             android.util.Log.i("GemmaClassifier", "Model found: ${it.absolutePath}")
