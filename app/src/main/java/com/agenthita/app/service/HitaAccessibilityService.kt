@@ -180,6 +180,20 @@ class HitaAccessibilityService : AccessibilityService() {
         antiCoercionMonitor      = AntiCoercionMonitor(this, consentManager)
 
         dedupPrefs = getSharedPreferences(DEDUP_PREFS, MODE_PRIVATE)
+
+        // Clear per-conversation dedup state from previous sessions so that messages
+        // visible on reconnect (e.g. after a crash or a replace-install that preserves
+        // SharedPreferences) are not silently skipped. persistConvState is called before
+        // the analysis coroutine launches, so a crash mid-inference leaves stale Layer 1
+        // (last_*) and Layer 2 (seen_*) entries that would block the same message forever.
+        // Disappearing-messages flags (disappearing_*) are intentionally kept — they track
+        // whether we've already fired that specific alert for a conversation.
+        dedupPrefs.edit().also { ed ->
+            dedupPrefs.all.keys
+                .filter { it.startsWith(CONV_KEY_PREFIX) || it.startsWith(SEEN_KEY_PREFIX) }
+                .forEach { ed.remove(it) }
+        }.apply()
+
         android.util.Log.i(TAG, "Accessibility service connected — monitoring active")
 
         // Pin the process as a foreground service so Samsung's FreecessController cannot
