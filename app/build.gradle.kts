@@ -13,6 +13,13 @@ val secrets = Properties().apply {
     if (f.exists()) load(f.inputStream())
 }
 
+val devSecrets = Properties().apply {
+    val f = rootProject.file("secrets.dev.properties")
+        .takeIf { it.exists() }
+        ?: rootProject.file("../AgentHitaAndroidConfig/secrets.dev.properties")
+    if (f.exists()) load(f.inputStream())
+}
+
 android {
     namespace = "com.agenthita.app"
     compileSdk = 35
@@ -21,8 +28,8 @@ android {
         applicationId = "com.agenthita.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 13
-        versionName = "1.0.13"
+        versionCode = 14
+        versionName = "1.0.14"
 
         buildConfigField("String", "FEEDBACK_API_URL",   "\"${secrets.getProperty("FEEDBACK_API_URL",   "https://api.agenthita.org/feedback")}\"")
         buildConfigField("String", "ALERT_API_URL",      "\"${secrets.getProperty("ALERT_API_URL",      "https://api.agenthita.org/alert")}\"")
@@ -49,6 +56,15 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "FEEDBACK_API_URL",
+                "\"${devSecrets.getProperty("FEEDBACK_API_URL", "https://api-dev.agenthita.org/feedback")}\"")
+            buildConfigField("String", "ALERT_API_URL",
+                "\"${devSecrets.getProperty("ALERT_API_URL",    "https://api-dev.agenthita.org/alert")}\"")
+            buildConfigField("String", "TELEMETRY_API_URL",
+                "\"${devSecrets.getProperty("TELEMETRY_API_URL","https://api-dev.agenthita.org/telemetry")}\"")
+            buildConfigField("Long", "CLOUD_PROJECT_NUMBER", "0L")
+        }
         release {
             isMinifyEnabled = true
             signingConfig = signingConfigs.getByName("release")
