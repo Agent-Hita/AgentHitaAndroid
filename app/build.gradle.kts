@@ -27,6 +27,8 @@ android {
         buildConfigField("String", "FEEDBACK_API_URL",   "\"${secrets.getProperty("FEEDBACK_API_URL",   "https://api.agenthita.org/feedback")}\"")
         buildConfigField("String", "ALERT_API_URL",      "\"${secrets.getProperty("ALERT_API_URL",      "https://api.agenthita.org/alert")}\"")
         buildConfigField("String", "TELEMETRY_API_URL",  "\"${secrets.getProperty("TELEMETRY_API_URL",  "https://api.agenthita.org/telemetry")}\"")
+        buildConfigField("Long",   "CLOUD_PROJECT_NUMBER",
+            "${secrets.getProperty("CLOUD_PROJECT_NUMBER", "0")}L")
     }
 
     signingConfigs {
@@ -117,6 +119,10 @@ dependencies {
     // JavaMail Android port (guardian email alerts)
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
+
+    // Play Integrity — device/app attestation at registration time
+    implementation("com.google.android.play:integrity:1.4.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // MediaPipe LLM Inference — Gemma on-device classifier (0.10.22+ required for Gemma 3)
     implementation("com.google.mediapipe:tasks-genai:0.10.22")

@@ -4,9 +4,15 @@ import android.content.Context
 import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.agenthita.app.BuildConfig
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
+import com.google.android.play.core.integrity.IntegrityManagerFactory
+import com.google.android.play.core.integrity.StandardIntegrityManager
+import com.google.android.play.core.integrity.StandardIntegrityManager.PrepareIntegrityTokenRequest
+import com.google.android.play.core.integrity.StandardIntegrityManager.StandardIntegrityTokenRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -16,9 +22,14 @@ import java.net.URL
 /**
  * Manages per-device authentication tokens.
  *
- * On first call to getToken(), registers the device with the backend and stores
- * the returned token in EncryptedSharedPreferences. Subsequent calls return the
- * cached value without network I/O.
+ * Registration flow (with Play Integrity):
+ *   1. Warm up StandardIntegrityManager (done once at app start via warmUp())
+ *   2. At registration time, request an integrity token with requestHash = deviceId
+ *   3. POST {deviceId, integrityToken} to /device/register
+ *   4. Backend verifies the token with Google and issues a session token
+ *
+ * If the Play Integrity API is unavailable (emulator, pre-Play device, CLOUD_PROJECT_NUMBER=0),
+ * registration proceeds without an integrity token — the backend accepts this in dev mode.
  */
 object DeviceTokenManager {
 
@@ -26,12 +37,40 @@ object DeviceTokenManager {
     private const val PREFS_FILE = "hita_device_token"
     private const val KEY_TOKEN  = "device_token"
 
-    @Volatile
-    private var cached: String? = null
+    @Volatile private var cached: String? = null
+
+    /** Warmed-up integrity manager — null until warmUp() succeeds. */
+    @Volatile private var integrityManager: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
+
+    // ── Public API ────────────────────────────────────────────────────────────
+
+    /**
+     * Call once from Application.onCreate() to pre-warm the integrity token provider
+     * so the first registration request isn't delayed by the warm-up round trip.
+     */
+    suspend fun warmUp(context: Context) {
+        if (BuildConfig.CLOUD_PROJECT_NUMBER == 0L) {
+            Log.w(TAG, "CLOUD_PROJECT_NUMBER not set — Play Integrity warm-up skipped")
+            return
+        }
+        withContext(Dispatchers.IO) {
+            try {
+                val manager = IntegrityManagerFactory.createStandard(context.applicationContext)
+                integrityManager = manager.prepareIntegrityToken(
+                    PrepareIntegrityTokenRequest.builder()
+                        .setCloudProjectNumber(BuildConfig.CLOUD_PROJECT_NUMBER)
+                        .build()
+                ).await()
+                Log.i(TAG, "Play Integrity warm-up complete")
+            } catch (e: Exception) {
+                Log.w(TAG, "Play Integrity warm-up failed (will retry at registration): ${e.message}")
+            }
+        }
+    }
 
     /**
      * Returns the device token, registering with the backend if needed.
-     * Safe to call from any coroutine context — I/O is switched to Dispatchers.IO.
+     * Safe to call from any coroutine context.
      */
     suspend fun getToken(context: Context): String {
         cached?.let { return it }
@@ -56,13 +95,28 @@ object DeviceTokenManager {
         }
     }
 
-    /**
-     * POSTs the deviceId to the registration endpoint and returns the token.
-     * Must be called from an IO dispatcher.
-     */
-    private fun register(context: Context): String {
-        val deviceId = ConsentManager(context.applicationContext).userId
-        val payload = JSONObject().apply { put("deviceId", deviceId) }
+    fun invalidate(context: Context) {
+        cached = null
+        try {
+            buildEncryptedPrefs(context.applicationContext).edit().remove(KEY_TOKEN).apply()
+            Log.i(TAG, "Device token invalidated — will re-register on next request")
+        } catch (e: Exception) {
+            Log.w(TAG, "Token invalidation failed: ${e.message}")
+        }
+    }
+
+    // ── Internal ──────────────────────────────────────────────────────────────
+
+    private suspend fun register(context: Context): String {
+        val deviceId      = ConsentManager(context.applicationContext).userId
+        val integrityToken = requestIntegrityToken(context, deviceId)
+
+        val payload = JSONObject().apply {
+            put("deviceId", deviceId)
+            if (!integrityToken.isNullOrBlank()) {
+                put("integrityToken", integrityToken)
+            }
+        }
 
         val conn = URL(RemoteConfig.deviceRegisterEndpoint).openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
@@ -87,13 +141,32 @@ object DeviceTokenManager {
         return JSONObject(responseBody).getString("token")
     }
 
-    fun invalidate(context: Context) {
-        cached = null
-        try {
-            buildEncryptedPrefs(context.applicationContext).edit().remove(KEY_TOKEN).apply()
-            Log.i(TAG, "Device token invalidated — will re-register on next request")
+    /**
+     * Requests a Play Integrity token using the deviceId as the requestHash.
+     * Returns null if the API is unavailable — registration will proceed without it.
+     */
+    private suspend fun requestIntegrityToken(context: Context, deviceId: String): String? {
+        if (BuildConfig.CLOUD_PROJECT_NUMBER == 0L) return null
+
+        return try {
+            // Use the warmed-up provider if available, otherwise warm up now
+            val provider = integrityManager ?: run {
+                val manager = IntegrityManagerFactory.createStandard(context.applicationContext)
+                manager.prepareIntegrityToken(
+                    PrepareIntegrityTokenRequest.builder()
+                        .setCloudProjectNumber(BuildConfig.CLOUD_PROJECT_NUMBER)
+                        .build()
+                ).await().also { integrityManager = it }
+            }
+
+            provider.request(
+                StandardIntegrityTokenRequest.builder()
+                    .setRequestHash(deviceId)
+                    .build()
+            ).await().token()
         } catch (e: Exception) {
-            Log.w(TAG, "Token invalidation failed: ${e.message}")
+            Log.w(TAG, "Play Integrity token request failed: ${e.message}")
+            null
         }
     }
 

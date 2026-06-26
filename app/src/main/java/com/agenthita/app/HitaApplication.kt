@@ -35,8 +35,12 @@ class HitaApplication : Application() {
         RemoteConfig.init(this)
         RemoteConfig.fetchAsync(this)
         GlobalScope.launch(Dispatchers.IO) {
-            try { DeviceTokenManager.getToken(this@HitaApplication) }
-            catch (e: Exception) { Log.w("HitaApplication", "Device token pre-warm failed: ${e.message}") }
+            try {
+                DeviceTokenManager.warmUp(this@HitaApplication)
+                DeviceTokenManager.getToken(this@HitaApplication)
+            } catch (e: Exception) {
+                Log.w("HitaApplication", "Device token pre-warm failed: ${e.message}")
+            }
         }
         createNotificationChannels()
         installCrashHandler()
