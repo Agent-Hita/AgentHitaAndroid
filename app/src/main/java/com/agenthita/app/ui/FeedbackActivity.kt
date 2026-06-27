@@ -101,7 +101,7 @@ class FeedbackActivity : AppCompatActivity() {
                 return null
             }
 
-            if (responseCode == 401) DeviceTokenManager.invalidate(this@FeedbackActivity)
+            if (responseCode == 401) DeviceTokenManager.invalidate(this@FeedbackActivity, token)
             val errorBody = connection.errorStream?.bufferedReader()?.readText()
             connection.disconnect()
             val serverMessage = errorBody?.let {

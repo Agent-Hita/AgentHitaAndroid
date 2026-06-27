@@ -12,6 +12,8 @@ import com.google.android.play.core.integrity.StandardIntegrityManager
 import com.google.android.play.core.integrity.StandardIntegrityManager.PrepareIntegrityTokenRequest
 import com.google.android.play.core.integrity.StandardIntegrityManager.StandardIntegrityTokenRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -38,6 +40,7 @@ object DeviceTokenManager {
     private const val KEY_TOKEN  = "device_token"
 
     @Volatile private var cached: String? = null
+    private val registrationMutex = Mutex()
 
     /** Warmed-up integrity manager — null until warmUp() succeeds. */
     @Volatile private var integrityManager: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
@@ -82,23 +85,40 @@ object DeviceTokenManager {
             return stored
         }
 
-        return withContext(Dispatchers.IO) {
-            try {
-                val token = register(context.applicationContext)
-                prefs.edit().putString(KEY_TOKEN, token).apply()
-                cached = token
-                token
-            } catch (e: Exception) {
-                Log.e(TAG, "Device registration failed: ${e.message}", e)
-                ""
+        return registrationMutex.withLock {
+            // Re-check after acquiring lock — another coroutine may have registered while we waited.
+            cached?.let { return@withLock it }
+            val stored2 = prefs.getString(KEY_TOKEN, null)
+            if (!stored2.isNullOrBlank()) {
+                cached = stored2
+                return@withLock stored2
+            }
+            withContext(Dispatchers.IO) {
+                try {
+                    val token = register(context.applicationContext)
+                    prefs.edit().putString(KEY_TOKEN, token).apply()
+                    cached = token
+                    token
+                } catch (e: Exception) {
+                    Log.e(TAG, "Device registration failed: ${e.message}", e)
+                    ""
+                }
             }
         }
     }
 
-    fun invalidate(context: Context) {
+    fun invalidate(context: Context, rejectedToken: String? = null) {
+        // If a specific token is given, only invalidate if it still matches what's stored —
+        // prevents in-flight requests with stale tokens from wiping a freshly registered one.
+        if (rejectedToken != null && cached != null && cached != rejectedToken) return
         cached = null
         try {
-            buildEncryptedPrefs(context.applicationContext).edit().remove(KEY_TOKEN).apply()
+            val prefs = buildEncryptedPrefs(context.applicationContext)
+            if (rejectedToken != null) {
+                val stored = prefs.getString(KEY_TOKEN, null)
+                if (stored != null && stored != rejectedToken) return
+            }
+            prefs.edit().remove(KEY_TOKEN).apply()
             Log.i(TAG, "Device token invalidated — will re-register on next request")
         } catch (e: Exception) {
             Log.w(TAG, "Token invalidation failed: ${e.message}")
