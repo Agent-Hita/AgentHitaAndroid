@@ -687,6 +687,8 @@ class HitaAccessibilityService : AccessibilityService() {
                 val subtitle = subtitleNodes.firstOrNull()?.text?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
                 subtitle.contains("member", ignoreCase = true) ||
+                subtitle.contains("community", ignoreCase = true) ||
+                subtitle.contains("channel", ignoreCase = true) ||
                 subtitle.split(",").size >= 2 ||
                 subtitle.matches(Regex("\\d+\\s+online.*", RegexOption.IGNORE_CASE))
             }
@@ -796,7 +798,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     val outgoing = isOutgoingWhatsApp(node)
                     val media = text != null && isMediaMessage(text)
                     if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] node text=\"${text?.take(40)}\" outgoing=$outgoing media=$media len=${text?.length}")
-                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !media) {
+                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !media && !isUIChrome(text)) {
                         raw.add(text to outgoing)
                     }
                     node.recycle()
@@ -808,7 +810,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                     nodes.forEach { node ->
                         val text = node.text?.toString()
-                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text)) {
+                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) && !isUIChrome(text)) {
                             raw.add(text to isOutgoingInstagram(node))
                         }
                         node.recycle()
