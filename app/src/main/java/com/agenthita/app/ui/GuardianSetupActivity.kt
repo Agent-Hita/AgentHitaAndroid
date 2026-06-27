@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.R
 import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.config.RemoteConfig
@@ -12,7 +11,9 @@ import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.consent.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -92,8 +93,9 @@ class GuardianSetupActivity : AppCompatActivity() {
             .forEach { postGuardianConfig(it.email, it.action) }
     }
 
+    @OptIn(DelicateCoroutinesApi::class)
     private fun postGuardianConfig(email: String, action: String) {
-        lifecycleScope.launch(Dispatchers.IO) {
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 val token = DeviceTokenManager.getToken(this@GuardianSetupActivity)
                 val payload = JSONObject().apply {
