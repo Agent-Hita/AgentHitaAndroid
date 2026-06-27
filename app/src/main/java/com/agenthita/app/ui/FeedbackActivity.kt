@@ -1,6 +1,5 @@
 package com.agenthita.app.ui
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -9,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.config.RemoteConfig
+import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityFeedbackBinding
 import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.telemetry.TelemetryManager
@@ -19,7 +19,6 @@ import org.json.JSONObject
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.UUID
 
 class FeedbackActivity : AppCompatActivity() {
 
@@ -77,7 +76,7 @@ class FeedbackActivity : AppCompatActivity() {
     private fun postFeedback(rating: Int, text: String, token: String): String? {
         return try {
             val payload = JSONObject().apply {
-                put("userId", getOrCreateUserId())
+                put("userId", ConsentManager(this@FeedbackActivity).userId)
                 put("text", text)
                 put("rating", rating)
                 put("consentVersion", CONSENT_VERSION)
@@ -114,16 +113,7 @@ class FeedbackActivity : AppCompatActivity() {
         }
     }
 
-    private fun getOrCreateUserId(): String {
-        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_USER_ID, null) ?: UUID.randomUUID().toString().also { uuid ->
-            prefs.edit().putString(KEY_USER_ID, uuid).apply()
-        }
-    }
-
     companion object {
         private const val CONSENT_VERSION = "1.0"
-        private const val PREFS_NAME      = "hita_feedback_prefs"
-        private const val KEY_USER_ID     = "anonymous_user_id"
     }
 }
