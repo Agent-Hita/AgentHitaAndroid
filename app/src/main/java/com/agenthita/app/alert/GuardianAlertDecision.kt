@@ -26,6 +26,14 @@ object GuardianAlertDecision {
         return changes
     }
 
+    /**
+     * Returns true if the alerts toggle should be auto-enabled.
+     * Only fires on first-time setup (no email previously saved) when the new email is valid.
+     * On re-entry the user's explicit toggle choice is always respected.
+     */
+    fun shouldAutoEnable(previousEmail: String?, emailValid: Boolean): Boolean =
+        emailValid && previousEmail.isNullOrEmpty()
+
     fun alertsLabel(isEnabled: Boolean): String =
         if (isEnabled) "Guardian alerts (ON)" else "Guardian alerts (OFF)"
 }
