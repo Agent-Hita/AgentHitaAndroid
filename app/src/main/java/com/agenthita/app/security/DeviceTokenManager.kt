@@ -33,14 +33,22 @@ import java.net.URL
  * If the Play Integrity API is unavailable (emulator, pre-Play device, CLOUD_PROJECT_NUMBER=0),
  * registration proceeds without an integrity token — the backend accepts this in dev mode.
  */
+private class RegistrationRateLimitedException : Exception()
+
 object DeviceTokenManager {
 
     private const val TAG        = "DeviceTokenManager"
     private const val PREFS_FILE = "hita_device_token"
     private const val KEY_TOKEN  = "device_token"
 
+    private const val INITIAL_BACKOFF_MS = 2L  * 60 * 1_000  // 2 min
+    private const val MAX_BACKOFF_MS     = 60L * 60 * 1_000  // 60 min
+
     @Volatile private var cached: String? = null
     private val registrationMutex = Mutex()
+
+    @Volatile private var nextRegistrationAttemptMs = 0L
+    @Volatile private var registrationBackoffMs     = INITIAL_BACKOFF_MS
 
     /** Warmed-up integrity manager — null until warmUp() succeeds. */
     @Volatile private var integrityManager: StandardIntegrityManager.StandardIntegrityTokenProvider? = null
@@ -94,11 +102,26 @@ object DeviceTokenManager {
                 return@withLock stored2
             }
             withContext(Dispatchers.IO) {
+                val now = System.currentTimeMillis()
+                if (now < nextRegistrationAttemptMs) {
+                    val waitSec = (nextRegistrationAttemptMs - now) / 1_000
+                    Log.d(TAG, "Registration skipped — rate-limit backoff active for ${waitSec}s more")
+                    return@withContext ""
+                }
                 try {
                     val token = register(context.applicationContext)
+                    nextRegistrationAttemptMs = 0L
+                    registrationBackoffMs = INITIAL_BACKOFF_MS
                     prefs.edit().putString(KEY_TOKEN, token).apply()
                     cached = token
+                    Log.i(TAG, "Device registered successfully")
                     token
+                } catch (e: RegistrationRateLimitedException) {
+                    val backoff = registrationBackoffMs
+                    nextRegistrationAttemptMs = System.currentTimeMillis() + backoff
+                    registrationBackoffMs = minOf(backoff * 2, MAX_BACKOFF_MS)
+                    Log.w(TAG, "Registration rate-limited — backing off ${backoff / 60_000}min")
+                    ""
                 } catch (e: Exception) {
                     Log.e(TAG, "Device registration failed: ${e.message}", e)
                     ""
@@ -149,6 +172,10 @@ object DeviceTokenManager {
         OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
 
         val code = conn.responseCode
+        if (code == 429) {
+            conn.disconnect()
+            throw RegistrationRateLimitedException()
+        }
         if (code !in 200..299) {
             val body = conn.errorStream?.bufferedReader()?.readText()?.take(200) ?: ""
             conn.disconnect()

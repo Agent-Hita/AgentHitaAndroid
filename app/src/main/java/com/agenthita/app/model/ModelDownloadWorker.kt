@@ -60,6 +60,10 @@ class ModelDownloadWorker(
 
             val deviceId    = ConsentManager(appContext).userId
             val deviceToken = DeviceTokenManager.getToken(appContext)
+            if (deviceToken.isBlank()) {
+                android.util.Log.w(TAG, "No device token available — will retry")
+                return@withContext Result.retry()
+            }
 
             val signedUrlConn = URL(RemoteConfig.modelSignedUrlEndpoint).openConnection() as HttpURLConnection
             signedUrlConn.connectTimeout = 15_000

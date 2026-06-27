@@ -25,10 +25,12 @@ import com.agenthita.app.R
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityDashboardBinding
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 import com.agenthita.app.model.ModelDownloadWorker
 import com.agenthita.app.storage.ContactNameDao
 import com.agenthita.app.storage.RiskEvent
@@ -646,7 +648,9 @@ else -> false
     }
 
     private fun startModelDownload() {
-        val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>().build()
+        val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
+            .build()
         WorkManager.getInstance(this).enqueueUniqueWork(
             ModelDownloadWorker.WORK_NAME,
             ExistingWorkPolicy.KEEP,
