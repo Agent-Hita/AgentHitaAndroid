@@ -32,6 +32,13 @@ class ConsentManager(context: Context) {
 
     // --- Guardian alert configuration ---
 
+    /** First name (or nickname) of the person whose device this is — shown in threat logs
+     *  when the app detects messages sent by the user themselves. Useful when a parent
+     *  monitors multiple children so they can tell which device a threat originated from. */
+    var monitoredUserName: String?
+        get() = prefs.getString(KEY_MONITORED_USER_NAME, null)?.takeIf { it.isNotBlank() }
+        set(value) = prefs.edit().putString(KEY_MONITORED_USER_NAME, value).apply()
+
     var guardianEmail: String?
         get() = prefs.getString(KEY_GUARDIAN_EMAIL, null)
         set(value) = prefs.edit().putString(KEY_GUARDIAN_EMAIL, value).apply()
@@ -103,6 +110,7 @@ class ConsentManager(context: Context) {
         private const val KEY_ONBOARDING_COMPLETE    = "onboarding_complete"
         private const val KEY_CONSENT_TIMESTAMP      = "consent_timestamp"
         private const val KEY_USER_CATEGORY          = "user_category"
+        private const val KEY_MONITORED_USER_NAME    = "monitored_user_name"
         private const val KEY_GUARDIAN_EMAIL         = "guardian_email"
         private const val KEY_GUARDIAN_ALERTS_ENABLED = "guardian_alerts_enabled"
         private const val KEY_LAST_AUTONOMY_PROMPT   = "last_autonomy_prompt"

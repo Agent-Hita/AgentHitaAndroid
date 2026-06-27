@@ -34,6 +34,7 @@ class GuardianSetupActivity : AppCompatActivity() {
         consentManager = ConsentManager(this)
 
         // Pre-fill if re-entering setup
+        consentManager.monitoredUserName?.let { binding.etMonitoredName.setText(it) }
         consentManager.guardianEmail?.let { binding.etGuardianEmail.setText(it) }
         binding.switchAlerts.isChecked = consentManager.isGuardianAlertsEnabled
         updateAlertsLabel(binding.switchAlerts.isChecked)
@@ -122,6 +123,7 @@ class GuardianSetupActivity : AppCompatActivity() {
             R.id.rb_vulnerable_adult -> UserCategory.VULNERABLE_ADULT
             else                    -> UserCategory.SELF_PROTECTING_ADULT
         }
+        consentManager.monitoredUserName = binding.etMonitoredName.text?.toString()?.trim()
     }
 
     private fun updateAlertsLabel(isChecked: Boolean) {
