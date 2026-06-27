@@ -2,6 +2,7 @@ package com.agenthita.app.config
 
 import android.content.Context
 import android.util.Log
+import com.agenthita.app.BuildConfig
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -30,9 +31,9 @@ object RemoteConfig {
     private const val PREFS_NAME   = "hita_remote_config"
     private const val KEY_JSON     = "cached_json"
 
-    // The single hardcoded URL — all other URLs come from the config itself.
-    private const val CONFIG_URL =
-        "https://config.agenthita.org/app_config.json"
+    // Build-type-specific URL: debug → .../dev/app_config.json, release → .../app_config.json
+    // Set via BuildConfig so dev and prod remote overrides are isolated from each other.
+    private val CONFIG_URL get() = BuildConfig.REMOTE_CONFIG_URL
 
     @Volatile
     private var current = ConfigSnapshot()
@@ -181,13 +182,13 @@ object RemoteConfig {
     data class ConfigSnapshot(
         val version: Int = 1,
 
-        // API
-        val telemetryEndpoint: String = "https://api.agenthita.org/telemetry",
-        val alertEndpoint:          String = "https://api.agenthita.org/alert/guardian",
-        val guardianConfigEndpoint: String = "https://api.agenthita.org/alert/guardian/configure",
-        val feedbackEndpoint:        String = "https://api.agenthita.org/feedback",
-        val falseFeedbackEndpoint:   String = "https://api.agenthita.org/feedback/false-positive",
-        val deviceRegisterEndpoint:  String = "https://api.agenthita.org/device/register",
+        // API — base URLs come from BuildConfig so debug builds hit api-dev automatically
+        val telemetryEndpoint: String = BuildConfig.TELEMETRY_API_URL,
+        val alertEndpoint:          String = "${BuildConfig.ALERT_API_URL}/guardian",
+        val guardianConfigEndpoint: String = "${BuildConfig.ALERT_API_URL}/guardian/configure",
+        val feedbackEndpoint:        String = BuildConfig.FEEDBACK_API_URL,
+        val falseFeedbackEndpoint:   String = "${BuildConfig.FEEDBACK_API_URL}/false-positive",
+        val deviceRegisterEndpoint:  String = BuildConfig.DEVICE_REGISTER_URL,
         val connectTimeoutMs:           Int  = 10_000,
         val readTimeoutMs:              Int  = 15_000,
         val configConnectTimeoutMs:     Int  = 5_000,
@@ -206,7 +207,7 @@ object RemoteConfig {
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
         val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz",
-        val modelSignedUrlEndpoint:    String = "https://api.agenthita.org/model/download-url",
+        val modelSignedUrlEndpoint:    String = BuildConfig.MODEL_SIGNED_URL_ENDPOINT,
         val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
         // SHA-256 hex digests of known-good extracted model binaries.
         // Verified against gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
