@@ -684,7 +684,9 @@ class HitaAccessibilityService : AccessibilityService() {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
                 val subtitleNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waContactStatusId}")
-                val subtitle = subtitleNodes.firstOrNull()?.text?.toString() ?: ""
+                val subtitleNode = subtitleNodes.firstOrNull()
+                val subtitle = subtitleNode?.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: subtitleNode?.contentDescription?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
                 subtitle.contains("member", ignoreCase = true) ||
                 subtitle.contains("community", ignoreCase = true) ||
