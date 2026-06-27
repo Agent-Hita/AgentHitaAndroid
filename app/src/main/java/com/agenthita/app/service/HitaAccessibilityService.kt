@@ -436,7 +436,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
             }
 
-            val messages = extractIncomingMessages(root, packageName)
+            val (messages, outgoingTexts) = extractMessages(root, packageName)
             if (messages.isEmpty()) {
                 if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] no text messages extracted (media-only or empty) — skipping")
                 if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
@@ -466,6 +466,7 @@ class HitaAccessibilityService : AccessibilityService() {
             // Layer 2 — find every message not yet scored
             val seen = dedupPrefs.getStringSet(seenKey, emptySet())!!
             val unseenMessages = messages.filter { sha256(it) !in seen }
+            val unseenOutgoing = unseenMessages.filter { it in outgoingTexts }
 
             if (unseenMessages.isEmpty()) {
                 android.util.Log.d(TAG, "[$packageName] Scroll-back detected — skipping already-seen messages")
@@ -532,11 +533,20 @@ class HitaAccessibilityService : AccessibilityService() {
                     sessionRecords[convHash]
                 }
 
+                // All new messages were sent by the user → attribute threat to the monitored
+                // person's name (set in Guardian Setup), falling back to "You" if not configured.
+                // If any incoming messages are also new, the contact is the threat source.
+                val senderLabel = consentManager.monitoredUserName ?: "You"
+                val contactIdentifier = if (unseenOutgoing.size == unseenMessages.size) senderLabel else contactName
+                if (contactIdentifier == senderLabel) {
+                    contactNameDao.upsert(ContactNameEntry(sha256(senderLabel), senderLabel))
+                }
+
                 val eventId: Long
                 if (existingEventId == null) {
                     eventId = riskEventStore.save(
                         appPackage        = packageName,
-                        contactIdentifier = contactName,
+                        contactIdentifier = contactIdentifier,
                         result            = topResult
                     )
                     val signalNames = topResult.signals.map { it.signal }.distinct()
@@ -768,8 +778,14 @@ class HitaAccessibilityService : AccessibilityService() {
      * Extracts the last up to 5 visible incoming message texts from the screen.
      * Own (outgoing) messages are excluded where they can be identified.
      */
-    private fun extractIncomingMessages(root: AccessibilityNodeInfo, pkg: String): List<String> {
-        val messages = mutableListOf<String>()
+    /**
+     * Extracts up to 5 recent messages from the conversation, both incoming and outgoing.
+     * Returns all message texts in screen order plus the subset of those texts that were
+     * sent by the user (outgoing), so the caller can attribute detections correctly.
+     */
+    private fun extractMessages(root: AccessibilityNodeInfo, pkg: String): Pair<List<String>, Set<String>> {
+        // (text, isOutgoing) — preserved in screen/chronological order
+        val raw = mutableListOf<Pair<String, Boolean>>()
 
         when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
@@ -780,10 +796,8 @@ class HitaAccessibilityService : AccessibilityService() {
                     val outgoing = isOutgoingWhatsApp(node)
                     val media = text != null && isMediaMessage(text)
                     if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] node text=\"${text?.take(40)}\" outgoing=$outgoing media=$media len=${text?.length}")
-                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
-                        !media && !outgoing
-                    ) {
-                        messages.add(text)
+                    if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !media) {
+                        raw.add(text to outgoing)
                     }
                     node.recycle()
                 }
@@ -794,19 +808,16 @@ class HitaAccessibilityService : AccessibilityService() {
                     val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                     nodes.forEach { node ->
                         val text = node.text?.toString()
-                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
-                            !isMediaMessage(text) && !isOutgoingInstagram(node)
-                        ) {
-                            messages.add(text)
+                        if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text)) {
+                            raw.add(text to isOutgoingInstagram(node))
                         }
                         node.recycle()
                     }
-                    if (messages.isNotEmpty()) break
+                    if (raw.isNotEmpty()) break
                 }
             }
             else -> {
-                // Google Messages (Compose builds): messages use bare test tags.
-                // content-desc distinguishes sender: "<contact> said <msg>" vs "You said <msg>".
+                // Google Messages (Compose builds): content-desc identifies sender direction.
                 val gmNodes = mutableListOf<AccessibilityNodeInfo>()
                 findNodesByTag(root, RemoteConfig.uiTags.gmMessageTag, gmNodes)
                 if (gmNodes.isNotEmpty()) {
@@ -814,22 +825,21 @@ class HitaAccessibilityService : AccessibilityService() {
                         val desc = node.contentDescription?.toString() ?: ""
                         val text = node.text?.toString()
                         if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
-                            !isMediaMessage(text) &&
-                            !desc.startsWith("You said", ignoreCase = true) &&
-                            !isUIChrome(text)
-                        ) {
-                            messages.add(text)
+                            !isMediaMessage(text) && !isUIChrome(text)) {
+                            raw.add(text to desc.startsWith("You said", ignoreCase = true))
                         }
                         node.recycle()
                     }
                 } else {
-                    // Fallback for other SMS apps (Samsung, AOSP) — collect all substantial TextViews
-                    collectTextViewContent(root, messages)
+                    // Fallback for other SMS apps (Samsung, AOSP).
+                    collectTextViewContent(root, raw)
                 }
             }
         }
 
-        return messages.takeLast(5)
+        val lastFive = raw.takeLast(5)
+        val outgoingTexts = lastFive.filter { it.second }.map { it.first }.toSet()
+        return lastFive.map { it.first } to outgoingTexts
     }
 
     /** Returns true if the text represents a media attachment rather than conversational text. */
@@ -840,34 +850,38 @@ class HitaAccessibilityService : AccessibilityService() {
 
     /**
      * WhatsApp outgoing messages are right-aligned; incoming are left-aligned.
-     * Using left-bound (not center) so long incoming messages that extend past the
-     * midpoint are not misclassified.
+     * Uses the horizontal center of the node rather than the left edge, because
+     * long outgoing bubbles (max ~75% screen width) start left of the midpoint,
+     * causing left-bound checks to misclassify them as incoming.
+     * Max-width incoming center ≈ (22 + 832)/2 = 427px; outgoing ≈ (248 + 1058)/2 = 653px
+     * on a 1080px screen — both safely on opposite sides of the 540px threshold.
      */
     private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
         val screenWidth = resources.displayMetrics.widthPixels
-        return rect.left > screenWidth / 2
+        return (rect.left + rect.right) / 2 > screenWidth / 2
     }
 
     /**
      * Instagram outgoing messages are right-aligned; incoming are left-aligned.
      * UI dump confirms: outgoing left-bound ≈ 945px, incoming ≈ 158px on a 1080px screen.
-     * Using left-bound (not center) because long incoming messages can extend past the
-     * screen midpoint and would be misclassified if we used centerX.
+     * Uses center for consistency with WhatsApp, guarding against future layout changes
+     * where long outgoing bubbles might push left-bound below the midpoint.
      */
     private fun isOutgoingInstagram(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
         val screenWidth = resources.displayMetrics.widthPixels
-        return rect.left > screenWidth / 2
+        return (rect.left + rect.right) / 2 > screenWidth / 2
     }
 
     /**
      * Generic text collection for SMS apps — traverse tree and collect all
      * TextView-like content that looks like a message (long enough, not a label).
+     * Each entry is (text, isOutgoing) using position-based direction detection.
      */
-    private fun collectTextViewContent(node: AccessibilityNodeInfo, out: MutableList<String>) {
+    private fun collectTextViewContent(node: AccessibilityNodeInfo, out: MutableList<Pair<String, Boolean>>) {
         val text = node.text?.toString()
         if (!text.isNullOrBlank() &&
             text.length >= MIN_MESSAGE_LENGTH &&
@@ -875,13 +889,20 @@ class HitaAccessibilityService : AccessibilityService() {
             !isMediaMessage(text) &&
             !isUIChrome(text)
         ) {
-            out.add(text)
+            out.add(text to isOutgoingGeneric(node))
         }
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             collectTextViewContent(child, out)
             child.recycle()
         }
+    }
+
+    private fun isOutgoingGeneric(node: AccessibilityNodeInfo): Boolean {
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+        val screenWidth = resources.displayMetrics.widthPixels
+        return rect.left > screenWidth / 2
     }
 
     // -------------------------------------------------------------------------
