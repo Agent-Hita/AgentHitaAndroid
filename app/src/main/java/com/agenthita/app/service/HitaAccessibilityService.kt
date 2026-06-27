@@ -126,6 +126,7 @@ class HitaAccessibilityService : AccessibilityService() {
         private val DISAPPEARING_OFF_PATTERNS = listOf(
             Regex("turned off disappearing"),
             Regex("disappearing messages (is |are |have been |has been )?turned off"),
+            Regex("disappearing messages (is |are )(now )?off"),
             Regex("turned off vanish"),
             Regex("exited vanish mode"),
             Regex("vanish mode (is |has been )?turned off")
