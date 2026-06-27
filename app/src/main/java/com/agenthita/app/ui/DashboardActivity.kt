@@ -560,10 +560,16 @@ else -> false
             return
         }
 
-        val alreadyRunning = WorkManager.getInstance(this)
+        val workInfos = WorkManager.getInstance(this)
             .getWorkInfosForUniqueWork(ModelDownloadWorker.WORK_NAME).get()
-            .any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
-        if (alreadyRunning) return
+        if (workInfos.any { it.state == WorkInfo.State.RUNNING }) return
+        // ENQUEUED with runAttemptCount > 0 means stuck in backoff after an interrupted
+        // download — cancel so we re-enqueue immediately rather than waiting up to 60 min.
+        if (workInfos.any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount > 0 }) {
+            WorkManager.getInstance(this).cancelUniqueWork(ModelDownloadWorker.WORK_NAME)
+        } else if (workInfos.any { it.state == WorkInfo.State.ENQUEUED }) {
+            return
+        }
 
         val termsAccepted = aiPrefs.getBoolean("gemma_terms_accepted", false)
         if (!termsAccepted) showGemmaTermsDialog()
