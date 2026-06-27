@@ -67,7 +67,7 @@ class GuardianSetupActivity : AppCompatActivity() {
 
             val previousEmail   = consentManager.guardianEmail
             val wasEnabled      = consentManager.isGuardianAlertsEnabled
-            if (emailValid) binding.switchAlerts.isChecked = true
+            if (emailValid && previousEmail.isNullOrEmpty()) binding.switchAlerts.isChecked = true
             val alertsEnabled   = emailValid && binding.switchAlerts.isChecked
 
             if (emailValid) {
