@@ -122,13 +122,23 @@ class RiskScorer(
      */
     private fun mergeGemmaResult(ruleResult: DetectionResult, gemmaSeverity: RiskLevel): DetectionResult {
         val ruleLevel = ruleResult.riskLevel
+        val isVulnerable = userCategory != UserCategory.SELF_PROTECTING_ADULT
         return when {
             gemmaSeverity == RiskLevel.NONE                               -> ruleResult
-            // Rules NONE, Gemma HIGH → raise to MEDIUM. Requires Gemma HIGH (not just MEDIUM)
-            // so that a single ambiguous or garbled message cannot produce an alert with zero
-            // rule corroboration. Gemma MEDIUM alone is too noisy when extraction produces
-            // low-quality text (layout changes, community broadcasts, UI chrome), regardless
-            // of user category.
+            // Rules NONE, Gemma MEDIUM → raise to MEDIUM for children, adolescents, and
+            // vulnerable adults only. For self-protecting adults, Gemma MEDIUM alone is too
+            // noisy when extraction produces low-quality text (layout changes, community
+            // broadcasts, UI chrome) and requires Gemma HIGH to produce an alert.
+            ruleLevel == RiskLevel.NONE && gemmaSeverity == RiskLevel.MEDIUM && isVulnerable ->
+                ruleResult.copy(
+                    riskLevel   = RiskLevel.MEDIUM,
+                    score       = 0.65f,
+                    signals     = listOf(SignalMatch("ai_analysis", "AI-detected behavioural pattern", 0.65f)),
+                    explanation = "Detected by AI analysis — behavioural patterns in this conversation are consistent with ${ruleResult.category.name.lowercase().replace('_', ' ')}."
+                )
+            // Rules NONE, Gemma HIGH → raise to MEDIUM (all categories). Requires Gemma HIGH
+            // for self-protecting adults so a single ambiguous message cannot produce an alert
+            // with zero rule corroboration.
             ruleLevel == RiskLevel.NONE && gemmaSeverity == RiskLevel.HIGH ->
                 ruleResult.copy(
                     riskLevel   = RiskLevel.MEDIUM,
