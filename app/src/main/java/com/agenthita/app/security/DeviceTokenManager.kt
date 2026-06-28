@@ -130,6 +130,23 @@ object DeviceTokenManager {
         }
     }
 
+    /**
+     * Returns the stored token without triggering registration. Returns null if the
+     * device has not yet registered successfully. Use this when registration as a
+     * side-effect would be wrong (e.g. telemetry flushes, where a missing token
+     * should silently skip the network call rather than kick off a retry loop).
+     */
+    fun getCachedToken(context: Context): String? {
+        cached?.let { return it }
+        val prefs = buildEncryptedPrefs(context.applicationContext)
+        val stored = prefs.getString(KEY_TOKEN, null)
+        if (!stored.isNullOrBlank()) {
+            cached = stored
+            return stored
+        }
+        return null
+    }
+
     fun invalidate(context: Context, rejectedToken: String? = null) {
         // If a specific token is given, only invalidate if it still matches what's stored —
         // prevents in-flight requests with stale tokens from wiping a freshly registered one.
@@ -172,7 +189,7 @@ object DeviceTokenManager {
         OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
 
         val code = conn.responseCode
-        if (code == 429) {
+        if (code == 429 || code == 403) {
             conn.disconnect()
             throw RegistrationRateLimitedException()
         }
