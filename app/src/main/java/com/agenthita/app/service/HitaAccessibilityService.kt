@@ -576,18 +576,28 @@ class HitaAccessibilityService : AccessibilityService() {
                 // a future return to the same contact starts fresh. We do NOT gate on
                 // activeConvHash — if the user pressed Home just before the coroutine
                 // completed, the risk was still real and the alert should still fire.
+                //
+                // suppressGuardianAlert: set by RiskScorer when a HIGH result is driven
+                // by cross-message context whose prior messages already scored HIGH by
+                // rules — meaning a guardian alert was already sent for those messages.
+                // We intentionally do NOT add to alertedConvHashes when suppressing so
+                // that a genuinely new threat category in the same session can still fire.
                 if (topResult.riskLevel == RiskLevel.HIGH) {
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                         if (convHash !in alertedConvHashes) {
-                            alertedConvHashes.add(convHash)
-                            android.util.Log.i(TAG, "[$packageName] HIGH risk — sending guardian alert: score=${topResult.score}")
-                            val sending = guardianAlertSender.sendIfConfigured(
-                                result      = topResult,
-                                eventId     = eventId,
-                                packageName = packageName,
-                                contactHash = sha256(contactName)
-                            )
-                            if (sending) riskEventStore.markAlertSent(eventId)
+                            if (topResult.suppressGuardianAlert) {
+                                android.util.Log.d(TAG, "[$packageName] HIGH via context — guardian alert suppressed (prior messages already alerted)")
+                            } else {
+                                alertedConvHashes.add(convHash)
+                                android.util.Log.i(TAG, "[$packageName] HIGH risk — sending guardian alert: score=${topResult.score}")
+                                val sending = guardianAlertSender.sendIfConfigured(
+                                    result      = topResult,
+                                    eventId     = eventId,
+                                    packageName = packageName,
+                                    contactHash = sha256(contactName)
+                                )
+                                if (sending) riskEventStore.markAlertSent(eventId)
+                            }
                         }
                     }
                 }
