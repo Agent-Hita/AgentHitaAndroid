@@ -80,7 +80,10 @@ class TelemetryManager private constructor(private val context: Context) {
         }
 
         scope.launch {
-            val token = DeviceTokenManager.getToken(context)
+            val token = DeviceTokenManager.getCachedToken(context) ?: run {
+                Log.d(TAG, "Telemetry flush skipped — device not yet registered")
+                return@launch
+            }
             sendBatch(batch, token)
         }
     }
