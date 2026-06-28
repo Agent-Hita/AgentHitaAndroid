@@ -24,9 +24,14 @@ data class SignalMatch(
 data class DetectionResult(
     val category: HarmCategory,
     val riskLevel: RiskLevel,
-    val score: Float,          // Combined score [0.0, 1.0]
+    val score: Float,              // Combined score [0.0, 1.0]
     val signals: List<SignalMatch>,
-    val explanation: String    // Human-readable explanation for the flag
+    val explanation: String,       // Human-readable explanation for the flag
+    // True when the HIGH result is driven by cross-message context and the prior
+    // context messages already scored HIGH by rules — meaning a guardian alert was
+    // likely already sent for those messages. The local notification still shows;
+    // only the guardian email alert is suppressed.
+    val suppressGuardianAlert: Boolean = false
 )
 
 interface PatternMatcher {

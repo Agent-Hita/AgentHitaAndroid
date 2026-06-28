@@ -68,15 +68,17 @@ class RiskScorer(
         }
 
         // Context escalation (mild — cannot create new alerts)
-        val contextScores: Map<HarmCategory, Float> = if (context.isEmpty()) emptyMap()
+        // Run detectors on the full context text so we have both the score for boosting
+        // and the riskLevel for detecting whether prior messages already scored HIGH.
+        val contextResults: Map<HarmCategory, DetectionResult> = if (context.isEmpty()) emptyMap()
         else {
             val ctxText = context.joinToString(" ")
-            detectors.associate { it.category to it.analyze(ctxText).score }
+            detectors.associate { it.category to it.analyze(ctxText) }
         }
 
         val escalated: Map<HarmCategory, DetectionResult> = wordBoosted.mapValues { (cat, result) ->
             if (result.riskLevel == RiskLevel.NONE) return@mapValues result
-            val ctxBoost = ((contextScores[cat] ?: 0f) * 0.2f).coerceAtMost(0.15f)
+            val ctxBoost = ((contextResults[cat]?.score ?: 0f) * 0.2f).coerceAtMost(0.15f)
             val s = (result.score + ctxBoost).coerceIn(0f, 1f)
             result.copy(score = s, riskLevel = scoreToRiskLevel(s))
         }
@@ -110,7 +112,51 @@ class RiskScorer(
             }
         }
 
-        return merged.values.filter { it.riskLevel != RiskLevel.NONE }
+        // Post-Gemma context escalation for cross-message behavioural arcs.
+        //
+        // The existing mergeGemmaResult step already elevates NONE-rule + Gemma HIGH to
+        // MEDIUM for all users. This step goes further when context (prior seen messages)
+        // also shows a signal for the same category — i.e. Gemma's HIGH is corroborated
+        // by the conversation history, not just the current message in isolation.
+        //
+        // child / adolescent / vulnerable adult → elevate to HIGH.
+        // self-protecting adult → stays at MEDIUM (adult HIGH requires rule corroboration).
+        //
+        // suppressGuardianAlert is set when the context itself already scores HIGH by
+        // rules, meaning a guardian alert was likely already sent for those prior messages.
+        // The local notification still fires; only the external guardian email is suppressed.
+        val finalResults: Map<HarmCategory, DetectionResult> = if (
+            gemmaResult == null || gemmaResult.second != RiskLevel.HIGH
+        ) {
+            merged
+        } else {
+            val gemmaCat = gemmaResult.first
+            val isVulnerable = userCategory != UserCategory.SELF_PROTECTING_ADULT
+            merged.mapValues { (cat, result) ->
+                if (cat != gemmaCat) return@mapValues result
+                val ctxScore = contextResults[cat]?.score ?: 0f
+                if (ctxScore <= 0f) return@mapValues result  // no context signal — Gemma alone
+                val ctxAlreadyHigh = contextResults[cat]?.riskLevel == RiskLevel.HIGH
+                if (!isVulnerable) {
+                    // Adults: context corroborates but doesn't push past MEDIUM without rules.
+                    // Still flag suppress so we don't re-alert on prior-HIGH context.
+                    return@mapValues if (ctxAlreadyHigh) result.copy(suppressGuardianAlert = true) else result
+                }
+                // Vulnerable users: context + Gemma HIGH together warrant HIGH.
+                result.copy(
+                    riskLevel = RiskLevel.HIGH,
+                    score = maxOf(result.score, 0.87f),
+                    signals = result.signals + SignalMatch(
+                        signal       = "ai_context_pattern",
+                        matchedPhrase = "Cross-message behavioural pattern",
+                        weight       = 0.87f
+                    ),
+                    suppressGuardianAlert = ctxAlreadyHigh
+                )
+            }
+        }
+
+        return finalResults.values.filter { it.riskLevel != RiskLevel.NONE }
     }
 
     /**
