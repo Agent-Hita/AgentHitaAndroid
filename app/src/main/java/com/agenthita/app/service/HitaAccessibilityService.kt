@@ -60,10 +60,8 @@ class HitaAccessibilityService : AccessibilityService() {
     private lateinit var antiCoercionMonitor: AntiCoercionMonitor
     private lateinit var contactNameDao: ContactNameDao
 
-    // Persistent dedup: SHA-256(pkg + contact + ALL visible messages) → timestamp seen
-    // Survives service restarts. Entries expire after DEDUP_TTL_MS so new messages
-    // in the same conversation are eventually re-evaluated.
     private lateinit var dedupPrefs: android.content.SharedPreferences
+    private lateinit var seenTracker: SeenMessageTracker
 
     // Independent heartbeat timer — writes every 60s regardless of accessibility events.
     // This prevents false "frozen" alerts when the device is idle (no monitored apps open).
@@ -94,7 +92,6 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val CONV_KEY_PREFIX         = "last_"
         private const val SEEN_KEY_PREFIX         = "seen_"
         private const val DISAPPEARING_KEY_PREFIX = "disappearing_"
-        private const val MAX_SEEN_PER_CONV       = 200
 
         // Media-only messages that carry no conversational text and should be ignored.
         // Handles bare labels ("Video"), metadata suffixes ("Video · 0:21", "Voice message (5.4 MB)"),
@@ -181,6 +178,10 @@ class HitaAccessibilityService : AccessibilityService() {
         antiCoercionMonitor      = AntiCoercionMonitor(this, consentManager)
 
         dedupPrefs = getSharedPreferences(DEDUP_PREFS, MODE_PRIVATE)
+        seenTracker = SeenMessageTracker(
+            load = { key -> dedupPrefs.getStringSet(key, emptySet())!! },
+            save = { key, hashes -> dedupPrefs.edit().putStringSet(key, hashes).apply() }
+        )
 
         // Clear per-conversation dedup state from previous sessions so that messages
         // visible on reconnect (e.g. after a crash or a replace-install that preserves
@@ -465,8 +466,7 @@ class HitaAccessibilityService : AccessibilityService() {
             if (lastMessage == prevLastMessage) return
 
             // Layer 2 — find every message not yet scored
-            val seen = dedupPrefs.getStringSet(seenKey, emptySet())!!
-            val unseenMessages = messages.filter { sha256(it) !in seen }
+            val unseenMessages = seenTracker.filterUnseen(seenKey, messages) { sha256(it) }
             val unseenOutgoing = unseenMessages.filter { it in outgoingTexts }
 
             if (unseenMessages.isEmpty()) {
@@ -477,7 +477,7 @@ class HitaAccessibilityService : AccessibilityService() {
             // Persist dedup state for all unseen messages before analysis so that
             // re-entrant events during the coroutine are also suppressed.
             persistConvState(convStateKey, lastMessage)
-            unseenMessages.forEach { addToSeenMessages(seenKey, sha256(it)) }
+            seenTracker.markSeen(seenKey, unseenMessages) { sha256(it) }
 
             if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] Contact=$contactName ${unseenMessages.size} new msg(s), latest=\"${lastMessage.take(60)}\"")
 
@@ -495,7 +495,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 // parents home?" followed by "come meet me") are caught together.
                 // Previously seen messages become the context window for mild boosting.
                 val unseenText   = unseenMessages.joinToString("\n").take(300)
-                val seenMessages = messages.filter { sha256(it) in seen }
+                val seenMessages = messages - unseenMessages.toSet()
 
                 val results = try {
                     riskScorer.score(unseenText, seenMessages)
@@ -985,31 +985,16 @@ class HitaAccessibilityService : AccessibilityService() {
         disappearingMessagesSuppressed.remove(convHash)
         // disappearing-messages dedup lives in dedupPrefs (persistent) — not cleared here
         // so switching apps or restarting the service never re-fires the same alert.
-        // Clear the seen-message hash set so that when the user returns to this
-        // conversation, new messages are not blocked by the scroll-back guard.
-        // Layer 1 (prevLastMessage) still prevents re-processing on the same window event.
-        dedupPrefs.edit().remove("$SEEN_KEY_PREFIX$convHash").apply()
+        // seen_* is intentionally NOT cleared here. New messages are not yet in seen_*
+        // by definition, so they will be scored on the next visit. Clearing seen_* would
+        // cause already-scored messages to look new on every re-entry and fire duplicate
+        // guardian alerts. seen_* is trimmed at MAX_SEEN_PER_CONV and reset on service
+        // reconnect, so it does not grow unboundedly.
         localNotificationManager.dismissWarning()
     }
 
     private fun flushAllPendingAlerts() {
         sessionRecords.keys.toList().forEach { flushPendingAlert(it) }
-    }
-
-    /**
-     * Adds [msgHash] to the per-conversation seen-message set.
-     * Trims ~10% of entries when the cap is reached to amortise future trims.
-     * Copies the set before mutating to avoid the SharedPreferences StringSet bug.
-     */
-    private fun addToSeenMessages(seenKey: String, msgHash: String) {
-        val current = dedupPrefs.getStringSet(seenKey, emptySet())!!.toMutableSet()
-        if (current.size >= MAX_SEEN_PER_CONV) {
-            val trimCount = MAX_SEEN_PER_CONV / 10
-            val iter = current.iterator()
-            repeat(trimCount) { if (iter.hasNext()) { iter.next(); iter.remove() } }
-        }
-        current.add(msgHash)
-        dedupPrefs.edit().putStringSet(seenKey, current).apply()
     }
 
     private fun extractTextFromChildren(node: AccessibilityNodeInfo): String? {
