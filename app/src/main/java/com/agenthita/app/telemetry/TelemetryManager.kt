@@ -81,7 +81,14 @@ class TelemetryManager private constructor(private val context: Context) {
 
         scope.launch {
             val token = DeviceTokenManager.getCachedToken(context) ?: run {
-                Log.d(TAG, "Telemetry flush skipped — device not yet registered")
+                Log.d(TAG, "Telemetry flush deferred — device not yet registered, re-queuing ${batch.size} events")
+                synchronized(lock) {
+                    for (event in batch) {
+                        val existing = pendingEvents[event.name]
+                        pendingEvents[event.name] = if (existing == null) event
+                            else existing.copy(sum = existing.sum + event.sum, count = existing.count + event.count)
+                    }
+                }
                 return@launch
             }
             sendBatch(batch, token)
