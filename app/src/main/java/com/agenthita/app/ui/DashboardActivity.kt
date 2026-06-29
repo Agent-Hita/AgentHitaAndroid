@@ -640,6 +640,7 @@ else -> false
         btnAccept.setOnClickListener {
             aiPrefs.edit().putBoolean("gemma_terms_accepted", true).apply()
             TelemetryManager.get(this).track("gemma_terms_accepted")
+            TelemetryManager.get(this).flush()
             dialog.dismiss()
             startModelDownload()
         }
