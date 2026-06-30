@@ -562,11 +562,17 @@ else -> false
 
         val workInfos = WorkManager.getInstance(this)
             .getWorkInfosForUniqueWork(ModelDownloadWorker.WORK_NAME).get()
-        if (workInfos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }) return
+        if (workInfos.any { it.state == WorkInfo.State.RUNNING }) return
+        // ENQUEUED with runAttemptCount > 0 means stuck in backoff after an interrupted
+        // download. Use REPLACE (atomic cancel + enqueue) so the new worker starts
+        // immediately without a race — the old cancel-then-KEEP pattern let the deferred
+        // cancel fire against the newly-enqueued worker.
+        val stuckInBackoff = workInfos.any { it.state == WorkInfo.State.ENQUEUED && it.runAttemptCount > 0 }
+        if (!stuckInBackoff && workInfos.any { it.state == WorkInfo.State.ENQUEUED }) return
 
         val termsAccepted = aiPrefs.getBoolean("gemma_terms_accepted", false)
         if (!termsAccepted) showGemmaTermsDialog()
-        else startModelDownload()
+        else startModelDownload(forceRestart = stuckInBackoff)
     }
 
     private fun handlePrivateAiSettingsTap() {
@@ -647,13 +653,14 @@ else -> false
         dialog.show()
     }
 
-    private fun startModelDownload() {
+    private fun startModelDownload(forceRestart: Boolean = false) {
         val request = OneTimeWorkRequestBuilder<ModelDownloadWorker>()
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
             .build()
+        val policy = if (forceRestart) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
         WorkManager.getInstance(this).enqueueUniqueWork(
             ModelDownloadWorker.WORK_NAME,
-            ExistingWorkPolicy.KEEP,
+            policy,
             request
         )
         TelemetryManager.get(this).track("gemma_download_started")
