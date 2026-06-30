@@ -2,9 +2,13 @@ package com.agenthita.app.model
 
 import android.content.Context
 import android.content.Intent
+import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
+import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.agenthita.app.HitaApplication
+import com.agenthita.app.R
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.security.DeviceTokenManager
@@ -36,10 +40,25 @@ class ModelDownloadWorker(
         const val PHASE_EXTRACT  = "extract"
         const val PHASE_DONE     = "done"
         private const val NUM_CHUNKS = 4
-        private const val TAG        = "ModelDownloadWorker"
+        private const val TAG             = "ModelDownloadWorker"
+        private const val NOTIFICATION_ID = 1003
+    }
+
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val notification = NotificationCompat.Builder(appContext, HitaApplication.CHANNEL_STATUS)
+            .setContentTitle("Downloading AI model")
+            .setContentText("Agent Hita is setting up on-device analysis")
+            .setSmallIcon(R.drawable.ic_hita_shield)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE)
+            .build()
+        return ForegroundInfo(NOTIFICATION_ID, notification)
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        setForeground(getForegroundInfo())
+
         // Already installed — nothing to do
         val existing = appContext.filesDir.listFiles()?.firstOrNull { f ->
             (f.name.endsWith(".bin") || f.name.endsWith(".task")) &&
