@@ -1,3 +1,10 @@
+# Strip verbose and debug log calls from release builds.
+# Log.i/w/e are retained so crash reports and warnings remain visible.
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+}
+
 # JavaMail
 -keep class com.sun.mail.** { *; }
 -keep class javax.mail.** { *; }
