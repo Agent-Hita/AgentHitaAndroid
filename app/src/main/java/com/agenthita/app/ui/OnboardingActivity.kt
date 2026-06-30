@@ -10,8 +10,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.agenthita.app.R
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.databinding.ActivityOnboardingBinding
 import com.agenthita.app.telemetry.TelemetryManager
@@ -60,23 +62,13 @@ class OnboardingActivity : AppCompatActivity() {
             }
         }
 
-        binding.btnGrantPermission.setOnClickListener {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                val componentName = "$packageName/.service.HitaAccessibilityService"
-                val args = Bundle().apply {
-                    putString(":settings:fragment_args_key", componentName)
-                }
-                putExtra(":settings:show_fragment_args", args)
-                putExtra(":settings:fragment_args_key", componentName)
-            }
-            startActivity(intent)
-        }
+        binding.btnGrantPermission.setOnClickListener { openAccessibilitySettings() }
 
         binding.btnContinue.setOnClickListener {
             if (isAccessibilityServiceEnabled()) {
                 consentManager.isOnboardingComplete = true
                 consentManager.consentTimestampMs = System.currentTimeMillis()
-                TelemetryManager.get(this).track("permission_notifications_granted")
+                TelemetryManager.get(this).track("accessibility_permission_granted")
                 TelemetryManager.get(this).flush()
                 requestBatteryOptimizationExemption()
                 startActivity(Intent(this, GuardianSetupActivity::class.java))
@@ -84,6 +76,18 @@ class OnboardingActivity : AppCompatActivity() {
             } else {
                 binding.tvPermissionWarning.visibility = View.VISIBLE
             }
+        }
+
+        binding.btnDecline.setOnClickListener {
+            TelemetryManager.get(this).track("accessibility_permission_declined")
+            TelemetryManager.get(this).flush()
+            AlertDialog.Builder(this, R.style.Dialog_AgentHita)
+                .setTitle("Accessibility access required")
+                .setMessage("Agent Hita cannot protect you without Accessibility access. You can grant it later from Settings → Accessibility → Agent Hita.")
+                .setPositiveButton("Exit") { _, _ -> finish() }
+                .setNegativeButton("Grant now") { _, _ -> openAccessibilitySettings() }
+                .setCancelable(false)
+                .show()
         }
     }
 
@@ -96,6 +100,18 @@ class OnboardingActivity : AppCompatActivity() {
 
     private fun updateContinueButton() {
         binding.btnContinue.isEnabled = isAccessibilityServiceEnabled()
+    }
+
+    private fun openAccessibilitySettings() {
+        val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            val componentName = "$packageName/.service.HitaAccessibilityService"
+            val args = Bundle().apply {
+                putString(":settings:fragment_args_key", componentName)
+            }
+            putExtra(":settings:show_fragment_args", args)
+            putExtra(":settings:fragment_args_key", componentName)
+        }
+        startActivity(intent)
     }
 
     private fun isAccessibilityServiceEnabled(): Boolean {

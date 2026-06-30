@@ -47,33 +47,97 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="28dp"
-            android:gravity="center_horizontal">
+            android:padding="20dp"
+            android:gravity="top|center_horizontal">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Your on-device safety guardian"
-                android:textSize="16sp"
-                android:layout_marginTop="32dp"
-                android:layout_marginBottom="40dp" />
-
-            <TextView
+            <!-- Prominent disclosure — required by Google Play Accessibility API policy -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Agent Hita watches for harmful patterns in your messages — things like manipulation, threats, or scam pressure — and warns you privately on your device.\n\nAll analysis happens on your phone. Nothing is sent to the cloud."
-                android:textSize="15sp"
-                android:lineSpacingMultiplier="1.6"
-                android:layout_marginBottom="16dp" />
+                android:orientation="vertical"
+                android:background="@drawable/bg_dialog_gradient"
+                android:padding="20dp"
+                android:layout_marginBottom="28dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Agent Hita needs permission to read your notifications to do this. You can revoke this permission at any time in Settings."
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.5"
-                android:layout_marginBottom="40dp"
-                android:alpha="0.7" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Accessibility permission — how it is used"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_primary"
+                    android:layout_marginBottom="4dp" />
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="2dp"
+                    android:background="@color/hita_primary"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Agent Hita uses Android's Accessibility permission to read message text displayed on screen by:"
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_primary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="WhatsApp · Instagram · Google Messages · Samsung Messages · SMS apps"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_text_primary"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Why this permission is needed"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_text_primary"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="This is the only way Agent Hita can check messages in real time without sending them to a server. It reads text that is already on your screen — the same text you are looking at. It cannot see messages when the app is in the background or access your stored chat history."
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_secondary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="What this enables"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_text_primary"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="• Detection of grooming, financial scams, romance scams, identity phishing, sextortion, and harassment\n• Private on-device alerts when harmful patterns are detected\n• Optional alert to a trusted guardian contact"
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_secondary"
+                    android:lineSpacingMultiplier="1.6"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Message text is analysed instantly on your device and never saved or sent anywhere. You can turn this off at any time in Settings → Accessibility → Agent Hita."
+                    android:textSize="12sp"
+                    android:textColor="@color/hita_text_secondary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:alpha="0.8" />
+
+            </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_grant_permission"
@@ -89,6 +153,14 @@
                 android:layout_height="wrap_content"
                 android:text="I've granted access — Continue"
                 android:enabled="false" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_decline"
+                style="@style/Widget.AgentHita.Button.Outlined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Decline" />
 
             <TextView
                 android:id="@+id/tv_permission_warning"

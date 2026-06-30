@@ -1,0 +1,64 @@
+Agent Hita is an on-device safety guardian that detects harmful conversation patterns in messaging apps and warns you — or a trusted adult — before harm escalates.
+
+All analysis runs entirely on your phone. No message content is ever sent to a server, stored in the cloud, or shared with anyone.
+
+――――――――――――――――――――――――――――――
+
+WHAT AGENT HITA DETECTS
+
+Agent Hita monitors 1-to-1 conversations for:
+
+• Grooming — age probing, boundary testing, secrecy requests, isolation tactics
+• Child luring — false opportunity offers, modelling/casting scams, meet-up pressure
+• Sextortion — explicit content requests, exposure threats, blackmail language
+• Financial scams — crypto/wire transfer pressure, authority impersonation, urgency tactics
+• Romance scams — crisis framing, premature intimacy, financial dependency
+• Identity phishing — requests for passwords, one-time codes, or identity documents
+• Harassment — threats, stalking language, coercive control
+• Disappearing message pressure — requests to enable ephemeral messaging to hide activity
+
+Group chats are excluded. Only 1-to-1 conversations are analysed.
+
+――――――――――――――――――――――――――――――
+
+HOW IT WORKS — ACCESSIBILITY SERVICE
+
+Agent Hita uses Android's Accessibility Service to read message text displayed on screen by the following apps:
+
+• WhatsApp
+• Instagram Direct
+• Google Messages
+• Samsung Messages
+• Android SMS / MMS apps
+
+This is the only way to analyse conversations in real time without routing your messages through a server. The Accessibility Service reads text that is already visible on your screen — the same text you are reading — with no network interception and no access to message databases.
+
+Message text is read only while a conversation is visible on screen, analysed instantly in memory, and never written to disk or transmitted off your device.
+
+You can revoke Accessibility access at any time in Settings → Accessibility → Agent Hita.
+
+――――――――――――――――――――――――――――――
+
+PRIVACY BY DESIGN
+
+• Zero message storage — raw message text is never saved anywhere
+• On-device AI — threat detection uses an on-device model (Gemma); no cloud inference
+• Risk events only — the local database stores threat category, risk level, and score; never message content
+• Anonymised contacts — conversation keys are hashed identifiers, not names
+• Guardian alerts contain risk category and severity only — no message excerpts
+
+――――――――――――――――――――――――――――――
+
+GUARDIAN ALERTS (OPTIONAL)
+
+With your explicit consent, Agent Hita can send an email alert to a trusted adult — a parent, carer, or support person — when a high-risk pattern is detected. The alert describes the threat category only. No message content is shared.
+
+Guardian alerts are opt-in and can be disabled at any time from the app settings.
+
+――――――――――――――――――――――――――――――
+
+TRANSPARENT & AUDITABLE
+
+Agent Hita's source code is publicly available on GitHub for independent security audit. One or more patent applications are pending with the USPTO.
+
+Free for individual use. Commercial use requires a license — contact admin@agenthita.org.
