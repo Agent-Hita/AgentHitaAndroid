@@ -54,6 +54,7 @@ class GuardianSetupActivity : AppCompatActivity() {
 
         binding.btnSkip.setOnClickListener {
             saveAgeCategory()
+            consentManager.isGuardianSetupComplete = true
             goToDashboard()
         }
 
@@ -79,6 +80,7 @@ class GuardianSetupActivity : AppCompatActivity() {
 
             notifyGuardianChange(previousEmail, wasEnabled, email.ifEmpty { null }, alertsEnabled)
             saveAgeCategory()
+            consentManager.isGuardianSetupComplete = true
             goToDashboard()
         }
     }

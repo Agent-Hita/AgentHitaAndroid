@@ -37,15 +37,25 @@ class OnboardingActivity : AppCompatActivity() {
         // intent.data is deliberately not read — no URI parameters are trusted or processed.
         // If deep link routing ever needs to carry data, validate the URI strictly here before use.
 
-        if (!consentManager.hasAcceptedTerms) {
-            startActivity(Intent(this, TermsActivity::class.java))
-            finish()
-            return
-        }
-
-        if (consentManager.isOnboardingComplete) {
-            goToDashboard()
-            return
+        val routerState = OnboardingRouter.State(
+            hasAcceptedHitaTerms    = consentManager.hasAcceptedTerms,
+            isOnboardingComplete    = consentManager.isOnboardingComplete,
+            isGuardianSetupComplete = consentManager.isGuardianSetupComplete,
+            hasAcceptedGemmaTerms   = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
+                                          .getBoolean("gemma_terms_accepted", false)
+        )
+        when (OnboardingRouter.nextDestination(routerState)) {
+            OnboardingRouter.Destination.HITA_TERMS -> {
+                startActivity(Intent(this, TermsActivity::class.java)); finish(); return
+            }
+            OnboardingRouter.Destination.GUARDIAN_SETUP -> {
+                startActivity(Intent(this, GuardianSetupActivity::class.java)); finish(); return
+            }
+            OnboardingRouter.Destination.GEMMA_TERMS,
+            OnboardingRouter.Destination.DASHBOARD -> {
+                goToDashboard(); return
+            }
+            OnboardingRouter.Destination.ACCESSIBILITY_PERMISSION -> Unit // show this screen
         }
 
         binding = ActivityOnboardingBinding.inflate(layoutInflater)
@@ -66,10 +76,10 @@ class OnboardingActivity : AppCompatActivity() {
 
         binding.btnContinue.setOnClickListener {
             if (isAccessibilityServiceEnabled()) {
-                consentManager.isOnboardingComplete = true
                 consentManager.consentTimestampMs = System.currentTimeMillis()
                 TelemetryManager.get(this).track("accessibility_permission_granted")
                 TelemetryManager.get(this).flush()
+                consentManager.isOnboardingComplete = true
                 requestBatteryOptimizationExemption()
                 startActivity(Intent(this, GuardianSetupActivity::class.java))
                 finish()
