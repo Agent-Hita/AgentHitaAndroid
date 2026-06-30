@@ -2,6 +2,7 @@ package com.agenthita.app.model
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
@@ -53,7 +54,7 @@ class ModelDownloadWorker(
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setBadgeIconType(NotificationCompat.BADGE_ICON_NONE)
             .build()
-        return ForegroundInfo(NOTIFICATION_ID, notification)
+        return ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
