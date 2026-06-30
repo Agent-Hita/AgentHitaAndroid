@@ -24,6 +24,8 @@ abstract class HitaDatabase : RoomDatabase() {
     abstract fun contactNameDao(): ContactNameDao
 
     companion object {
+        init { System.loadLibrary("sqlcipher") }
+
         @Volatile private var instance: HitaDatabase? = null
 
         private const val KEYSTORE_PROVIDER = "AndroidKeyStore"
