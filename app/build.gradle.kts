@@ -132,7 +132,8 @@ dependencies {
     implementation("androidx.room:room-runtime:2.7.0")
     implementation("androidx.room:room-ktx:2.7.0")
     kapt("androidx.room:room-compiler:2.7.0")
-    implementation("net.zetetic:android-database-sqlcipher:4.6.1")
+    implementation("net.zetetic:sqlcipher-android:4.9.0")
+    implementation("androidx.sqlite:sqlite:2.6.2")
     implementation("androidx.sqlite:sqlite-ktx:2.4.0")
 
     // Encrypted SharedPreferences (consent state)
@@ -150,7 +151,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
 
     // MediaPipe LLM Inference — Gemma on-device classifier (0.10.22+ required for Gemma 3)
-    implementation("com.google.mediapipe:tasks-genai:0.10.24")
+    implementation("com.google.mediapipe:tasks-genai:0.10.22")
 
     // Lifecycle (repeatOnLifecycle for dashboard UI)
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")

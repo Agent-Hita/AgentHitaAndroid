@@ -9,8 +9,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import net.sqlcipher.database.SQLiteDatabase
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import java.security.KeyStore
 import java.security.SecureRandom
 import javax.crypto.Cipher
@@ -120,7 +119,7 @@ abstract class HitaDatabase : RoomDatabase() {
         private fun build(context: Context): HitaDatabase {
             return try {
                 val passphrase = getDatabasePassphrase(context.applicationContext)
-                val factory = SupportFactory(passphrase)
+                val factory = SupportOpenHelperFactory(passphrase)
                 passphrase.fill(0) // zero out our copy; SupportFactory has its own
                 Room.databaseBuilder(
                     context.applicationContext,
