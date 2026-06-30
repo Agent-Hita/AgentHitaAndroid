@@ -18,6 +18,7 @@ class TermsActivity : AppCompatActivity() {
     private lateinit var consentManager: ConsentManager
     private var hasScrolledToBottom = false
     private var agreed = false
+    private var declined = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,11 +39,18 @@ class TermsActivity : AppCompatActivity() {
             startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
         }
+
+        binding.btnDecline.setOnClickListener {
+            declined = true
+            TelemetryManager.get(this).track("hita_terms_declined")
+            TelemetryManager.get(this).flush()
+            finish()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!agreed) {
+        if (!agreed && !declined) {
             TelemetryManager.get(this).track("hita_terms_declined")
             TelemetryManager.get(this).flush()
         }
