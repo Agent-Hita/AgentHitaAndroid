@@ -55,6 +55,16 @@ class TermsActivity : AppCompatActivity() {
             settings.setSupportZoom(false)
 
             webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val url = request.url.toString()
+                    // Open external https links in the browser; swallow local asset links
+                    // that don't resolve (e.g. consent.html, vision.html — not shipped as assets)
+                    if (url.startsWith("https://") || url.startsWith("http://")) {
+                        startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, request.url))
+                    }
+                    return true
+                }
+
                 override fun onPageFinished(view: WebView, url: String) {
                     binding.progressBar.visibility = View.GONE
                     checkScrolledToBottom()
