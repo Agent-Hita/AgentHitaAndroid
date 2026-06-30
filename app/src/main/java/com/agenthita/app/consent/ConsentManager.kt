@@ -19,6 +19,10 @@ class ConsentManager(context: Context) {
         get() = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
         set(value) = prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETE, value).apply()
 
+    var isGuardianSetupComplete: Boolean
+        get() = prefs.getBoolean(KEY_GUARDIAN_SETUP_COMPLETE, false)
+        set(value) = prefs.edit().putBoolean(KEY_GUARDIAN_SETUP_COMPLETE, value).apply()
+
     /** Unix timestamp (ms) when the user completed the consent ceremony. */
     var consentTimestampMs: Long
         get() = prefs.getLong(KEY_CONSENT_TIMESTAMP, 0L)
@@ -107,7 +111,8 @@ class ConsentManager(context: Context) {
     }
 
     companion object {
-        private const val KEY_ONBOARDING_COMPLETE    = "onboarding_complete"
+        private const val KEY_ONBOARDING_COMPLETE       = "onboarding_complete"
+        private const val KEY_GUARDIAN_SETUP_COMPLETE   = "guardian_setup_complete"
         private const val KEY_CONSENT_TIMESTAMP      = "consent_timestamp"
         private const val KEY_USER_CATEGORY          = "user_category"
         private const val KEY_MONITORED_USER_NAME    = "monitored_user_name"
