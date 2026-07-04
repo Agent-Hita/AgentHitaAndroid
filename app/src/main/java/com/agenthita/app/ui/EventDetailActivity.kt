@@ -4,8 +4,11 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.text.method.LinkMovementMethod
 import android.text.util.Linkify
+import androidx.activity.enableEdgeToEdge
 import androidx.core.graphics.drawable.DrawableCompat
 import android.os.Bundle
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -37,8 +40,14 @@ class EventDetailActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         binding = ActivityEventDetailBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, windowInsets ->
+            val insets = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(insets.left, insets.top, insets.right, insets.bottom)
+            windowInsets
+        }
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)

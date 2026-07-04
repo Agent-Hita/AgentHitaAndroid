@@ -28,8 +28,8 @@ android {
         applicationId = "com.agenthita.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 22
-        versionName = "1.0.22"
+        versionCode = 23
+        versionName = "1.0.23"
 
         buildConfigField("String", "FEEDBACK_API_URL",        "\"${secrets.getProperty("FEEDBACK_API_URL",        "https://api.agenthita.org/feedback")}\"")
         buildConfigField("String", "ALERT_API_URL",           "\"${secrets.getProperty("ALERT_API_URL",           "https://api.agenthita.org/alert")}\"")
@@ -120,6 +120,7 @@ kotlin {
 dependencies {
     // Core
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.activity:activity-ktx:1.8.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
