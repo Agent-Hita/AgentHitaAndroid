@@ -494,8 +494,14 @@ class HitaAccessibilityService : AccessibilityService() {
                 // attack signals split across consecutive messages (e.g. "are your
                 // parents home?" followed by "come meet me") are caught together.
                 // Previously seen messages become the context window for mild boosting.
-                val unseenText   = unseenMessages.joinToString("\n").take(300)
-                val seenMessages = messages - unseenMessages.toSet()
+                // Each message is prefixed with [CONTACT] or [USER] so Gemma can
+                // distinguish incoming from outgoing when assessing harm direction.
+                val unseenText = unseenMessages.joinToString("\n") { msg ->
+                    if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
+                }.take(300)
+                val seenMessages = (messages - unseenMessages.toSet()).map { msg ->
+                    if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
+                }
 
                 val results = try {
                     riskScorer.score(unseenText, seenMessages)

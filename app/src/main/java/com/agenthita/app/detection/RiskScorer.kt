@@ -67,6 +67,32 @@ class RiskScorer(
             result.copy(score = combined, riskLevel = scoreToRiskLevel(combined))
         }
 
+        // Location/address disclosure by a child or adolescent.
+        // A minor sharing their whereabouts is a grooming or luring risk signal
+        // regardless of whether the contact's request appears in the current window.
+        // Score is raised to at least 0.70 so it clears the MEDIUM threshold for both
+        // CHILD (≥0.62) and ADOLESCENT (≥0.65) users even with no other phrase signal.
+        val disclosureBoosted: Map<HarmCategory, DetectionResult> = if (
+            (userCategory == UserCategory.CHILD || userCategory == UserCategory.ADOLESCENT) &&
+            containsUserAddressDisclosure(text)
+        ) {
+            wordBoosted.mapValues { (cat, result) ->
+                if (cat != HarmCategory.GROOMING && cat != HarmCategory.LURING) return@mapValues result
+                val boosted = (result.score + 0.40f).coerceAtLeast(0.70f).coerceIn(0f, 1f)
+                result.copy(
+                    score     = boosted,
+                    riskLevel = scoreToRiskLevel(boosted),
+                    signals   = result.signals + SignalMatch(
+                        signal        = "location_disclosure",
+                        matchedPhrase = "Minor sharing address or location",
+                        weight        = 0.80f
+                    )
+                )
+            }
+        } else {
+            wordBoosted
+        }
+
         // Context escalation (mild — cannot create new alerts)
         // Run detectors on the full context text so we have both the score for boosting
         // and the riskLevel for detecting whether prior messages already scored HIGH.
@@ -76,7 +102,7 @@ class RiskScorer(
             detectors.associate { it.category to it.analyze(ctxText) }
         }
 
-        val escalated: Map<HarmCategory, DetectionResult> = wordBoosted.mapValues { (cat, result) ->
+        val escalated: Map<HarmCategory, DetectionResult> = disclosureBoosted.mapValues { (cat, result) ->
             if (result.riskLevel == RiskLevel.NONE) return@mapValues result
             val ctxBoost = ((contextResults[cat]?.score ?: 0f) * 0.2f).coerceAtMost(0.15f)
             val s = (result.score + ctxBoost).coerceIn(0f, 1f)
@@ -210,6 +236,35 @@ class RiskScorer(
     /** Returns the single highest-risk result from a scored set. */
     fun highestRisk(results: List<DetectionResult>): DetectionResult? =
         results.maxByOrNull { it.score }
+
+    /**
+     * Returns true when a [USER] message in [text] contains an explicit address
+     * or location disclosure — e.g. "I live at 14 Oak St" or "my address is…".
+     * Phone-number-only sharing is intentionally excluded.
+     * Only called for CHILD / ADOLESCENT users.
+     */
+    private fun containsUserAddressDisclosure(text: String): Boolean {
+        val userText = text.lines()
+            .filter { it.trimStart().startsWith("[USER]:", ignoreCase = true) }
+            .joinToString(" ")
+            .lowercase()
+        if (userText.isBlank()) return false
+
+        val locationPhrases = listOf(
+            "i live at", "my address is", "my house is at",
+            "i stay at", "we live at", "my home is at",
+            "come to my house", "come to my place", "come to my home",
+            "my place is at", "here's my address", "here is my address",
+            "my home address is", "my location is"
+        )
+        if (locationPhrases.any { userText.contains(it) }) return true
+
+        // Structural house address: one or more digits + words + recognised street suffix
+        val streetAddress = Regex(
+            """\b\d+\s+\w[\w\s]{0,30}(street|avenue|road|boulevard|lane|drive|court|way|place|circle|terrace|\bst\b|\bave\b|\brd\b|\bblvd\b|\bln\b|\bdr\b|\bct\b|\bpl\b)"""
+        )
+        return streetAddress.containsMatchIn(userText)
+    }
 
     /**
      * Maps a raw score to a [RiskLevel] using thresholds from [RemoteConfig].
