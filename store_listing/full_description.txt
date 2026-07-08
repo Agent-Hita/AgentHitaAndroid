@@ -1,6 +1,22 @@
 Agent Hita is an on-device safety guardian that detects harmful conversation patterns in messaging apps and warns you — or a trusted adult — before harm escalates.
 
-All analysis runs entirely on your phone. No message content is ever sent to a server, stored in the cloud, or shared with anyone.
+――――――――――――――――――――――――――――――
+
+ACCESSIBILITY SERVICE NOTICE
+
+Agent Hita uses Android's Accessibility Service to read message text displayed on screen. This is required to analyse conversations in real time without routing your messages through a server.
+
+The Accessibility Service reads text that is already visible on your screen — the same text you are reading — from the following apps only:
+
+• WhatsApp
+• Instagram Direct
+• Google Messages
+• Samsung Messages
+• Android SMS / MMS apps
+
+Message text is read only while a conversation is visible on screen, analysed instantly in memory, and never written to disk or transmitted off your device. The Accessibility Service is not used for any other purpose.
+
+You can revoke Accessibility access at any time in Settings → Accessibility → Agent Hita.
 
 ――――――――――――――――――――――――――――――
 
@@ -18,24 +34,6 @@ Agent Hita monitors 1-to-1 conversations for:
 • Disappearing message pressure — requests to enable ephemeral messaging to hide activity
 
 Group chats are excluded. Only 1-to-1 conversations are analysed.
-
-――――――――――――――――――――――――――――――
-
-HOW IT WORKS — ACCESSIBILITY SERVICE
-
-Agent Hita uses Android's Accessibility Service to read message text displayed on screen by the following apps:
-
-• WhatsApp
-• Instagram Direct
-• Google Messages
-• Samsung Messages
-• Android SMS / MMS apps
-
-This is the only way to analyse conversations in real time without routing your messages through a server. The Accessibility Service reads text that is already visible on your screen — the same text you are reading — with no network interception and no access to message databases.
-
-Message text is read only while a conversation is visible on screen, analysed instantly in memory, and never written to disk or transmitted off your device.
-
-You can revoke Accessibility access at any time in Settings → Accessibility → Agent Hita.
 
 ――――――――――――――――――――――――――――――
 
