@@ -651,9 +651,19 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isConversationScreen(root: AccessibilityNodeInfo, pkg: String): Boolean {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
+                // Require the compose field to be visible — not just present in the tree.
+                // In selection/edit-message mode WhatsApp hides the compose area but leaves
+                // the node in the hierarchy, which caused "Edit message" to be read as the
+                // contact name. isVisibleToUser=false correctly excludes those states.
                 val t = RemoteConfig.uiTags
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waSendId}").isNotEmpty()
+                val entryNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}")
+                val composeVisible = entryNodes.any { it.isVisibleToUser }
+                entryNodes.forEach { it.recycle() }
+                if (composeVisible) return true
+                val sendNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waSendId}")
+                val sendVisible = sendNodes.any { it.isVisibleToUser }
+                sendNodes.forEach { it.recycle() }
+                sendVisible
             }
             "com.instagram.android" -> {
                 val t = RemoteConfig.uiTags
