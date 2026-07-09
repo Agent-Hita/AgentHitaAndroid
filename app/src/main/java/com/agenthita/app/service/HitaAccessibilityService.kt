@@ -656,6 +656,12 @@ class HitaAccessibilityService : AccessibilityService() {
                 // the node in the hierarchy, which caused "Edit message" to be read as the
                 // contact name. isVisibleToUser=false correctly excludes those states.
                 val t = RemoteConfig.uiTags
+                if (t.waEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEditBarId}")
+                    val editing = editNodes.any { it.isVisibleToUser }
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
                 val entryNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}")
                 val composeVisible = entryNodes.any { it.isVisibleToUser }
                 entryNodes.forEach { it.recycle() }
@@ -669,6 +675,12 @@ class HitaAccessibilityService : AccessibilityService() {
                 // Composer and send button must be visible — selection/reaction overlays
                 // hide the compose area while leaving nodes in the tree.
                 val t = RemoteConfig.uiTags
+                if (t.igEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igEditBarId}")
+                    val editing = editNodes.any { it.isVisibleToUser }
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
                 val igComposeIds = listOf(
                     "com.instagram.android:id/${t.igComposerEditTextId}",
                     "com.instagram.android:id/${t.igSendButtonId}",
@@ -694,6 +706,15 @@ class HitaAccessibilityService : AccessibilityService() {
                 // SMS apps: compose field must be visible — long-press selection modes
                 // in Google Messages and Samsung Messages hide the compose area while
                 // keeping its node in the tree, same pattern as WhatsApp.
+                val t = RemoteConfig.uiTags
+                if (t.gmEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId(
+                        "com.google.android.apps.messaging:id/${t.gmEditBarId}"
+                    )
+                    val editing = editNodes.any { it.isVisibleToUser }
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
                 val composeIds = listOf(
                     "com.google.android.apps.messaging:id/compose_message_text",
                     "com.google.android.apps.messaging:id/message_entry_layout",
