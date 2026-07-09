@@ -666,14 +666,34 @@ class HitaAccessibilityService : AccessibilityService() {
                 sendVisible
             }
             "com.instagram.android" -> {
+                // Composer and send button must be visible — selection/reaction overlays
+                // hide the compose area while leaving nodes in the tree.
                 val t = RemoteConfig.uiTags
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igComposerEditTextId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igSendButtonId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igDirectSendButtonId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igRecyclerViewId}").isNotEmpty()
+                val igComposeIds = listOf(
+                    "com.instagram.android:id/${t.igComposerEditTextId}",
+                    "com.instagram.android:id/${t.igSendButtonId}",
+                    "com.instagram.android:id/${t.igDirectSendButtonId}"
+                )
+                val composeVisible = igComposeIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val visible = nodes.any { it.isVisibleToUser }
+                    nodes.forEach { it.recycle() }
+                    visible
+                }
+                if (composeVisible) return true
+                // Recycler view fallback — no compose visibility check needed since
+                // it is a content container, not a transient action overlay.
+                val recyclerNodes = root.findAccessibilityNodeInfosByViewId(
+                    "com.instagram.android:id/${t.igRecyclerViewId}"
+                )
+                val hasRecycler = recyclerNodes.isNotEmpty()
+                recyclerNodes.forEach { it.recycle() }
+                hasRecycler
             }
             else -> {
-                // SMS apps: check known compose field IDs first
+                // SMS apps: compose field must be visible — long-press selection modes
+                // in Google Messages and Samsung Messages hide the compose area while
+                // keeping its node in the tree, same pattern as WhatsApp.
                 val composeIds = listOf(
                     "com.google.android.apps.messaging:id/compose_message_text",
                     "com.google.android.apps.messaging:id/message_entry_layout",
@@ -682,16 +702,25 @@ class HitaAccessibilityService : AccessibilityService() {
                     "com.android.mms:id/embedded_text_editor",
                     "android:id/input"
                 )
-                val hasComposeField = composeIds.any { id ->
-                    root.findAccessibilityNodeInfosByViewId(id).isNotEmpty()
+                val composeVisible = composeIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val visible = nodes.any { it.isVisibleToUser }
+                    nodes.forEach { it.recycle() }
+                    visible
                 }
-                if (hasComposeField) return true
-                // Fallback: if the window has a scrollable message list it's likely a conversation
-                val hasMessageList = root.findAccessibilityNodeInfosByViewId(
-                    "com.google.android.apps.messaging:id/message_list"
-                ).isNotEmpty() || root.findAccessibilityNodeInfosByViewId(
+                if (composeVisible) return true
+                // Message list fallback — visible even in selection mode, but we only
+                // reach here if no compose field was found at all (e.g. read-only threads).
+                val listIds = listOf(
+                    "com.google.android.apps.messaging:id/message_list",
                     "com.android.messaging:id/message_list"
-                ).isNotEmpty()
+                )
+                val hasMessageList = listIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val found = nodes.isNotEmpty()
+                    nodes.forEach { it.recycle() }
+                    found
+                }
                 if (hasMessageList) return true
                 // Google Messages (Compose builds): uses bare test tags — check for ConversationScreenUi
                 val composeTags = mutableListOf<AccessibilityNodeInfo>()
