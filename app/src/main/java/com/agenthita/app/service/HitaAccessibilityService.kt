@@ -78,7 +78,7 @@ class HitaAccessibilityService : AccessibilityService() {
         const val ACTION_MODEL_AVAILABLE = "com.agenthita.app.MODEL_AVAILABLE"
         private const val TAG                = "HitaAccessibilityService"
         private const val TAG_IG_DIAG        = "HitaIG"
-        private const val MIN_MESSAGE_LENGTH = 8
+        internal const val MIN_MESSAGE_LENGTH = 8
         private const val DEDUP_PREFS        = "hita_dedup"
         // Threshold imported from DisappearingMessageUtils — kept as alias here for log messages.
         private val SHORT_TIMER_THRESHOLD_DAYS = com.agenthita.app.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
@@ -98,14 +98,29 @@ class HitaAccessibilityService : AccessibilityService() {
         // and leading emoji ("🎥 Video"). The suffix anchor [·•()\d] prevents natural-language
         // captions like "Video of us at the party" from being filtered — only suffixes that start
         // with a bullet, parenthesis, or digit are treated as media metadata.
-        private val MEDIA_LABEL_PATTERN = Regex(
+        internal val MEDIA_LABEL_PATTERN = Regex(
             """^[^a-zA-Z]*(photo|image|video|gif|sticker|audio|voice\s*message|document|contact|location|file)(\s*[·•()\d].*)?$""",
             RegexOption.IGNORE_CASE
         )
-        private val MEDIA_FILE_EXTENSION = Regex(
+        internal val MEDIA_FILE_EXTENSION = Regex(
             """.*\.(jpg|jpeg|png|gif|webp|heic|heif|bmp|tiff?|svg|mp4|mov|avi|mkv|mp3|aac|ogg|m4a|pdf|doc|docx|xls|xlsx|ppt|pptx)$""",
             RegexOption.IGNORE_CASE
         )
+
+        internal fun isUIChrome(text: String, minLength: Int, gmUiChromePrefixes: List<String>): Boolean {
+            if (text.length < minLength) return true
+            val lower = text.lowercase()
+            if (lower == "send" || lower == "type a message" || lower == "message") return true
+            if (lower.startsWith("today") || lower.startsWith("yesterday")) return true
+            if (lower.matches(Regex("\\d{1,2}:\\d{2}\\s*(am|pm)?", RegexOption.IGNORE_CASE))) return true
+            if (gmUiChromePrefixes.any { lower.startsWith(it) }) return true
+            return false
+        }
+
+        internal fun isMediaMessage(text: String): Boolean {
+            val trimmed = text.trim()
+            return MEDIA_LABEL_PATTERN.matches(trimmed) || MEDIA_FILE_EXTENSION.matches(trimmed)
+        }
 
         // Patterns that confirm disappearing messages were turned ON.
         // Matched case-insensitively; a node matches only if none of the OFF_PATTERNS
@@ -651,19 +666,70 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isConversationScreen(root: AccessibilityNodeInfo, pkg: String): Boolean {
         return when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
+                // Require the compose field to be visible — not just present in the tree.
+                // In selection/edit-message mode WhatsApp hides the compose area but leaves
+                // the node in the hierarchy, which caused "Edit message" to be read as the
+                // contact name. isVisibleToUser=false correctly excludes those states.
                 val t = RemoteConfig.uiTags
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waSendId}").isNotEmpty()
+                if (t.waEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEditBarId}")
+                    val editing = editNodes.isNotEmpty()
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
+                val entryNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}")
+                val composeVisible = entryNodes.any { it.isVisibleToUser }
+                entryNodes.forEach { it.recycle() }
+                if (composeVisible) return true
+                val sendNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waSendId}")
+                val sendVisible = sendNodes.any { it.isVisibleToUser }
+                sendNodes.forEach { it.recycle() }
+                sendVisible
             }
             "com.instagram.android" -> {
+                // Composer and send button must be visible — selection/reaction overlays
+                // hide the compose area while leaving nodes in the tree.
                 val t = RemoteConfig.uiTags
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igComposerEditTextId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igSendButtonId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igDirectSendButtonId}").isNotEmpty() ||
-                root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igRecyclerViewId}").isNotEmpty()
+                if (t.igEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${t.igEditBarId}")
+                    val editing = editNodes.isNotEmpty()
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
+                val igComposeIds = listOf(
+                    "com.instagram.android:id/${t.igComposerEditTextId}",
+                    "com.instagram.android:id/${t.igSendButtonId}",
+                    "com.instagram.android:id/${t.igDirectSendButtonId}"
+                )
+                val composeVisible = igComposeIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val visible = nodes.any { it.isVisibleToUser }
+                    nodes.forEach { it.recycle() }
+                    visible
+                }
+                if (composeVisible) return true
+                // Recycler view fallback — no compose visibility check needed since
+                // it is a content container, not a transient action overlay.
+                val recyclerNodes = root.findAccessibilityNodeInfosByViewId(
+                    "com.instagram.android:id/${t.igRecyclerViewId}"
+                )
+                val hasRecycler = recyclerNodes.isNotEmpty()
+                recyclerNodes.forEach { it.recycle() }
+                hasRecycler
             }
             else -> {
-                // SMS apps: check known compose field IDs first
+                // SMS apps: compose field must be visible — long-press selection modes
+                // in Google Messages and Samsung Messages hide the compose area while
+                // keeping its node in the tree, same pattern as WhatsApp.
+                val t = RemoteConfig.uiTags
+                if (t.gmEditBarId.isNotEmpty()) {
+                    val editNodes = root.findAccessibilityNodeInfosByViewId(
+                        "com.google.android.apps.messaging:id/${t.gmEditBarId}"
+                    )
+                    val editing = editNodes.isNotEmpty()
+                    editNodes.forEach { it.recycle() }
+                    if (editing) return false
+                }
                 val composeIds = listOf(
                     "com.google.android.apps.messaging:id/compose_message_text",
                     "com.google.android.apps.messaging:id/message_entry_layout",
@@ -672,16 +738,25 @@ class HitaAccessibilityService : AccessibilityService() {
                     "com.android.mms:id/embedded_text_editor",
                     "android:id/input"
                 )
-                val hasComposeField = composeIds.any { id ->
-                    root.findAccessibilityNodeInfosByViewId(id).isNotEmpty()
+                val composeVisible = composeIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val visible = nodes.any { it.isVisibleToUser }
+                    nodes.forEach { it.recycle() }
+                    visible
                 }
-                if (hasComposeField) return true
-                // Fallback: if the window has a scrollable message list it's likely a conversation
-                val hasMessageList = root.findAccessibilityNodeInfosByViewId(
-                    "com.google.android.apps.messaging:id/message_list"
-                ).isNotEmpty() || root.findAccessibilityNodeInfosByViewId(
+                if (composeVisible) return true
+                // Message list fallback — visible even in selection mode, but we only
+                // reach here if no compose field was found at all (e.g. read-only threads).
+                val listIds = listOf(
+                    "com.google.android.apps.messaging:id/message_list",
                     "com.android.messaging:id/message_list"
-                ).isNotEmpty()
+                )
+                val hasMessageList = listIds.any { id ->
+                    val nodes = root.findAccessibilityNodeInfosByViewId(id)
+                    val found = nodes.isNotEmpty()
+                    nodes.forEach { it.recycle() }
+                    found
+                }
                 if (hasMessageList) return true
                 // Google Messages (Compose builds): uses bare test tags — check for ConversationScreenUi
                 val composeTags = mutableListOf<AccessibilityNodeInfo>()
@@ -744,7 +819,11 @@ class HitaAccessibilityService : AccessibilityService() {
                     ?: node?.contentDescription?.toString()
                         ?.substringBefore(",")?.trim()?.takeIf { it.isNotBlank() }
                 nodes.forEach { it.recycle() }
-                name
+                // Structural fallback: if the configured view ID is absent (WhatsApp renamed it),
+                // walk the toolbar container hierarchy to find the first meaningful text node.
+                // conversation_contact / custom_view / toolbar are layout containers that are
+                // far more stable across WhatsApp versions than the inner text view IDs.
+                name ?: extractWhatsAppContactNameFallback(root, pkg)
             }
             "com.instagram.android" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderTitleId}")
@@ -791,9 +870,52 @@ class HitaAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Structural fallback for WhatsApp contact name when the configured view ID is absent.
+     * Walks stable container IDs (conversation_contact → custom_view → toolbar) looking
+     * for the first non-chrome TextView. These containers change far less often across
+     * WhatsApp versions than the inner text node IDs.
+     */
+    private fun extractWhatsAppContactNameFallback(root: AccessibilityNodeInfo, pkg: String): String? {
+        for (containerId in listOf("conversation_contact", "custom_view", "toolbar")) {
+            val containers = root.findAccessibilityNodeInfosByViewId("$pkg:id/$containerId")
+            for (container in containers) {
+                val name = firstMeaningfulText(container, maxDepth = 5)
+                container.recycle()
+                if (!name.isNullOrBlank()) return name
+            }
+            containers.forEach { it.recycle() }
+        }
+        return null
+    }
+
+    private fun firstMeaningfulText(node: AccessibilityNodeInfo, maxDepth: Int): String? {
+        if (maxDepth < 0) return null
+        val text = node.text?.toString()?.takeIf { it.isNotBlank() && !isUIChrome(it) && it.length >= 2 }
+            ?: node.contentDescription?.toString()
+                ?.substringBefore(",")?.trim()
+                ?.takeIf { it.isNotBlank() && !isUIChrome(it) && it.length >= 2 }
+        if (text != null) return text
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = firstMeaningfulText(child, maxDepth - 1)
+            child.recycle()
+            if (found != null) return found
+        }
+        return null
+    }
+
     // -------------------------------------------------------------------------
     // Message text extraction
     // -------------------------------------------------------------------------
+
+    private fun AccessibilityNodeInfo.asNodeInfo(): NodeInfo = object : NodeInfo {
+        override val viewIdResourceName get() = this@asNodeInfo.viewIdResourceName
+        override val text get() = this@asNodeInfo.text
+        override val className get() = this@asNodeInfo.className
+        override val childCount get() = this@asNodeInfo.childCount
+        override fun getChild(i: Int): NodeInfo? = this@asNodeInfo.getChild(i)?.asNodeInfo()
+    }
 
     /**
      * Extracts the last up to 5 visible incoming message texts from the screen.
@@ -822,6 +944,13 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                     node.recycle()
                 }
+                // Structural fallback: if the configured message text ID is absent (WhatsApp
+                // renamed it), collect TextView content from the full tree. Uses position-based
+                // outgoing detection (center > midpoint) consistent with isOutgoingWhatsApp.
+                if (raw.isEmpty()) {
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] message_text ID not found — using structural fallback")
+                    collectTextViewContent(root, raw)
+                }
             }
             "com.instagram.android" -> {
                 val igTextIds = RemoteConfig.uiTags.igMessageTextIds.map { "com.instagram.android:id/$it" }
@@ -835,6 +964,23 @@ class HitaAccessibilityService : AccessibilityService() {
                         node.recycle()
                     }
                     if (raw.isNotEmpty()) break
+                }
+                // Structural fallback for Compose-rendered messages (MetaComposeView with no-id TextViews).
+                // Scope to message_list children via InstagramConversationHelper so the logic is
+                // unit-testable without the Android framework.
+                if (raw.isEmpty()) {
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[com.instagram.android] id-based extraction empty — using message_list structural fallback")
+                    val listNodes = root.findAccessibilityNodeInfosByViewId(
+                        "com.instagram.android:id/${RemoteConfig.uiTags.igRecyclerViewId}"
+                    )
+                    listNodes.forEach { listNode ->
+                        val messages = InstagramConversationHelper.collectMessagesFromList(
+                            listNode.asNodeInfo(),
+                            "com.instagram.android:id/message_content"
+                        ) { text -> text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) && !isUIChrome(text) }
+                        messages.forEach { raw.add(it to false) }
+                        listNode.recycle()
+                    }
                 }
             }
             else -> {
@@ -863,11 +1009,7 @@ class HitaAccessibilityService : AccessibilityService() {
         return lastFive.map { it.first } to outgoingTexts
     }
 
-    /** Returns true if the text represents a media attachment rather than conversational text. */
-    private fun isMediaMessage(text: String): Boolean {
-        val trimmed = text.trim()
-        return MEDIA_LABEL_PATTERN.matches(trimmed) || MEDIA_FILE_EXTENSION.matches(trimmed)
-    }
+    private fun isMediaMessage(text: String): Boolean = Companion.isMediaMessage(text)
 
     /**
      * WhatsApp outgoing messages are right-aligned; incoming are left-aligned.
@@ -956,16 +1098,8 @@ class HitaAccessibilityService : AccessibilityService() {
         return null
     }
 
-    /** Heuristic: short strings that look like UI labels rather than message content. */
-    private fun isUIChrome(text: String): Boolean {
-        if (text.length < MIN_MESSAGE_LENGTH) return true
-        val lower = text.lowercase()
-        if (lower == "send" || lower == "type a message" || lower == "message") return true
-        if (lower.startsWith("today") || lower.startsWith("yesterday")) return true
-        if (lower.matches(Regex("\\d{1,2}:\\d{2}\\s*(am|pm)?", RegexOption.IGNORE_CASE))) return true
-        if (RemoteConfig.uiTags.gmUiChromePrefixes.any { lower.startsWith(it) }) return true
-        return false
-    }
+    private fun isUIChrome(text: String): Boolean =
+        isUIChrome(text, MIN_MESSAGE_LENGTH, RemoteConfig.uiTags.gmUiChromePrefixes)
 
     // -------------------------------------------------------------------------
     // Helpers

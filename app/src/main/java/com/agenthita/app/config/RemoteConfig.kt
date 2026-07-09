@@ -259,6 +259,8 @@ object RemoteConfig {
         val gmMessageTag: String                  = "message_text",
         // UI chrome prefixes to filter from Google Messages message_text nodes
         val gmUiChromePrefixes: List<String>      = listOf("texting with"),
+        // Edit-mode indicator — empty = check disabled until confirmed via OTA.
+        val gmEditBarId: String                   = "",
 
         // WhatsApp view IDs (package-qualified)
         val waMessageTextId: String               = "message_text",
@@ -267,6 +269,9 @@ object RemoteConfig {
         val waStatusId: String                    = "status",
         val waContactNameId: String               = "conversation_contact_name",
         val waContactStatusId: String             = "conversation_contact_status",
+        // Edit-mode indicator — visible when user is editing a sent message.
+        // Empty string = check disabled (set via OTA once confirmed).
+        val waEditBarId: String                   = "",
 
         // Instagram view IDs (package-qualified, verified v424)
         val igComposerEditTextId: String          = "row_thread_composer_edittext",
@@ -275,6 +280,8 @@ object RemoteConfig {
         val igRecyclerViewId: String              = "direct_thread_recycler_view",
         val igHeaderTitleId: String               = "header_title",
         val igHeaderSubtitleId: String            = "header_subtitle",
+        // Edit-mode indicator — confirmed from logcat 2026-07-09.
+        val igEditBarId: String                   = "edit_bar_header",
         val igMessageTextIds: List<String>        = listOf(
             "direct_text_message_text_view",
             "message_content",
@@ -364,6 +371,7 @@ object RemoteConfig {
             gmUiChromePrefixes      = gm?.optJSONArray("ui_chrome_prefixes")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
                 ?.takeIf { it.isNotEmpty() } ?: d.gmUiChromePrefixes,
+            gmEditBarId             = gm?.optString("edit_bar_id",             d.gmEditBarId)             ?: d.gmEditBarId,
 
             waMessageTextId   = wa?.optString("message_text_id",    d.waMessageTextId)   ?: d.waMessageTextId,
             waEntryId         = wa?.optString("entry_id",           d.waEntryId)         ?: d.waEntryId,
@@ -371,6 +379,7 @@ object RemoteConfig {
             waStatusId        = wa?.optString("status_id",          d.waStatusId)        ?: d.waStatusId,
             waContactNameId   = wa?.optString("contact_name_id",    d.waContactNameId)   ?: d.waContactNameId,
             waContactStatusId = wa?.optString("contact_status_id",  d.waContactStatusId) ?: d.waContactStatusId,
+            waEditBarId       = wa?.optString("edit_bar_id",        d.waEditBarId)       ?: d.waEditBarId,
 
             igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,
             igSendButtonId        = ig?.optString("send_button_id",          d.igSendButtonId)        ?: d.igSendButtonId,
@@ -378,6 +387,7 @@ object RemoteConfig {
             igRecyclerViewId      = ig?.optString("recycler_view_id",        d.igRecyclerViewId)      ?: d.igRecyclerViewId,
             igHeaderTitleId       = ig?.optString("header_title_id",         d.igHeaderTitleId)       ?: d.igHeaderTitleId,
             igHeaderSubtitleId    = ig?.optString("header_subtitle_id",      d.igHeaderSubtitleId)    ?: d.igHeaderSubtitleId,
+            igEditBarId           = ig?.optString("edit_bar_id",             d.igEditBarId)           ?: d.igEditBarId,
             igMessageTextIds      = ig?.optJSONArray("message_text_ids")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
                 ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds
