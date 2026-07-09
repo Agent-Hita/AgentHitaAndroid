@@ -744,7 +744,11 @@ class HitaAccessibilityService : AccessibilityService() {
                     ?: node?.contentDescription?.toString()
                         ?.substringBefore(",")?.trim()?.takeIf { it.isNotBlank() }
                 nodes.forEach { it.recycle() }
-                name
+                // Structural fallback: if the configured view ID is absent (WhatsApp renamed it),
+                // walk the toolbar container hierarchy to find the first meaningful text node.
+                // conversation_contact / custom_view / toolbar are layout containers that are
+                // far more stable across WhatsApp versions than the inner text view IDs.
+                name ?: extractWhatsAppContactNameFallback(root, pkg)
             }
             "com.instagram.android" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderTitleId}")
@@ -791,6 +795,41 @@ class HitaAccessibilityService : AccessibilityService() {
         }
     }
 
+    /**
+     * Structural fallback for WhatsApp contact name when the configured view ID is absent.
+     * Walks stable container IDs (conversation_contact → custom_view → toolbar) looking
+     * for the first non-chrome TextView. These containers change far less often across
+     * WhatsApp versions than the inner text node IDs.
+     */
+    private fun extractWhatsAppContactNameFallback(root: AccessibilityNodeInfo, pkg: String): String? {
+        for (containerId in listOf("conversation_contact", "custom_view", "toolbar")) {
+            val containers = root.findAccessibilityNodeInfosByViewId("$pkg:id/$containerId")
+            for (container in containers) {
+                val name = firstMeaningfulText(container, maxDepth = 5)
+                container.recycle()
+                if (!name.isNullOrBlank()) return name
+            }
+            containers.forEach { it.recycle() }
+        }
+        return null
+    }
+
+    private fun firstMeaningfulText(node: AccessibilityNodeInfo, maxDepth: Int): String? {
+        if (maxDepth < 0) return null
+        val text = node.text?.toString()?.takeIf { it.isNotBlank() && !isUIChrome(it) && it.length >= 2 }
+            ?: node.contentDescription?.toString()
+                ?.substringBefore(",")?.trim()
+                ?.takeIf { it.isNotBlank() && !isUIChrome(it) && it.length >= 2 }
+        if (text != null) return text
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            val found = firstMeaningfulText(child, maxDepth - 1)
+            child.recycle()
+            if (found != null) return found
+        }
+        return null
+    }
+
     // -------------------------------------------------------------------------
     // Message text extraction
     // -------------------------------------------------------------------------
@@ -821,6 +860,13 @@ class HitaAccessibilityService : AccessibilityService() {
                         raw.add(text to outgoing)
                     }
                     node.recycle()
+                }
+                // Structural fallback: if the configured message text ID is absent (WhatsApp
+                // renamed it), collect TextView content from the full tree. Uses position-based
+                // outgoing detection (center > midpoint) consistent with isOutgoingWhatsApp.
+                if (raw.isEmpty()) {
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] message_text ID not found — using structural fallback")
+                    collectTextViewContent(root, raw)
                 }
             }
             "com.instagram.android" -> {
