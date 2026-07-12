@@ -443,8 +443,8 @@ class GemmaClassifier(context: Context) {
     }
 
     private fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
-        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~770 chars
-        // (~220 tokens); the guard in classifyMessage enforces the hard limit before calling inference.
+        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~665 chars
+        // (~190 tokens); the guard in classifyMessage enforces the hard limit before calling inference.
         val truncated = text.take(RemoteConfig.gemmaInputTruncationChars)
         val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
         val contextBlock = if (context.isEmpty()) "" else {
@@ -456,7 +456,7 @@ class GemmaClassifier(context: Context) {
 Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
 Valid severity levels: HIGH MEDIUM LOW NONE
 Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
-IDENTITY_PHISHING: when [CONTACT] requests credentials or info from USER, or when [USER] sends an OTP or verification code to the contact = HIGH. A service message delivering an OTP TO the user ("your OTP is 4821, do not share") = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; sharing only a phone number = NONE. Otherwise [USER] sharing other personal info = NONE.
+IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
 IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
 $recipientLine$contextBlock
 Latest message: "$truncated"
