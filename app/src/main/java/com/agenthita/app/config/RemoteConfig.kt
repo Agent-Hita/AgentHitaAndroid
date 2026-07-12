@@ -198,7 +198,7 @@ object RemoteConfig {
         // Telemetry
         val telemetryFlushThreshold: Int    = 50,
         val telemetryFlushIntervalMs: Long  = 60_000L,
-        val appVersion:              String = "0.1.0",
+        val appVersion:              String = "0.1.1",
         val buildType:               String = "release",
 
         // Gemma

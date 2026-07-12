@@ -98,7 +98,9 @@ class RiskScorer(
         // and the riskLevel for detecting whether prior messages already scored HIGH.
         val contextResults: Map<HarmCategory, DetectionResult> = if (context.isEmpty()) emptyMap()
         else {
-            val ctxText = context.joinToString(" ")
+            // Newline-joined so each message stays its own line — the detectors'
+            // per-line direction handling ([USER]:/[CONTACT]:) needs line boundaries.
+            val ctxText = context.joinToString("\n")
             detectors.associate { it.category to it.analyze(ctxText) }
         }
 
@@ -108,6 +110,35 @@ class RiskScorer(
             val s = (result.score + ctxBoost).coerceIn(0f, 1f)
             result.copy(score = s, riskLevel = scoreToRiskLevel(s))
         }
+
+        // OTP handed over across windows: the contact's code request was in a prior
+        // (already seen) message and the user's new message is just the bare digits.
+        // The bare code alone carries no rule signal, so — unlike the mild context
+        // escalation above, which never creates new alerts — this deliberately
+        // elevates to HIGH: a one-time passcode leaving the user's device in reply
+        // to a request is the completion of the scam. In-window shares (request and
+        // code in the same block) are already caught by IdentityPhishingDetector.
+        val ctxCodeRequest = contextResults[HarmCategory.IDENTITY_PHISHING]
+            ?.signals?.any { it.signal == "code_request" } == true
+        val otpEscalated: Map<HarmCategory, DetectionResult> =
+            if (!ctxCodeRequest || !userSharesBareCode(text)) escalated
+            else escalated.mapValues { (cat, result) ->
+                if (cat != HarmCategory.IDENTITY_PHISHING) return@mapValues result
+                if (result.signals.any { it.signal == "otp_shared" }) return@mapValues result
+                val boosted = maxOf(result.score, 0.87f)
+                result.copy(
+                    score       = boosted,
+                    riskLevel   = scoreToRiskLevel(boosted),
+                    signals     = result.signals + SignalMatch(
+                        signal        = "otp_shared",
+                        matchedPhrase = "One-time passcode shared after a code request",
+                        weight        = 0.87f
+                    ),
+                    explanation = "A one-time passcode (OTP) was shared after the contact asked for it. " +
+                                  "Legitimate services never ask anyone to share an OTP — sharing one can " +
+                                  "let a scammer take over accounts or approve payments."
+                )
+            }
 
         // Layer 2: single Gemma multi-class inference. Gemma is invoked unconditionally
         // when loaded so it can rescue messages that both rule layers miss entirely.
@@ -129,10 +160,10 @@ class RiskScorer(
 
         // Merge Gemma into rule results
         val merged: Map<HarmCategory, DetectionResult> = if (gemmaResult == null) {
-            escalated
+            otpEscalated
         } else {
             val (gemmaCat, gemmaSeverity) = gemmaResult
-            escalated.mapValues { (cat, result) ->
+            otpEscalated.mapValues { (cat, result) ->
                 if (cat != gemmaCat) return@mapValues result
                 mergeGemmaResult(result, gemmaSeverity)
             }
@@ -236,6 +267,31 @@ class RiskScorer(
     /** Returns the single highest-risk result from a scored set. */
     fun highestRisk(results: List<DetectionResult>): DetectionResult? =
         results.maxByOrNull { it.score }
+
+    /**
+     * Returns true when a [USER] message in [text] is essentially just a numeric
+     * one-time code — 4–8 digits (or WhatsApp-style "482-913") in a short message.
+     * Only consulted when prior context contains a code request from the contact;
+     * a bare number with no such context never creates an alert.
+     */
+    private fun userSharesBareCode(text: String): Boolean {
+        val codeRegex = Regex("""\b\d{3}[-\s]\d{3}\b|\b\d{4,8}\b""")
+        // Codes people legitimately share in chat — postal PINs (6 digits in India),
+        // coupons, tracking numbers.
+        val benignCodeContexts = listOf(
+            "pin code", "pincode", "postal code", "zip code", "area code",
+            "promo code", "coupon code", "discount code", "referral code",
+            "tracking", "order number"
+        )
+        return text.lines().any { line ->
+            val trimmed = line.trimStart()
+            if (!trimmed.startsWith("[USER]:", ignoreCase = true)) return@any false
+            val body = trimmed.substring("[USER]:".length).trim().lowercase()
+            body.length <= 24 &&
+                codeRegex.containsMatchIn(body) &&
+                benignCodeContexts.none { body.contains(it) }
+        }
+    }
 
     /**
      * Returns true when a [USER] message in [text] contains an explicit address

@@ -117,6 +117,76 @@ class IdentityPhishingDetectorTest {
         assertTrue(result.signals.any { it.signal == "code_request" })
     }
 
+    // ── OTP direction handling — received OTPs must not flag ─────────────────
+
+    @Test
+    fun `received bank OTP delivery scores NONE`() {
+        val result = detector.analyze(
+            "[CONTACT]: 482913 is your OTP for HDFC Bank txn of INR 5,000. Do not share it with anyone."
+        )
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `received OTP delivery without direction prefix scores NONE`() {
+        val result = detector.analyze("Your OTP is 482913, valid for 10 minutes. Never share this code.")
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `bank safety warning without code scores NONE`() {
+        val result = detector.analyze(
+            "[CONTACT]: Dear customer, never share your OTP or CVV with anyone. Bank staff will never ask for it."
+        )
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `code request still flags when window also has a delivery message`() {
+        val result = detector.analyze(
+            "[CONTACT]: 482913 is your OTP. Do not share it with anyone.\n" +
+            "[CONTACT]: hello, this is bank security, send me the otp you just received"
+        )
+        assertTrue(result.signals.any { it.signal == "code_request" })
+        assertTrue(result.riskLevel >= RiskLevel.MEDIUM)
+    }
+
+    // ── OTP direction handling — user sharing an OTP must flag ───────────────
+
+    @Test
+    fun `user sharing OTP with keyword fires otp_shared and scores HIGH`() {
+        val result = detector.analyze("[USER]: the otp is 482913")
+        assertTrue(result.signals.any { it.signal == "otp_shared" })
+        assertEquals(RiskLevel.HIGH, result.riskLevel)
+    }
+
+    @Test
+    fun `user replying bare code to a code request fires otp_shared`() {
+        val result = detector.analyze("[CONTACT]: share the otp you received\n[USER]: 482913")
+        assertTrue(result.signals.any { it.signal == "otp_shared" })
+        assertEquals(RiskLevel.HIGH, result.riskLevel)
+    }
+
+    @Test
+    fun `user forwarding delivery message verbatim fires otp_shared`() {
+        val result = detector.analyze("[USER]: Your OTP is 482913. Do not share it with anyone.")
+        assertTrue(result.signals.any { it.signal == "otp_shared" })
+        assertEquals(RiskLevel.HIGH, result.riskLevel)
+    }
+
+    @Test
+    fun `user bare number without any code request scores NONE`() {
+        val result = detector.analyze("[USER]: 482913 see you at 5")
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
+    @Test
+    fun `user sharing postal pin code does not fire otp_shared`() {
+        val result = detector.analyze("[USER]: my pin code is 560001 for the delivery")
+        assertTrue(result.signals.none { it.signal == "otp_shared" })
+        assertEquals(RiskLevel.NONE, result.riskLevel)
+    }
+
     // ── Clean text → NONE ─────────────────────────────────────────────────────
 
     @Test
