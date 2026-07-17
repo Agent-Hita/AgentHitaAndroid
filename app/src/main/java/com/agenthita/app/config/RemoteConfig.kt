@@ -206,13 +206,15 @@ object RemoteConfig {
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
-        val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz",
+        val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-3-tflite-gemma3-1b-it-int4-v1.tar.gz",
         val modelSignedUrlEndpoint:    String = BuildConfig.MODEL_SIGNED_URL_ENDPOINT,
-        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
+        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma-3/tfLite/gemma3-1b-it-int4",
         // SHA-256 hex digests of known-good extracted model binaries.
-        // Verified against gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
         // Add new entries here (or via remote config) when shipping updated model versions.
         val gemmaModelHashes:          List<String> = listOf(
+            // gemma-3-tflite-gemma3-1b-it-int4-v1.tar.gz → gemma3-1B-it-int4.task
+            "e3d981c01aeaaac69a84ffa0d4be13281b3176731063f1bea1c9fe6887bd9dee",
+            // legacy gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
             "176452e0eef32e7cd477e5609160278f3f5cbfeeb46d2cb2d37bd631af1b0bea"
         ),
         val gemmaMaxFileSizeBytes:     Long   = 5_000_000_000L,
