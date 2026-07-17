@@ -185,7 +185,7 @@ class HitaAccessibilityService : AccessibilityService() {
         val app = application as HitaApplication
         consentManager           = ConsentManager(this)
         classifier               = OnDeviceClassifier()
-        riskScorer               = RiskScorer(classifier, consentManager.userCategory)
+        riskScorer               = RiskScorer(classifier) { consentManager.userCategory }
         localNotificationManager = LocalNotificationManager(this)
         guardianAlertSender      = GuardianAlertSender(this, consentManager)
         riskEventStore           = RiskEventStore(app.database.riskEventDao())

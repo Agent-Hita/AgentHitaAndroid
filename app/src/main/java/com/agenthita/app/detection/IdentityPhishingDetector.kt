@@ -30,6 +30,16 @@ class IdentityPhishingDetector : PatternMatcher {
         "two factor code"
     )
 
+    // Anaphoric demands — "you will get an otp. Share that." Real phishers demand
+    // the code by pronoun once the delivery lands, so these count as code_request,
+    // but only when the window also carries one-time-code context (see analyze()):
+    // bare "send it" in an ordinary conversation must not flag.
+    private val pronounDemandSignals = listOf(
+        "share that", "send that", "forward that", "give me that", "send me that",
+        "share it", "send it", "forward it", "give it to me",
+        "read it to me", "read it out", "what is it"
+    )
+
     // A one-time code as it appears in messages: 4–8 digits, or 3+3 split by a
     // dash/space (WhatsApp style "482-913"). Word boundaries keep 10-digit phone
     // numbers and longer IDs from matching.
@@ -144,6 +154,16 @@ class IdentityPhishingDetector : PatternMatcher {
         }
         codeMentionSignals.forEach { signal ->
             if (requestText.contains(normalizeContractions(signal))) matches.add(SignalMatch("code_request", signal, 0.9f))
+        }
+        // Pronoun demands only count with one-time-code context somewhere in the
+        // window — including delivery lines excluded from requestText, since the
+        // delivery is exactly what the pronoun refers back to.
+        val hasOtpContext = codeMentionSignals.any { lower.contains(it) } ||
+            otpCodeRegex.containsMatchIn(lower)
+        if (hasOtpContext) {
+            pronounDemandSignals.forEach { signal ->
+                if (requestText.contains(normalizeContractions(signal))) matches.add(SignalMatch("code_request", signal, 0.9f))
+            }
         }
         credentialRequestSignals.forEach { signal ->
             if (requestText.contains(normalizeContractions(signal))) matches.add(SignalMatch("credential_request", signal, 0.9f))

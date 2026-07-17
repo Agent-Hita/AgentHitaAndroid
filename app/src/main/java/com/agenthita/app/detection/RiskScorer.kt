@@ -15,8 +15,17 @@ import com.agenthita.app.consent.UserCategory
  */
 class RiskScorer(
     private val classifier: Classifier,
-    private val userCategory: UserCategory = UserCategory.SELF_PROTECTING_ADULT
+    private val userCategoryProvider: () -> UserCategory = { UserCategory.SELF_PROTECTING_ADULT }
 ) {
+
+    constructor(classifier: Classifier, userCategory: UserCategory) :
+        this(classifier, { userCategory })
+
+    // Read per scoring pass, never snapshotted: the accessibility service connects
+    // before the user picks a category in guardian setup, so a value captured at
+    // construction would stay SELF_PROTECTING_ADULT until the service reconnects.
+    private val userCategory: UserCategory
+        get() = userCategoryProvider()
 
     private val detectors: List<PatternMatcher> = listOf(
         SextortionDetector(),
