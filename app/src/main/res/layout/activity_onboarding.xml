@@ -177,7 +177,7 @@
                     android:id="@+id/tv_view_source_link"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Our code is public — check for yourself"
+                    android:text="Don&#8217;t take our word for it — review our source code"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:textColor="@color/hita_accent"
