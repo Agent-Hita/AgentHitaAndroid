@@ -128,7 +128,12 @@ class OnboardingActivity : AppCompatActivity() {
 
     private fun openAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-            val componentName = "$packageName/.service.HitaAccessibilityService"
+            // Settings' preference highlighter matches the fully-qualified flattened
+            // component ("pkg/pkg.service.Class"), not the "/.service.Class" shorthand.
+            val componentName = android.content.ComponentName(
+                this@OnboardingActivity,
+                com.agenthita.app.service.HitaAccessibilityService::class.java
+            ).flattenToString()
             val args = Bundle().apply {
                 putString(":settings:fragment_args_key", componentName)
             }
