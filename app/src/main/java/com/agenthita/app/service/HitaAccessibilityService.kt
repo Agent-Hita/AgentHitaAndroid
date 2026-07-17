@@ -161,6 +161,10 @@ class HitaAccessibilityService : AccessibilityService() {
     // actually fire, so a suppressed conv can be upgraded to MEDIUM if a threat is later found.
     private val disappearingMessagesSuppressed = mutableSetOf<String>()
 
+    // Conversations that already reported an empty-extraction telemetry event this
+    // session — one signal per conversation visit is enough for dashboard trends.
+    private val extractionEmptyTracked = mutableSetOf<String>()
+
     // Tracks the highest-risk event seen while the user is inside a single conversation.
     // Only the first MEDIUM+ detection per session is saved to DB; subsequent detections
     // update the in-memory best result so the guardian alert always reflects the worst seen.
@@ -469,6 +473,14 @@ class HitaAccessibilityService : AccessibilityService() {
                 if (BuildConfig.DEBUG && packageName == "com.instagram.android") {
                     android.util.Log.w(TAG_IG_DIAG, "messages=empty for contact=$contactName — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
+                }
+                // Empty extraction on a confirmed conversation screen may be a benign
+                // media-only view — or a silent selector regression (Instagram's Compose
+                // migration produced exactly this). Track it (suffix keeps it separate
+                // from hard parse failures; once per conversation session to avoid
+                // flooding) so a per-app spike is visible on the dashboard.
+                if (extractionEmptyTracked.add(convHash)) {
+                    TelemetryManager.get(this).track("${parsingFailedEvent(packageName)}_empty")
                 }
                 return
             }
@@ -1177,6 +1189,7 @@ class HitaAccessibilityService : AccessibilityService() {
         sessionRecords.remove(convHash)
         alertedConvHashes.remove(convHash)
         disappearingMessagesSuppressed.remove(convHash)
+        extractionEmptyTracked.remove(convHash)
         // disappearing-messages dedup lives in dedupPrefs (persistent) — not cleared here
         // so switching apps or restarting the service never re-fires the same alert.
         // seen_* is intentionally NOT cleared here. New messages are not yet in seen_*
