@@ -139,6 +139,52 @@
 
             </LinearLayout>
 
+            <!-- Inoculation: name Android's system warning before the user sees it,
+                 so it reads as expected rather than alarming -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_dialog_gradient"
+                android:padding="20dp"
+                android:layout_marginBottom="28dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Heads up: Android will show a strong warning next"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_accent"
+                    android:layout_marginBottom="4dp" />
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="2dp"
+                    android:background="@color/hita_accent"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Android will tell you Agent Hita can &#8220;read all screen content.&#8221; It&#8217;s accurate — reading the screen is literally how protection works.\n\nHere&#8217;s what we never do: store, transmit, or share what it sees."
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_primary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:layout_marginBottom="10dp" />
+
+                <TextView
+                    android:id="@+id/tv_view_source_link"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Our code is public — check for yourself"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_accent"
+                    android:padding="4dp" />
+
+            </LinearLayout>
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_grant_permission"
                 android:layout_width="match_parent"

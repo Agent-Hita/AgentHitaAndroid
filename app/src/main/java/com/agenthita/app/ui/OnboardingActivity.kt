@@ -83,6 +83,11 @@ class OnboardingActivity : AppCompatActivity() {
 
         binding.btnGrantPermission.setOnClickListener { openAccessibilitySettings() }
 
+        binding.tvViewSourceLink.setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://github.com/Agent-Hita/AgentHitaAndroid")))
+        }
+
         binding.btnContinue.setOnClickListener {
             if (isAccessibilityServiceEnabled()) {
                 consentManager.consentTimestampMs = System.currentTimeMillis()
