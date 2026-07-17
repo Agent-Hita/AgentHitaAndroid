@@ -213,6 +213,66 @@ class GemmaClassifier(context: Context) {
         Companion.extractTarGz(context, inputStream)
 
     companion object {
+
+    /**
+     * Builds a prompt guaranteed to fit the model's token window. Never skips:
+     * long conversations lose their OLDEST content first — context lines are shed
+     * one at a time, then the message block is trimmed from the front — because
+     * coercion escalates toward the end of a window ("send money now" is at the
+     * recent edge; the opener is what we can afford to lose).
+     */
+    internal fun buildFittedPrompt(text: String, context: List<String>, ageHint: String?): String {
+        // ~3 chars/token heuristic; reserve 50 tokens of the window for the response.
+        val maxChars = (RemoteConfig.gemmaMaxTokens - 50) * 3
+        var ctx = context
+        var prompt = buildMultiClassPrompt(text, ctx, ageHint)
+        while (prompt.length > maxChars && ctx.isNotEmpty()) {
+            ctx = ctx.drop(1)
+            prompt = buildMultiClassPrompt(text, ctx, ageHint)
+        }
+        if (prompt.length > maxChars) {
+            val overhead = buildMultiClassPrompt("", ctx, ageHint).length
+            val budget = (maxChars - overhead).coerceAtLeast(160)
+            prompt = buildMultiClassPrompt(keepNewest(text, budget), ctx, ageHint)
+        }
+        if (prompt.length < buildMultiClassPrompt(text, context, ageHint).length) {
+            android.util.Log.i("GemmaClassifier", "Prompt trimmed to fit (~${prompt.length / 3} tokens)")
+        }
+        return prompt
+    }
+
+    /** Last [budget] chars of [text], dropped forward to the next full line where possible. */
+    internal fun keepNewest(text: String, budget: Int): String {
+        if (text.length <= budget) return text
+        val tail = text.takeLast(budget)
+        val nl = tail.indexOf('\n')
+        return if (nl in 0 until tail.length - 40) tail.substring(nl + 1) else tail
+    }
+
+    internal fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
+        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~665 chars
+        // (~190 tokens); buildFittedPrompt enforces the hard limit before inference,
+        // keeping the newest content when trimming.
+        val truncated = keepNewest(text, RemoteConfig.gemmaInputTruncationChars)
+        val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
+        val contextBlock = if (context.isEmpty()) "" else {
+            val prior = context.takeLast(3).joinToString("\n") { "- \"${it.take(60)}\"" }
+            "\nPrior messages in conversation:\n$prior"
+        }
+        return """Identify the harm in this message. Fill in the blanks below.
+
+Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
+Valid severity levels: HIGH MEDIUM LOW NONE
+Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
+IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
+IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
+$recipientLine$contextBlock
+Latest message: "$truncated"
+
+Harm type:
+Severity: """.trimIndent()
+    }
+
         /**
          * Shared entry point used by both the service (auto-detection) and
          * GemmaDownloadActivity (user-selected file import).
@@ -414,12 +474,7 @@ class GemmaClassifier(context: Context) {
             return cacheVal
         }
         return try {
-            val prompt = buildMultiClassPrompt(text, context, ageHint)
-            val estimatedTokens = prompt.length / 3
-            if (estimatedTokens > RemoteConfig.gemmaMaxTokens - 50) {
-                android.util.Log.w("GemmaClassifier", "Prompt too long (~$estimatedTokens tokens vs limit ${RemoteConfig.gemmaMaxTokens}), skipping inference")
-                return null
-            }
+            val prompt = buildFittedPrompt(text, context, ageHint)
             if (!inferenceInProgress.compareAndSet(false, true)) {
                 android.util.Log.d("GemmaClassifier", "Inference already in progress, skipping concurrent call")
                 return null
@@ -442,28 +497,6 @@ class GemmaClassifier(context: Context) {
         }
     }
 
-    private fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
-        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~665 chars
-        // (~190 tokens); the guard in classifyMessage enforces the hard limit before calling inference.
-        val truncated = text.take(RemoteConfig.gemmaInputTruncationChars)
-        val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
-        val contextBlock = if (context.isEmpty()) "" else {
-            val prior = context.takeLast(3).joinToString("\n") { "- \"${it.take(60)}\"" }
-            "\nPrior messages in conversation:\n$prior"
-        }
-        return """Identify the harm in this message. Fill in the blanks below.
-
-Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
-Valid severity levels: HIGH MEDIUM LOW NONE
-Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
-IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
-IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
-$recipientLine$contextBlock
-Latest message: "$truncated"
-
-Harm type:
-Severity: """.trimIndent()
-    }
 
     /**
      * Token-scanning parser — does NOT rely on Gemma 2B following a strict format.
