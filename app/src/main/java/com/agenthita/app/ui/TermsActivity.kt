@@ -11,7 +11,9 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.agenthita.app.R
 import com.agenthita.app.consent.ConsentManager
+import com.agenthita.app.consent.GemmaTerms
 import com.agenthita.app.databinding.ActivityTermsBinding
 import com.agenthita.app.telemetry.TelemetryManager
 
@@ -39,12 +41,21 @@ class TermsActivity : AppCompatActivity() {
 
         setupWebView()
 
+        binding.tvGemmaTermsLink.setOnClickListener { showGemmaTermsDialog() }
+
         binding.btnAgree.setOnClickListener {
             agreed = true
+            // Single explicit acceptance covers both the Agent Hita Terms and the
+            // Gemma Model Terms (statement shown above the button). The Gemma
+            // provisions bind if/when the user downloads and uses the model.
             TelemetryManager.get(this).track("hita_terms_accepted")
+            TelemetryManager.get(this).track("gemma_terms_accepted")
             TelemetryManager.get(this).flush()
             consentManager.hasAcceptedTerms = true
             consentManager.acceptedTermsVersion = ConsentManager.CURRENT_TERMS_VERSION
+            getSharedPreferences("hita_ai_prefs", MODE_PRIVATE).edit()
+                .putBoolean("gemma_terms_accepted", true)
+                .apply()
             startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
         }
@@ -125,5 +136,22 @@ class TermsActivity : AppCompatActivity() {
         hasScrolledToBottom = true
         binding.tvScrollHint.visibility = View.GONE
         binding.btnAgree.isEnabled = true
+    }
+
+    /** Read-only view of the Gemma Model Terms, linked from the consent statement. */
+    private fun showGemmaTermsDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_gemma_terms, null)
+        view.findViewById<android.widget.TextView>(R.id.tv_terms_content).text = GemmaTerms.TEXT
+        view.findViewById<android.widget.TextView>(R.id.tv_scroll_hint).visibility = View.GONE
+        view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_not_now)
+            .visibility = View.GONE
+        val btnClose = view.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_accept_download)
+        btnClose.text = "Close"
+        btnClose.isEnabled = true
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this, R.style.Dialog_AgentHita_Transparent)
+            .setView(view)
+            .create()
+        btnClose.setOnClickListener { dialog.dismiss() }
+        dialog.show()
     }
 }

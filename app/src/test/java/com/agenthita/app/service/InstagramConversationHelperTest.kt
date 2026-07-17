@@ -19,6 +19,7 @@ class InstagramConversationHelperTest {
         override val viewIdResourceName: String? = null,
         override val text: CharSequence? = null,
         override val className: CharSequence? = null,
+        override val boundsCenterX: Int = 0,
         val children: List<NodeInfo> = emptyList()
     ) : NodeInfo {
         override val childCount get() = children.size
@@ -58,7 +59,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(listOf("You send me money now . 3000\$ immediately"), result)
     }
 
@@ -72,7 +73,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(
             listOf(
                 "Please send \$500 right now",
@@ -90,7 +91,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(listOf("Transfer funds immediately"), result)
     }
 
@@ -99,7 +100,7 @@ class InstagramConversationHelperTest {
         val messageList = node(node(node(tv("Hi"))))  // "Hi" is too short
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertTrue(result.isEmpty())
     }
 
@@ -122,7 +123,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(listOf("Please send \$500 right now"), result)
     }
 
@@ -134,7 +135,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(listOf("I need your PIN"), result)
     }
 
@@ -150,7 +151,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertEquals(listOf("Please transfer \$1000 to my account"), result)
     }
 
@@ -164,7 +165,7 @@ class InstagramConversationHelperTest {
         )
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertTrue(result.isEmpty())
     }
 
@@ -173,7 +174,59 @@ class InstagramConversationHelperTest {
         val messageList = node(FakeNode(text = "This has no className at all"))
         val result = InstagramConversationHelper.collectMessagesFromList(
             messageList, IG_MESSAGE_CONTENT, standardFilter
-        )
+        ).map { it.text }
         assertTrue(result.isEmpty())
+    }
+
+    // ── Regression: real hierarchy dumped from Instagram on 2026-07-17 ────────
+    // message_list children: profile-context header, timestamp, Compose bubbles
+    // (one containing the "Tap and hold to react" hint alongside the message).
+
+    private fun tvAt(text: String, centerX: Int) = FakeNode(
+        text = text, className = "android.widget.TextView", boundsCenterX = centerX
+    )
+
+    @Test
+    fun `dumped Instagram hierarchy extracts messages and skips header, timestamp and react hint`() {
+        val igChrome = listOf("tap and hold to react", "view profile", "delivered")
+        val filter: (String) -> Boolean = { text ->
+            standardFilter(text) && text.lowercase() !in igChrome
+        }
+        val messageList = node(
+            // profile-context header block
+            node(
+                nodeId("com.instagram.android:id/user_avatar"),
+                tv("Femina Polina"),
+                tv("174 followers · 346 posts"),
+                tv("You follow each other on Instagram"),
+                FakeNode(
+                    viewIdResourceName = "com.instagram.android:id/view_profile_button",
+                    text = "View profile", className = "android.widget.Button"
+                )
+            ),
+            node(),                                   // empty FrameLayout
+            tvAt("12:41 PM", 540),                    // timestamp — chrome-filtered
+            node(node(tvAt("Hi", 200))),              // too short — filtered
+            node(node(tvAt("Hope you are doing well. Do u remember me?", 400))),
+            node(
+                node(
+                    node(),
+                    tvAt("Send me money now. Else I will share pictures.", 400),
+                    tvAt("Tap and hold to react", 400)  // hint — chrome-filtered
+                )
+            )
+        )
+        val result = InstagramConversationHelper.collectMessagesFromList(
+            messageList, IG_MESSAGE_CONTENT, filter
+        )
+        assertEquals(
+            listOf(
+                "Hope you are doing well. Do u remember me?",
+                "Send me money now. Else I will share pictures."
+            ),
+            result.map { it.text }
+        )
+        // Direction data flows through for the caller's window-midpoint comparison.
+        assertEquals(400, result[0].centerX)
     }
 }

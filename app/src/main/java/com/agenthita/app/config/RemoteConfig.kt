@@ -206,13 +206,15 @@ object RemoteConfig {
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
-        val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz",
+        val modelDownloadUrl:          String = "https://www.agenthita.org/model/gemma-3-tflite-gemma3-1b-it-int4-v1.tar.gz",
         val modelSignedUrlEndpoint:    String = BuildConfig.MODEL_SIGNED_URL_ENDPOINT,
-        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma/tfLite/gemma-2b-it-cpu-int4",
+        val kaggleUrl:                 String = "https://www.kaggle.com/models/google/gemma-3/tfLite/gemma3-1b-it-int4",
         // SHA-256 hex digests of known-good extracted model binaries.
-        // Verified against gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
         // Add new entries here (or via remote config) when shipping updated model versions.
         val gemmaModelHashes:          List<String> = listOf(
+            // gemma-3-tflite-gemma3-1b-it-int4-v1.tar.gz → gemma3-1B-it-int4.task
+            "e3d981c01aeaaac69a84ffa0d4be13281b3176731063f1bea1c9fe6887bd9dee",
+            // legacy gemma-tflite-gemma-2b-it-cpu-int4-v1.tar.gz → gemma-2b-it-cpu-int4.bin
             "176452e0eef32e7cd477e5609160278f3f5cbfeeb46d2cb2d37bd631af1b0bea"
         ),
         val gemmaMaxFileSizeBytes:     Long   = 5_000_000_000L,
@@ -277,7 +279,9 @@ object RemoteConfig {
         val igComposerEditTextId: String          = "row_thread_composer_edittext",
         val igSendButtonId: String                = "send_button",
         val igDirectSendButtonId: String          = "direct_thread_send_button",
-        val igRecyclerViewId: String              = "direct_thread_recycler_view",
+        // Current Instagram builds use "message_list"; the service also tries
+        // "direct_thread_recycler_view" (legacy) as a structural-fallback variant.
+        val igRecyclerViewId: String              = "message_list",
         val igHeaderTitleId: String               = "header_title",
         val igHeaderSubtitleId: String            = "header_subtitle",
         // Edit-mode indicator — confirmed from logcat 2026-07-09.
@@ -286,6 +290,39 @@ object RemoteConfig {
             "direct_text_message_text_view",
             "message_content",
             "direct_message_text"
+        ),
+        // Lowercase exact-match texts that appear inside Compose message bubbles
+        // but are UI hints, not messages (dumped from Instagram 2026-07-17).
+        val igUiChromeTexts: List<String>         = listOf(
+            "tap and hold to react",
+            "view profile",
+            "delivered",
+            "swipe up to turn on disappearing messages"
+        ),
+
+        // Disappearing-messages banner detection (regex sources, case-insensitive input).
+        // ON must match; OFF and HINT must not. HINT covers instructional/promotional
+        // texts ("swipe up to turn on disappearing messages") that name the feature
+        // without activating it.
+        val disappearingOnPatterns: List<String> = listOf(
+            "messages set to disappear",
+            "turned on disappearing",
+            "new messages will disappear",
+            "you.re in vanish mode",
+            "swipe up to exit vanish",
+            "disappearing messages"   // broad catch-all — guarded by OFF + HINT lists
+        ),
+        val disappearingOffPatterns: List<String> = listOf(
+            "turned off disappearing",
+            "disappearing messages (is |are |have been |has been )?turned off",
+            "disappearing messages (is |are )(now )?off",
+            "turned off vanish",
+            "exited vanish mode",
+            "vanish mode (is |has been )?turned off"
+        ),
+        val disappearingHintPatterns: List<String> = listOf(
+            "to turn on disappearing",
+            "learn more about disappearing"
         )
     )
 
@@ -390,9 +427,20 @@ object RemoteConfig {
             igEditBarId           = ig?.optString("edit_bar_id",             d.igEditBarId)           ?: d.igEditBarId,
             igMessageTextIds      = ig?.optJSONArray("message_text_ids")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
-                ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds
+                ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds,
+            igUiChromeTexts       = ig?.optJSONArray("ui_chrome_texts")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank)?.lowercase() } }
+                ?.takeIf { it.isNotEmpty() } ?: d.igUiChromeTexts,
+            disappearingOnPatterns   = parseStringList(obj, "disappearing_on_patterns")   ?: d.disappearingOnPatterns,
+            disappearingOffPatterns  = parseStringList(obj, "disappearing_off_patterns")  ?: d.disappearingOffPatterns,
+            disappearingHintPatterns = parseStringList(obj, "disappearing_hint_patterns") ?: d.disappearingHintPatterns
         )
     }
+
+    private fun parseStringList(obj: JSONObject, key: String): List<String>? =
+        obj.optJSONArray(key)
+            ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+            ?.takeIf { it.isNotEmpty() }
 
     private fun parseBand(obj: JSONObject, default: RiskBand) = RiskBand(
         high   = obj.optDouble("high",   default.high.toDouble()).toFloat(),

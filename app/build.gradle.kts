@@ -22,12 +22,12 @@ val devSecrets = Properties().apply {
 
 android {
     namespace = "com.agenthita.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.agenthita.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 24
         versionName = "1.0.24"
 

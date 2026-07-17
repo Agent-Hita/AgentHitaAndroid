@@ -122,27 +122,37 @@ class HitaAccessibilityService : AccessibilityService() {
             return MEDIA_LABEL_PATTERN.matches(trimmed) || MEDIA_FILE_EXTENSION.matches(trimmed)
         }
 
-        // Patterns that confirm disappearing messages were turned ON.
-        // Matched case-insensitively; a node matches only if none of the OFF_PATTERNS
-        // also appear in the same text (e.g. "turned off disappearing messages" must not alert).
-        private val DISAPPEARING_ON_PATTERNS = listOf(
-            Regex("messages set to disappear"),
-            Regex("turned on disappearing"),
-            Regex("new messages will disappear"),
-            Regex("you.re in vanish mode"),
-            Regex("swipe up to exit vanish"),
-            Regex("disappearing messages")   // broad catch-all — checked last, guarded by OFF list
-        )
+        /**
+         * Compiles a config-provided regex-source list on demand, re-compiling only
+         * when the OTA config replaces the list. Invalid patterns are skipped so a
+         * bad OTA entry can never crash the scan.
+         */
+        internal class RegexListCache(private val source: () -> List<String>) {
+            private var cachedSource: List<String>? = null
+            private var compiled: List<Regex> = emptyList()
+            fun get(): List<Regex> {
+                val src = source()
+                if (src !== cachedSource) {
+                    compiled = src.mapNotNull { runCatching { Regex(it) }.getOrNull() }
+                    cachedSource = src
+                }
+                return compiled
+            }
+        }
 
-        // If any of these appear in the same text node, it is a "turned off" event — skip.
-        private val DISAPPEARING_OFF_PATTERNS = listOf(
-            Regex("turned off disappearing"),
-            Regex("disappearing messages (is |are |have been |has been )?turned off"),
-            Regex("disappearing messages (is |are )(now )?off"),
-            Regex("turned off vanish"),
-            Regex("exited vanish mode"),
-            Regex("vanish mode (is |has been )?turned off")
-        )
+        // Disappearing-messages banner patterns come from RemoteConfig (OTA-updatable —
+        // messenger apps reword these banners between releases). A node alerts only if
+        // an ON pattern matches and no OFF pattern and no instructional-HINT pattern
+        // matches the same text (e.g. Instagram's "swipe up to turn on disappearing
+        // messages" promo must never alert).
+        private val disappearingOn   = RegexListCache { RemoteConfig.uiTags.disappearingOnPatterns }
+        private val disappearingOff  = RegexListCache { RemoteConfig.uiTags.disappearingOffPatterns }
+        private val disappearingHint = RegexListCache { RemoteConfig.uiTags.disappearingHintPatterns }
+
+        internal fun isDisappearingActivationText(text: String): Boolean =
+            disappearingOn.get().any { it.containsMatchIn(text) } &&
+            disappearingOff.get().none { it.containsMatchIn(text) } &&
+            disappearingHint.get().none { it.containsMatchIn(text) }
     }
 
     // Conversations where disappearing messages were seen but suppressed (long default timer,
@@ -150,6 +160,10 @@ class HitaAccessibilityService : AccessibilityService() {
     // session we re-evaluate. Not persisted — the persistent dedup key is only set when we
     // actually fire, so a suppressed conv can be upgraded to MEDIUM if a threat is later found.
     private val disappearingMessagesSuppressed = mutableSetOf<String>()
+
+    // Conversations that already reported an empty-extraction telemetry event this
+    // session — one signal per conversation visit is enough for dashboard trends.
+    private val extractionEmptyTracked = mutableSetOf<String>()
 
     // Tracks the highest-risk event seen while the user is inside a single conversation.
     // Only the first MEDIUM+ detection per session is saved to DB; subsequent detections
@@ -185,7 +199,7 @@ class HitaAccessibilityService : AccessibilityService() {
         val app = application as HitaApplication
         consentManager           = ConsentManager(this)
         classifier               = OnDeviceClassifier()
-        riskScorer               = RiskScorer(classifier, consentManager.userCategory)
+        riskScorer               = RiskScorer(classifier) { consentManager.userCategory }
         localNotificationManager = LocalNotificationManager(this)
         guardianAlertSender      = GuardianAlertSender(this, consentManager)
         riskEventStore           = RiskEventStore(app.database.riskEventDao())
@@ -460,6 +474,14 @@ class HitaAccessibilityService : AccessibilityService() {
                     android.util.Log.w(TAG_IG_DIAG, "messages=empty for contact=$contactName — dumping hierarchy")
                     dumpHierarchy(root, "", 0)
                 }
+                // Empty extraction on a confirmed conversation screen may be a benign
+                // media-only view — or a silent selector regression (Instagram's Compose
+                // migration produced exactly this). Track it (suffix keeps it separate
+                // from hard parse failures; once per conversation session to avoid
+                // flooding) so a per-app spike is visible on the dashboard.
+                if (extractionEmptyTracked.add(convHash)) {
+                    TelemetryManager.get(this).track("${parsingFailedEvent(packageName)}_empty")
+                }
                 return
             }
 
@@ -558,8 +580,16 @@ class HitaAccessibilityService : AccessibilityService() {
                 // All new messages were sent by the user → attribute threat to the monitored
                 // person's name (set in Guardian Setup), falling back to "You" if not configured.
                 // If any incoming messages are also new, the contact is the threat source.
+                // Backstop: only attribute to the user when the window actually contains both
+                // directions — a window where every message reads outgoing means direction
+                // detection is not discriminating (e.g. bounds captured mid-animation), and
+                // mis-blaming the monitored person is the costlier error, so default to the
+                // contact.
                 val senderLabel = consentManager.monitoredUserName ?: "You"
-                val contactIdentifier = if (unseenOutgoing.size == unseenMessages.size) senderLabel else contactName
+                val directionDiscriminates = outgoingTexts.size < messages.size
+                val contactIdentifier =
+                    if (directionDiscriminates && unseenOutgoing.size == unseenMessages.size) senderLabel
+                    else contactName
                 if (contactIdentifier == senderLabel) {
                     contactNameDao.upsert(ContactNameEntry(sha256(senderLabel), senderLabel))
                 }
@@ -914,6 +944,11 @@ class HitaAccessibilityService : AccessibilityService() {
         override val text get() = this@asNodeInfo.text
         override val className get() = this@asNodeInfo.className
         override val childCount get() = this@asNodeInfo.childCount
+        override val boundsCenterX: Int get() {
+            val r = Rect()
+            this@asNodeInfo.getBoundsInScreen(r)
+            return (r.left + r.right) / 2
+        }
         override fun getChild(i: Int): NodeInfo? = this@asNodeInfo.getChild(i)?.asNodeInfo()
     }
 
@@ -967,19 +1002,31 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
                 // Structural fallback for Compose-rendered messages (MetaComposeView with no-id TextViews).
                 // Scope to message_list children via InstagramConversationHelper so the logic is
-                // unit-testable without the Android framework.
+                // unit-testable without the Android framework. Instagram has renamed the list's
+                // view ID across versions ("direct_thread_recycler_view" → "message_list"), so try
+                // the configured ID plus the known variants.
                 if (raw.isEmpty()) {
-                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[com.instagram.android] id-based extraction empty — using message_list structural fallback")
-                    val listNodes = root.findAccessibilityNodeInfosByViewId(
-                        "com.instagram.android:id/${RemoteConfig.uiTags.igRecyclerViewId}"
-                    )
-                    listNodes.forEach { listNode ->
-                        val messages = InstagramConversationHelper.collectMessagesFromList(
-                            listNode.asNodeInfo(),
-                            "com.instagram.android:id/message_content"
-                        ) { text -> text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) && !isUIChrome(text) }
-                        messages.forEach { raw.add(it to false) }
-                        listNode.recycle()
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[com.instagram.android] id-based extraction empty — using recycler structural fallback")
+                    val igChromeTexts = RemoteConfig.uiTags.igUiChromeTexts
+                    val recyclerIds = (listOf(RemoteConfig.uiTags.igRecyclerViewId) +
+                        listOf("message_list", "direct_thread_recycler_view")).distinct()
+                    for (recyclerId in recyclerIds) {
+                        val listNodes = root.findAccessibilityNodeInfosByViewId(
+                            "com.instagram.android:id/$recyclerId"
+                        )
+                        listNodes.forEach { listNode ->
+                            val midX = windowMidX(listNode)
+                            val messages = InstagramConversationHelper.collectMessagesFromList(
+                                listNode.asNodeInfo(),
+                                "com.instagram.android:id/message_content"
+                            ) { text ->
+                                text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) &&
+                                    !isUIChrome(text) && text.lowercase() !in igChromeTexts
+                            }
+                            messages.forEach { raw.add(it.text to (it.centerX > midX)) }
+                            listNode.recycle()
+                        }
+                        if (raw.isNotEmpty()) break
                     }
                 }
             }
@@ -1022,8 +1069,22 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return (rect.left + rect.right) / 2 > screenWidth / 2
+        return (rect.left + rect.right) / 2 > windowMidX(messageNode)
+    }
+
+    /**
+     * Horizontal midpoint of the window containing [node], falling back to the
+     * physical screen. Bubble alignment must be judged inside the app window:
+     * during the chat-opening slide-in animation (and in split-screen / pop-up
+     * view) node bounds are offset from the screen, and a screen-midpoint
+     * comparison reads every bubble as outgoing.
+     */
+    private fun windowMidX(node: AccessibilityNodeInfo): Int {
+        val window = node.window ?: return resources.displayMetrics.widthPixels / 2
+        val bounds = Rect()
+        window.getBoundsInScreen(bounds)
+        return if (bounds.width() > 0) (bounds.left + bounds.right) / 2
+               else resources.displayMetrics.widthPixels / 2
     }
 
     /**
@@ -1035,8 +1096,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingInstagram(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return (rect.left + rect.right) / 2 > screenWidth / 2
+        return (rect.left + rect.right) / 2 > windowMidX(messageNode)
     }
 
     /**
@@ -1064,8 +1124,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingGeneric(node: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         node.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return rect.left > screenWidth / 2
+        return rect.left > windowMidX(node)
     }
 
     // -------------------------------------------------------------------------
@@ -1085,10 +1144,7 @@ class HitaAccessibilityService : AccessibilityService() {
         if (depth > 12) return null
         val text = (node.text?.toString() ?: node.contentDescription?.toString())
             ?.lowercase() ?: ""
-        if (text.isNotBlank() &&
-            DISAPPEARING_ON_PATTERNS.any  { it.containsMatchIn(text) } &&
-            DISAPPEARING_OFF_PATTERNS.none { it.containsMatchIn(text) }
-        ) return text
+        if (text.isNotBlank() && isDisappearingActivationText(text)) return text
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             val found = scanNodeForOnPatterns(child, depth + 1)
@@ -1133,6 +1189,7 @@ class HitaAccessibilityService : AccessibilityService() {
         sessionRecords.remove(convHash)
         alertedConvHashes.remove(convHash)
         disappearingMessagesSuppressed.remove(convHash)
+        extractionEmptyTracked.remove(convHash)
         // disappearing-messages dedup lives in dedupPrefs (persistent) — not cleared here
         // so switching apps or restarting the service never re-fires the same alert.
         // seen_* is intentionally NOT cleared here. New messages are not yet in seen_*

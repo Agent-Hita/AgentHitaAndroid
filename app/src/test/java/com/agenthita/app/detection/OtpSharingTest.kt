@@ -93,4 +93,36 @@ class OtpSharingTest {
         val results = adultScorer().score("[USER]: 560001 is my pin code", context)
         assertNull(results.otpSharedResult())
     }
+
+    // ── Anaphoric demands ("share that") count with OTP context ──────────────
+
+    private fun List<DetectionResult>.codeRequestResult() =
+        firstOrNull {
+            it.category == HarmCategory.IDENTITY_PHISHING &&
+            it.signals.any { s -> s.signal == "code_request" }
+        }
+
+    @Test
+    fun `pronoun demand with otp context flags code request`() {
+        val results = adultScorer().score(
+            "[CONTACT]: You will get an otp. Share that."
+        )
+        assertNotNull("Pronoun demand after OTP mention must flag", results.codeRequestResult())
+    }
+
+    @Test
+    fun `pronoun demand referring to delivered code flags even with delivery line present`() {
+        val results = adultScorer().score(
+            "[CONTACT]: Your OTP is 482913, valid for 10 minutes.\n[CONTACT]: Send it to me now"
+        )
+        assertNotNull("Demand for a delivered code must flag", results.codeRequestResult())
+    }
+
+    @Test
+    fun `pronoun demand without any code context does not flag`() {
+        val results = adultScorer().score(
+            "[CONTACT]: I took a photo of the sunset. Share that."
+        )
+        assertNull(results.codeRequestResult())
+    }
 }
