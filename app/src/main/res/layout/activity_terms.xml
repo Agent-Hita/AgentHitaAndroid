@@ -76,24 +76,13 @@
             android:visibility="visible" />
 
         <TextView
-            android:id="@+id/tv_consent_statement"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:text="I agree to the Agent Hita Terms and the Gemma Model Terms."
-            android:textColor="@color/hita_text_primary"
-            android:textSize="13sp"
-            android:gravity="center"
-            android:layout_marginBottom="4dp" />
-
-        <TextView
             android:id="@+id/tv_gemma_terms_link"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:text="View Gemma Model Terms"
             android:textColor="@color/hita_accent"
-            android:textSize="13sp"
+            android:textSize="15sp"
             android:padding="4dp"
             android:layout_marginBottom="12dp" />
 
@@ -101,7 +90,7 @@
             android:id="@+id/btn_agree"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="I Agree &amp; Continue"
+            android:text="I Agree to the Agent Hita Terms and the Gemma Model Terms"
             android:enabled="false" />
 
         <com.google.android.material.button.MaterialButton
