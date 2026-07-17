@@ -296,7 +296,33 @@ object RemoteConfig {
         val igUiChromeTexts: List<String>         = listOf(
             "tap and hold to react",
             "view profile",
-            "delivered"
+            "delivered",
+            "swipe up to turn on disappearing messages"
+        ),
+
+        // Disappearing-messages banner detection (regex sources, case-insensitive input).
+        // ON must match; OFF and HINT must not. HINT covers instructional/promotional
+        // texts ("swipe up to turn on disappearing messages") that name the feature
+        // without activating it.
+        val disappearingOnPatterns: List<String> = listOf(
+            "messages set to disappear",
+            "turned on disappearing",
+            "new messages will disappear",
+            "you.re in vanish mode",
+            "swipe up to exit vanish",
+            "disappearing messages"   // broad catch-all — guarded by OFF + HINT lists
+        ),
+        val disappearingOffPatterns: List<String> = listOf(
+            "turned off disappearing",
+            "disappearing messages (is |are |have been |has been )?turned off",
+            "disappearing messages (is |are )(now )?off",
+            "turned off vanish",
+            "exited vanish mode",
+            "vanish mode (is |has been )?turned off"
+        ),
+        val disappearingHintPatterns: List<String> = listOf(
+            "to turn on disappearing",
+            "learn more about disappearing"
         )
     )
 
@@ -404,9 +430,17 @@ object RemoteConfig {
                 ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds,
             igUiChromeTexts       = ig?.optJSONArray("ui_chrome_texts")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank)?.lowercase() } }
-                ?.takeIf { it.isNotEmpty() } ?: d.igUiChromeTexts
+                ?.takeIf { it.isNotEmpty() } ?: d.igUiChromeTexts,
+            disappearingOnPatterns   = parseStringList(obj, "disappearing_on_patterns")   ?: d.disappearingOnPatterns,
+            disappearingOffPatterns  = parseStringList(obj, "disappearing_off_patterns")  ?: d.disappearingOffPatterns,
+            disappearingHintPatterns = parseStringList(obj, "disappearing_hint_patterns") ?: d.disappearingHintPatterns
         )
     }
+
+    private fun parseStringList(obj: JSONObject, key: String): List<String>? =
+        obj.optJSONArray(key)
+            ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+            ?.takeIf { it.isNotEmpty() }
 
     private fun parseBand(obj: JSONObject, default: RiskBand) = RiskBand(
         high   = obj.optDouble("high",   default.high.toDouble()).toFloat(),

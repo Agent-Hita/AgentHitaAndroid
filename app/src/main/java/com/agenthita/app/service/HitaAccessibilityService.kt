@@ -122,27 +122,37 @@ class HitaAccessibilityService : AccessibilityService() {
             return MEDIA_LABEL_PATTERN.matches(trimmed) || MEDIA_FILE_EXTENSION.matches(trimmed)
         }
 
-        // Patterns that confirm disappearing messages were turned ON.
-        // Matched case-insensitively; a node matches only if none of the OFF_PATTERNS
-        // also appear in the same text (e.g. "turned off disappearing messages" must not alert).
-        private val DISAPPEARING_ON_PATTERNS = listOf(
-            Regex("messages set to disappear"),
-            Regex("turned on disappearing"),
-            Regex("new messages will disappear"),
-            Regex("you.re in vanish mode"),
-            Regex("swipe up to exit vanish"),
-            Regex("disappearing messages")   // broad catch-all — checked last, guarded by OFF list
-        )
+        /**
+         * Compiles a config-provided regex-source list on demand, re-compiling only
+         * when the OTA config replaces the list. Invalid patterns are skipped so a
+         * bad OTA entry can never crash the scan.
+         */
+        internal class RegexListCache(private val source: () -> List<String>) {
+            private var cachedSource: List<String>? = null
+            private var compiled: List<Regex> = emptyList()
+            fun get(): List<Regex> {
+                val src = source()
+                if (src !== cachedSource) {
+                    compiled = src.mapNotNull { runCatching { Regex(it) }.getOrNull() }
+                    cachedSource = src
+                }
+                return compiled
+            }
+        }
 
-        // If any of these appear in the same text node, it is a "turned off" event — skip.
-        private val DISAPPEARING_OFF_PATTERNS = listOf(
-            Regex("turned off disappearing"),
-            Regex("disappearing messages (is |are |have been |has been )?turned off"),
-            Regex("disappearing messages (is |are )(now )?off"),
-            Regex("turned off vanish"),
-            Regex("exited vanish mode"),
-            Regex("vanish mode (is |has been )?turned off")
-        )
+        // Disappearing-messages banner patterns come from RemoteConfig (OTA-updatable —
+        // messenger apps reword these banners between releases). A node alerts only if
+        // an ON pattern matches and no OFF pattern and no instructional-HINT pattern
+        // matches the same text (e.g. Instagram's "swipe up to turn on disappearing
+        // messages" promo must never alert).
+        private val disappearingOn   = RegexListCache { RemoteConfig.uiTags.disappearingOnPatterns }
+        private val disappearingOff  = RegexListCache { RemoteConfig.uiTags.disappearingOffPatterns }
+        private val disappearingHint = RegexListCache { RemoteConfig.uiTags.disappearingHintPatterns }
+
+        internal fun isDisappearingActivationText(text: String): Boolean =
+            disappearingOn.get().any { it.containsMatchIn(text) } &&
+            disappearingOff.get().none { it.containsMatchIn(text) } &&
+            disappearingHint.get().none { it.containsMatchIn(text) }
     }
 
     // Conversations where disappearing messages were seen but suppressed (long default timer,
@@ -1122,10 +1132,7 @@ class HitaAccessibilityService : AccessibilityService() {
         if (depth > 12) return null
         val text = (node.text?.toString() ?: node.contentDescription?.toString())
             ?.lowercase() ?: ""
-        if (text.isNotBlank() &&
-            DISAPPEARING_ON_PATTERNS.any  { it.containsMatchIn(text) } &&
-            DISAPPEARING_OFF_PATTERNS.none { it.containsMatchIn(text) }
-        ) return text
+        if (text.isNotBlank() && isDisappearingActivationText(text)) return text
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             val found = scanNodeForOnPatterns(child, depth + 1)
