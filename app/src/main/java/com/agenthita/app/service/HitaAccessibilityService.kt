@@ -922,6 +922,11 @@ class HitaAccessibilityService : AccessibilityService() {
         override val text get() = this@asNodeInfo.text
         override val className get() = this@asNodeInfo.className
         override val childCount get() = this@asNodeInfo.childCount
+        override val boundsCenterX: Int get() {
+            val r = Rect()
+            this@asNodeInfo.getBoundsInScreen(r)
+            return (r.left + r.right) / 2
+        }
         override fun getChild(i: Int): NodeInfo? = this@asNodeInfo.getChild(i)?.asNodeInfo()
     }
 
@@ -975,19 +980,31 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
                 // Structural fallback for Compose-rendered messages (MetaComposeView with no-id TextViews).
                 // Scope to message_list children via InstagramConversationHelper so the logic is
-                // unit-testable without the Android framework.
+                // unit-testable without the Android framework. Instagram has renamed the list's
+                // view ID across versions ("direct_thread_recycler_view" → "message_list"), so try
+                // the configured ID plus the known variants.
                 if (raw.isEmpty()) {
-                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[com.instagram.android] id-based extraction empty — using message_list structural fallback")
-                    val listNodes = root.findAccessibilityNodeInfosByViewId(
-                        "com.instagram.android:id/${RemoteConfig.uiTags.igRecyclerViewId}"
-                    )
-                    listNodes.forEach { listNode ->
-                        val messages = InstagramConversationHelper.collectMessagesFromList(
-                            listNode.asNodeInfo(),
-                            "com.instagram.android:id/message_content"
-                        ) { text -> text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) && !isUIChrome(text) }
-                        messages.forEach { raw.add(it to false) }
-                        listNode.recycle()
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[com.instagram.android] id-based extraction empty — using recycler structural fallback")
+                    val igChromeTexts = RemoteConfig.uiTags.igUiChromeTexts
+                    val recyclerIds = (listOf(RemoteConfig.uiTags.igRecyclerViewId) +
+                        listOf("message_list", "direct_thread_recycler_view")).distinct()
+                    for (recyclerId in recyclerIds) {
+                        val listNodes = root.findAccessibilityNodeInfosByViewId(
+                            "com.instagram.android:id/$recyclerId"
+                        )
+                        listNodes.forEach { listNode ->
+                            val midX = windowMidX(listNode)
+                            val messages = InstagramConversationHelper.collectMessagesFromList(
+                                listNode.asNodeInfo(),
+                                "com.instagram.android:id/message_content"
+                            ) { text ->
+                                text.length >= MIN_MESSAGE_LENGTH && !isMediaMessage(text) &&
+                                    !isUIChrome(text) && text.lowercase() !in igChromeTexts
+                            }
+                            messages.forEach { raw.add(it.text to (it.centerX > midX)) }
+                            listNode.recycle()
+                        }
+                        if (raw.isNotEmpty()) break
                     }
                 }
             }

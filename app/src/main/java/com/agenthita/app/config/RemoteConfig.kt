@@ -279,7 +279,9 @@ object RemoteConfig {
         val igComposerEditTextId: String          = "row_thread_composer_edittext",
         val igSendButtonId: String                = "send_button",
         val igDirectSendButtonId: String          = "direct_thread_send_button",
-        val igRecyclerViewId: String              = "direct_thread_recycler_view",
+        // Current Instagram builds use "message_list"; the service also tries
+        // "direct_thread_recycler_view" (legacy) as a structural-fallback variant.
+        val igRecyclerViewId: String              = "message_list",
         val igHeaderTitleId: String               = "header_title",
         val igHeaderSubtitleId: String            = "header_subtitle",
         // Edit-mode indicator — confirmed from logcat 2026-07-09.
@@ -288,6 +290,13 @@ object RemoteConfig {
             "direct_text_message_text_view",
             "message_content",
             "direct_message_text"
+        ),
+        // Lowercase exact-match texts that appear inside Compose message bubbles
+        // but are UI hints, not messages (dumped from Instagram 2026-07-17).
+        val igUiChromeTexts: List<String>         = listOf(
+            "tap and hold to react",
+            "view profile",
+            "delivered"
         )
     )
 
@@ -392,7 +401,10 @@ object RemoteConfig {
             igEditBarId           = ig?.optString("edit_bar_id",             d.igEditBarId)           ?: d.igEditBarId,
             igMessageTextIds      = ig?.optJSONArray("message_text_ids")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
-                ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds
+                ?.takeIf { it.isNotEmpty() } ?: d.igMessageTextIds,
+            igUiChromeTexts       = ig?.optJSONArray("ui_chrome_texts")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank)?.lowercase() } }
+                ?.takeIf { it.isNotEmpty() } ?: d.igUiChromeTexts
         )
     }
 
