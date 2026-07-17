@@ -558,8 +558,16 @@ class HitaAccessibilityService : AccessibilityService() {
                 // All new messages were sent by the user → attribute threat to the monitored
                 // person's name (set in Guardian Setup), falling back to "You" if not configured.
                 // If any incoming messages are also new, the contact is the threat source.
+                // Backstop: only attribute to the user when the window actually contains both
+                // directions — a window where every message reads outgoing means direction
+                // detection is not discriminating (e.g. bounds captured mid-animation), and
+                // mis-blaming the monitored person is the costlier error, so default to the
+                // contact.
                 val senderLabel = consentManager.monitoredUserName ?: "You"
-                val contactIdentifier = if (unseenOutgoing.size == unseenMessages.size) senderLabel else contactName
+                val directionDiscriminates = outgoingTexts.size < messages.size
+                val contactIdentifier =
+                    if (directionDiscriminates && unseenOutgoing.size == unseenMessages.size) senderLabel
+                    else contactName
                 if (contactIdentifier == senderLabel) {
                     contactNameDao.upsert(ContactNameEntry(sha256(senderLabel), senderLabel))
                 }
@@ -1022,8 +1030,22 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return (rect.left + rect.right) / 2 > screenWidth / 2
+        return (rect.left + rect.right) / 2 > windowMidX(messageNode)
+    }
+
+    /**
+     * Horizontal midpoint of the window containing [node], falling back to the
+     * physical screen. Bubble alignment must be judged inside the app window:
+     * during the chat-opening slide-in animation (and in split-screen / pop-up
+     * view) node bounds are offset from the screen, and a screen-midpoint
+     * comparison reads every bubble as outgoing.
+     */
+    private fun windowMidX(node: AccessibilityNodeInfo): Int {
+        val window = node.window ?: return resources.displayMetrics.widthPixels / 2
+        val bounds = Rect()
+        window.getBoundsInScreen(bounds)
+        return if (bounds.width() > 0) (bounds.left + bounds.right) / 2
+               else resources.displayMetrics.widthPixels / 2
     }
 
     /**
@@ -1035,8 +1057,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingInstagram(messageNode: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return (rect.left + rect.right) / 2 > screenWidth / 2
+        return (rect.left + rect.right) / 2 > windowMidX(messageNode)
     }
 
     /**
@@ -1064,8 +1085,7 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun isOutgoingGeneric(node: AccessibilityNodeInfo): Boolean {
         val rect = Rect()
         node.getBoundsInScreen(rect)
-        val screenWidth = resources.displayMetrics.widthPixels
-        return rect.left > screenWidth / 2
+        return rect.left > windowMidX(node)
     }
 
     // -------------------------------------------------------------------------
