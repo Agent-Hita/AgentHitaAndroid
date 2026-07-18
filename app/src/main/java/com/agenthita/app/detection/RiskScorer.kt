@@ -177,14 +177,17 @@ class RiskScorer(
 
         // Merge Gemma into rule results.
         //
-        // Direction guard: Gemma-only IDENTITY_PHISHING (zero rule signals) requires
-        // an incoming [CONTACT] line in the window. A contact who said nothing in the
-        // window cannot be phishing the user; the dangerous outgoing cases — the user
-        // handing over an OTP, card, or password — always carry rule signals
-        // (otp_shared / credential_shared) and never reach this branch at NONE.
-        // (2026-07-18: Gemma deterministically returned IDENTITY_PHISHING HIGH for a
-        // harmless outgoing romanised-Telugu message, "Aa phone charge ayipoyindi
-        // padma." — prompt instructions alone did not restrain it.)
+        // Direction guard: a Gemma-only verdict (zero rule signals) for a
+        // contact-actor category requires an incoming [CONTACT] line in the window.
+        // For every category except HARASSMENT the threat actor is the contact —
+        // a contact who said nothing in the window cannot be victimising the user.
+        // HARASSMENT is deliberately exempt: abuse is flagged in either direction.
+        // The dangerous outgoing cases — the user handing over an OTP, card, or
+        // password — always carry rule signals (otp_shared / credential_shared)
+        // and never reach this branch at NONE.
+        // (2026-07-18: Gemma deterministically returned IDENTITY_PHISHING HIGH for
+        // a harmless outgoing romanised-Telugu message, and SEXTORTION HIGH for
+        // outgoing birthday wishes — prompt instructions alone did not restrain it.)
         val outgoingOnlyWindow = text.lines().filter { it.isNotBlank() }
             .all { it.trimStart().startsWith("[USER]:", ignoreCase = true) }
         val merged: Map<HarmCategory, DetectionResult> = if (gemmaResult == null) {
@@ -193,7 +196,7 @@ class RiskScorer(
             val (gemmaCat, gemmaSeverity) = gemmaResult
             otpEscalated.mapValues { (cat, result) ->
                 if (cat != gemmaCat) return@mapValues result
-                if (cat == HarmCategory.IDENTITY_PHISHING &&
+                if (cat != HarmCategory.HARASSMENT &&
                     result.riskLevel == RiskLevel.NONE && outgoingOnlyWindow
                 ) return@mapValues result
                 mergeGemmaResult(result, gemmaSeverity)

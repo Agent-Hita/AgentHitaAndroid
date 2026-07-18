@@ -70,17 +70,30 @@ classifies whatever it is given, which made every latent extraction bug audible.
   parsing → safe. Category-only answers still default severity to MEDIUM.
   Enforced by `GemmaResponseParserTest`.
 
-### 6. Direction guard: Gemma-only IDENTITY_PHISHING needs an incoming line
+### 6. Direction guard: Gemma-only contact-actor verdicts need an incoming line
 - Gemma deterministically returned IDENTITY_PHISHING HIGH for a harmless
   OUTGOING romanised-Telugu message ("Aa phone charge ayipoyindi."),
-  ignoring three separate prompt instructions. Prompt wording alone does not
-  restrain the 1B model for this class.
-- **Decision**: a pure-Gemma IDENTITY_PHISHING verdict (zero rule signals) on a
-  window containing only [USER] lines does not alert — a contact who said
-  nothing in the window cannot be phishing the user. Rule-detected outgoing
+  ignoring three separate prompt instructions, and later SEXTORTION HIGH for
+  the user's own outgoing birthday wishes (displayed as "Sexual Manipulation").
+  Prompt wording alone does not restrain the 1B model for this class.
+- **Decision** (initially IDENTITY_PHISHING-only, widened same day after the
+  SEXTORTION misfire): a pure-Gemma verdict (zero rule signals) on a window
+  containing only [USER] lines does not alert, for every category except
+  HARASSMENT — the threat actor for all other categories is the contact, and a
+  contact who said nothing in the window cannot be victimising the user.
+  HARASSMENT stays exempt (flagged in either direction). Rule-detected outgoing
   risks (otp_shared / credential_shared) bypass the guard and stay HIGH.
   Context corroboration must not resurrect a guard-suppressed result.
   Enforced by `GemmaDirectionGuardTest`.
+
+### 7. Telemetry event names are allowlisted — add the name WITH the tracking call
+- `parsing_failed_instagram_empty` (from the `_empty` per-app tracking added in
+  fabe744) was never added to `ALLOWED_EVENT_NAMES`; every empty extraction
+  threw IllegalArgumentException, aborting that window's processing and losing
+  the metric. All seven `parsing_failed_<app>_empty` names are now allowlisted.
+- **Lesson**: `TelemetryManager.track` hard-fails on unknown names by design;
+  any new `track(...)` call must land in the same commit as its
+  `ALLOWED_EVENT_NAMES` entry.
 
 ### Working agreements surfaced today
 - **Risk-scoring changes require Femina's explicit approval**; prompt wording,

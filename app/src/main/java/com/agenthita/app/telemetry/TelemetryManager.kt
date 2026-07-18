@@ -222,6 +222,15 @@ class TelemetryManager private constructor(private val context: Context) {
             "parsing_failed_aosp_messages",
             "parsing_failed_aosp_mms",
             "parsing_failed_unknown",
+            // "_empty" variants: extraction ran but produced no text (media-only
+            // windows, transient 0-node states) — tracked per app since fabe744.
+            "parsing_failed_whatsapp_empty",
+            "parsing_failed_instagram_empty",
+            "parsing_failed_google_messages_empty",
+            "parsing_failed_samsung_messages_empty",
+            "parsing_failed_aosp_messages_empty",
+            "parsing_failed_aosp_mms_empty",
+            "parsing_failed_unknown_empty",
             "accessibility_permission_granted",
             "accessibility_permission_declined",
             "permission_accessibility_denied",
