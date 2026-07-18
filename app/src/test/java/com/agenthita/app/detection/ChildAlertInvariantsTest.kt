@@ -67,6 +67,19 @@ class ChildAlertInvariantsTest {
         "[CONTACT]: Send me your username and password to keep it safe."
     )
 
+    @Test
+    fun `card details handed over after request alerts for child`() = assertChildAlerts(
+        "Requested card handover",
+        "[CONTACT]: to reverse the charge send me your card number and cvv\n" +
+        "[USER]: 4532 7712 0034 9821 cvv 344"
+    )
+
+    @Test
+    fun `unprompted credential share warns for child`() = assertChildAlerts(
+        "Unprompted credential share",
+        "[USER]: my card number is 4532 7712 0034 9821 okay"
+    )
+
     // ── Category must be read live, never snapshotted ─────────────────────────
 
     @Test

@@ -71,7 +71,15 @@ class RiskScorer(
                 cat == HarmCategory.HARASSMENT &&
                 (userCategory == UserCategory.ADOLESCENT || userCategory == UserCategory.CHILD)
             ) rawWordScore * 0.4f else rawWordScore
-            val boost = if (wordScore > 0f) (wordScore * 0.5f).coerceAtMost(0.26f) else 0f
+            // An unprompted credential share is pinned at the MEDIUM warning tier
+            // (0.72). Its trigger words ("password", "pin") are also lexicon
+            // entries, so boosting would double-count them and push a user-facing
+            // warning into guardian-alert territory. Skip the boost when the share
+            // is the only phrase signal; any co-occurring signal restores it.
+            val unpromptedCredentialShare = cat == HarmCategory.IDENTITY_PHISHING &&
+                result.signals.isNotEmpty() &&
+                result.signals.all { it.signal == "credential_shared" }
+            val boost = if (wordScore > 0f && !unpromptedCredentialShare) (wordScore * 0.5f).coerceAtMost(0.26f) else 0f
             val combined = (result.score + boost).coerceIn(0f, 1f)
             result.copy(score = combined, riskLevel = scoreToRiskLevel(combined))
         }
@@ -167,13 +175,27 @@ class RiskScorer(
             null
         }
 
-        // Merge Gemma into rule results
+        // Merge Gemma into rule results.
+        //
+        // Direction guard: Gemma-only IDENTITY_PHISHING (zero rule signals) requires
+        // an incoming [CONTACT] line in the window. A contact who said nothing in the
+        // window cannot be phishing the user; the dangerous outgoing cases — the user
+        // handing over an OTP, card, or password — always carry rule signals
+        // (otp_shared / credential_shared) and never reach this branch at NONE.
+        // (2026-07-18: Gemma deterministically returned IDENTITY_PHISHING HIGH for a
+        // harmless outgoing romanised-Telugu message, "Aa phone charge ayipoyindi
+        // padma." — prompt instructions alone did not restrain it.)
+        val outgoingOnlyWindow = text.lines().filter { it.isNotBlank() }
+            .all { it.trimStart().startsWith("[USER]:", ignoreCase = true) }
         val merged: Map<HarmCategory, DetectionResult> = if (gemmaResult == null) {
             otpEscalated
         } else {
             val (gemmaCat, gemmaSeverity) = gemmaResult
             otpEscalated.mapValues { (cat, result) ->
                 if (cat != gemmaCat) return@mapValues result
+                if (cat == HarmCategory.IDENTITY_PHISHING &&
+                    result.riskLevel == RiskLevel.NONE && outgoingOnlyWindow
+                ) return@mapValues result
                 mergeGemmaResult(result, gemmaSeverity)
             }
         }
@@ -200,6 +222,9 @@ class RiskScorer(
             val isVulnerable = userCategory != UserCategory.SELF_PROTECTING_ADULT
             merged.mapValues { (cat, result) ->
                 if (cat != gemmaCat) return@mapValues result
+                // A result held at NONE by the direction guard above must not be
+                // resurrected by context corroboration.
+                if (result.riskLevel == RiskLevel.NONE) return@mapValues result
                 val ctxScore = contextResults[cat]?.score ?: 0f
                 if (ctxScore <= 0f) return@mapValues result  // no context signal — Gemma alone
                 val ctxAlreadyHigh = contextResults[cat]?.riskLevel == RiskLevel.HIGH

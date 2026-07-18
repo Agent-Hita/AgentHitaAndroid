@@ -250,8 +250,8 @@ class GemmaClassifier(context: Context) {
     }
 
     internal fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
-        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~665 chars
-        // (~190 tokens); buildFittedPrompt enforces the hard limit before inference,
+        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~760 chars
+        // (~215 tokens); buildFittedPrompt enforces the hard limit before inference,
         // keeping the newest content when trimming.
         val truncated = keepNewest(text, RemoteConfig.gemmaInputTruncationChars)
         val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
@@ -264,8 +264,8 @@ class GemmaClassifier(context: Context) {
 Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
 Valid severity levels: HIGH MEDIUM LOW NONE
 Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
-IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
-IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
+IDENTITY_PHISHING: [CONTACT] asking for the user's credentials, codes, or card details, or [USER] sending an OTP to the contact = HIGH. [USER] sending own password or card unasked = MEDIUM. Automated OTP deliveries and bank transaction alerts (UPI, mandate, debited, credited, A/c) to the user = NONE. Unrequested shares (phone numbers, contacts, payments) = NONE. For minors, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other self-shares from either side = NONE.
+IMPORTANT: Messages may mix English with other languages in Latin letters (romanised Hindi, Urdu, Turkish). Analyse only the English words; if none, respond NONE for both.
 $recipientLine$contextBlock
 Latest message: "$truncated"
 
@@ -391,6 +391,74 @@ Severity: """.trimIndent()
         }
         return null
         }
+        private val CATEGORY_TOKENS = mapOf(
+            "SEXTORTION"        to HarmCategory.SEXTORTION,
+            "FINANCIAL_SCAM"    to HarmCategory.FINANCIAL_SCAM,
+            "GROOMING"          to HarmCategory.GROOMING,
+            "ROMANCE_SCAM"      to HarmCategory.ROMANCE_SCAM,
+            "ROMANCE"           to HarmCategory.ROMANCE_SCAM,
+            "IDENTITY_PHISHING" to HarmCategory.IDENTITY_PHISHING,
+            "PHISHING"          to HarmCategory.IDENTITY_PHISHING,
+            "LURING"            to HarmCategory.LURING,
+            "HARASSMENT"        to HarmCategory.HARASSMENT
+        )
+
+        /**
+         * Token-scanning parser — does NOT rely on Gemma following a strict format.
+         * Expects the UPPERCASED response (the call site uppercases before parsing).
+         *
+         * Gemma produces inconsistent responses:
+         *   "SEXTORTION HIGH"           → ideal
+         *   "IDENTITY_PHISHING"         → category only (default to MEDIUM)
+         *   "Harm type: GROOMING\nSeverity: HIGH" → fill-in format (handled)
+         *   "CATEGORY SEVERITY: HIGH"   → echoed template (no valid category)
+         *   "SCAMMING"                  → invented word (no match)
+         *
+         * Strategy: strip non-alphanumeric chars, tokenise, anchor after the last
+         * "HARM TYPE" / "SEVERITY" labels, then scan for the FIRST verdict token —
+         * where an explicit NONE terminates the scan. NONE must not be skipped:
+         * a rambling safe answer like "NONE. THIS IS A BANK ALERT, NOT PHISHING."
+         * previously parsed as IDENTITY_PHISHING (the trailing "PHISHING" token),
+         * and "NONE (NOT HIGH RISK)" as severity HIGH — manufacturing alerts out
+         * of safe verdicts.
+         */
+        internal fun parseMultiClassResponse(response: String): Pair<HarmCategory, RiskLevel>? {
+            // Strip colons, slashes, punctuation — keep letters, digits, underscores
+            val normalized = response.replace(Regex("[^A-Z0-9_\\s]"), " ")
+            val tokens = normalized.split(Regex("\\s+")).filter { it.isNotBlank() }
+
+            // Anchor to the last "HARM TYPE" label pair in the token list. When Gemma echoes
+            // the prompt back verbatim it repeats the valid-harm-types list (which contains
+            // "SEXTORTION", "GROOMING" etc.) before printing the actual fill-in answer. Scanning
+            // from the last "HARM TYPE" label means we read Gemma's answer, not the echoed list.
+            val harmTypeIdx = (tokens.indices).lastOrNull { i ->
+                tokens[i] == "HARM" && tokens.getOrNull(i + 1) == "TYPE"
+            }?.plus(2) ?: 0
+
+            val categoryToken = tokens.drop(harmTypeIdx)
+                .firstOrNull { it == "NONE" || it in CATEGORY_TOKENS }
+            val category = when (categoryToken) {
+                null, "NONE" -> return null  // explicit NONE or unparseable → safe
+                else         -> CATEGORY_TOKENS.getValue(categoryToken)
+            }
+
+            // Anchor severity search after the last "SEVERITY" label token similarly.
+            val severityIdx = (tokens.indices).lastOrNull { i ->
+                tokens[i] == "SEVERITY"
+            }?.plus(1) ?: 0
+
+            val severityToken = tokens.drop(severityIdx)
+                .firstOrNull { it in setOf("HIGH", "MEDIUM", "LOW", "NONE") }
+            val severity = when (severityToken) {
+                "HIGH"   -> RiskLevel.HIGH
+                "MEDIUM" -> RiskLevel.MEDIUM
+                "LOW"    -> RiskLevel.LOW
+                "NONE"   -> return null      // explicit no-severity verdict → safe
+                else     -> RiskLevel.MEDIUM // category found, severity omitted
+            }
+
+            return Pair(category, severity)
+        }
     }  // end companion object
 
     private fun findModelPath(context: Context): String? {
@@ -498,63 +566,6 @@ Severity: """.trimIndent()
     }
 
 
-    /**
-     * Token-scanning parser — does NOT rely on Gemma 2B following a strict format.
-     *
-     * Gemma 2B produces inconsistent responses:
-     *   "SEXTORTION HIGH"           → ideal
-     *   "IDENTITY_PHISHING"         → category only (default to MEDIUM)
-     *   "Harm type: GROOMING\nSeverity: HIGH" → fill-in format (handled)
-     *   "CATEGORY SEVERITY: HIGH"   → echoed template (no valid category)
-     *   "SCAMMING"                  → invented word (no match)
-     *
-     * Strategy: strip non-alphanumeric chars, tokenise, scan every token for a known
-     * category name and a known severity name. Require a category; default severity
-     * to MEDIUM if Gemma identified a category but omitted the level.
-     */
-    private fun parseMultiClassResponse(response: String): Pair<HarmCategory, RiskLevel>? {
-        // Strip colons, slashes, punctuation — keep letters, digits, underscores
-        val normalized = response.replace(Regex("[^A-Z0-9_\\s]"), " ")
-        val tokens = normalized.split(Regex("\\s+")).filter { it.isNotBlank() }
-
-        // Anchor to the last "HARM TYPE" label pair in the token list. When Gemma echoes
-        // the prompt back verbatim it repeats the valid-harm-types list (which contains
-        // "SEXTORTION", "GROOMING" etc.) before printing the actual fill-in answer. Scanning
-        // from the last "HARM TYPE" label means we read Gemma's answer, not the echoed list.
-        val harmTypeIdx = (tokens.indices).lastOrNull { i ->
-            tokens[i] == "HARM" && tokens.getOrNull(i + 1) == "TYPE"
-        }?.plus(2) ?: 0
-
-        val category = tokens.drop(harmTypeIdx).firstNotNullOfOrNull { token ->
-            when (token) {
-                "SEXTORTION"        -> HarmCategory.SEXTORTION
-                "FINANCIAL_SCAM"    -> HarmCategory.FINANCIAL_SCAM
-                "GROOMING"          -> HarmCategory.GROOMING
-                "ROMANCE_SCAM", "ROMANCE" -> HarmCategory.ROMANCE_SCAM
-                "IDENTITY_PHISHING", "PHISHING" -> HarmCategory.IDENTITY_PHISHING
-                "LURING"            -> HarmCategory.LURING
-                "HARASSMENT"        -> HarmCategory.HARASSMENT
-                "NONE"              -> null  // explicit NONE answer → safe
-                else                -> null
-            }
-        } ?: return null  // No recognised category → safe / unparseable
-
-        // Anchor severity search after the last "SEVERITY" label token similarly.
-        val severityIdx = (tokens.indices).lastOrNull { i ->
-            tokens[i] == "SEVERITY"
-        }?.plus(1) ?: 0
-
-        val severity = tokens.drop(severityIdx).firstNotNullOfOrNull { token ->
-            when (token) {
-                "HIGH"   -> RiskLevel.HIGH
-                "MEDIUM" -> RiskLevel.MEDIUM
-                "LOW"    -> RiskLevel.LOW
-                else     -> null
-            }
-        } ?: RiskLevel.MEDIUM  // Category found but no severity word → default MEDIUM
-
-        return Pair(category, severity)
-    }
 
     /**
      * Generates a short human-readable analysis and safety recommendations for the alert detail view.

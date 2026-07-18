@@ -48,6 +48,54 @@ class MessageFiltersTest {
     }
 
     @Test
+    fun `date separators are chrome`() {
+        // Regression 2026-07-18: a voice-message-only chat has no message_text
+        // nodes; the structural fallback scraped the "December 4, 2025" date
+        // separator as a message and Gemma hallucinated an alert on it.
+        assertTrue(chrome("December 4, 2025"))
+        assertTrue(chrome("4 December 2025"))
+        assertTrue(chrome("14 Jul 2026"))
+        assertTrue(chrome("Wednesday"))
+        assertTrue(chrome("Saturday"))
+    }
+
+    @Test
+    fun `conversation header chrome is filtered`() {
+        assertTrue(chrome("tap here for contact info"))
+        assertTrue(chrome("tap here for group info"))
+        assertTrue(chrome("last seen today at 10:30"))
+    }
+
+    @Test
+    fun `call rows and in-call chrome are filtered`() {
+        // Regression 2026-07-18: during a WhatsApp voice call the message list
+        // transiently renders 0 text nodes; the structural fallback scraped the
+        // call UI and "Voice call" rows were scored as messages.
+        assertTrue(chrome("Voice call"))
+        assertTrue(chrome("Video call"))
+        assertTrue(chrome("Missed voice call"))
+        assertTrue(chrome("Ongoing voice call"))
+        assertTrue(chrome("Video call · 12:34"))
+        assertTrue(chrome("Voice call (2 min)"))
+        assertTrue(chrome("Tap to return to call"))
+    }
+
+    @Test
+    fun `messages mentioning calls are not chrome`() {
+        assertFalse(chrome("voice call me tomorrow night"))
+        assertFalse(chrome("they did not answer my call last night"))
+        assertFalse(chrome("can we do a video call at 5"))
+    }
+
+    @Test
+    fun `messages mentioning dates or days are not chrome`() {
+        assertFalse(chrome("see you in December"))
+        assertFalse(chrome("meet me on December 4 near the park"))
+        assertFalse(chrome("Wednesday works for me"))
+        assertFalse(chrome("my exam is on 14 July, wish me luck"))
+    }
+
+    @Test
     fun `exact UI label matches are chrome`() {
         assertTrue(chrome("send"))
         assertTrue(chrome("message"))

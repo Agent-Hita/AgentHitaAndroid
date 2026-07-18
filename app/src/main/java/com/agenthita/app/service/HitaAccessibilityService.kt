@@ -79,6 +79,21 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val TAG                = "HitaAccessibilityService"
         private const val TAG_IG_DIAG        = "HitaIG"
         internal const val MIN_MESSAGE_LENGTH = 8
+
+        /**
+         * Subtitle-based group identification for WhatsApp. Group subtitles show
+         * the participant list ("Alice, Bob, You"), "N members", "Community",
+         * "Channel", "N online", or the placeholder "tap here for group info".
+         * 1-1 chats show presence ("online", "last seen …") or "tap here for
+         * contact info" — none of which match.
+         */
+        internal fun isWhatsAppGroupSubtitle(subtitle: String): Boolean =
+            subtitle.contains("member", ignoreCase = true) ||
+            subtitle.contains("community", ignoreCase = true) ||
+            subtitle.contains("channel", ignoreCase = true) ||
+            subtitle.contains("group info", ignoreCase = true) ||
+            subtitle.split(",").size >= 2 ||
+            subtitle.matches(Regex("\\d+\\s+online.*", RegexOption.IGNORE_CASE))
         private const val DEDUP_PREFS        = "hita_dedup"
         // Threshold imported from DisappearingMessageUtils — kept as alias here for log messages.
         private val SHORT_TIMER_THRESHOLD_DAYS = com.agenthita.app.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
@@ -107,12 +122,44 @@ class HitaAccessibilityService : AccessibilityService() {
             RegexOption.IGNORE_CASE
         )
 
+        // Conversation date separators rendered as plain TextViews ("December 4, 2025",
+        // "4 Dec 2025", "Wednesday"). Matched whole-line only, so a real message that
+        // merely mentions a month or day is untouched. Voice-message-only chats have no
+        // message_text nodes, and the structural fallback walk otherwise scrapes these
+        // separators as "messages" (seen live 2026-07-18: "December 4, 2025" was scored
+        // and Gemma hallucinated GROOMING on it).
+        private const val MONTHS =
+            "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|" +
+            "jul(?:y)?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+        internal val DATE_SEPARATOR_PATTERN = Regex(
+            "(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)" +
+            "|(?:$MONTHS)\\s+\\d{1,2}(?:,\\s*\\d{4})?" +
+            "|\\d{1,2}\\s+(?:$MONTHS)(?:\\s+\\d{4})?",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Call-log rows and in-call chrome ("Voice call", "Missed voice call",
+        // "Video call · 2:34", "Tap to return to call"). During the transient
+        // 0-node windows around a call the structural fallback walks the call UI,
+        // so these must be filtered or they get scored as messages. Suffixes must
+        // start with a non-letter so a real message like "voice call me tomorrow"
+        // is never filtered.
+        internal val CALL_CHROME_PATTERN = Regex(
+            "(?:missed\\s+|ongoing\\s+|incoming\\s+|outgoing\\s+)?(?:voice|video)\\s+call(?:\\s*[·•,(\\d].*)?" +
+            "|call\\s+(?:back|again|ended)|no\\s+answer|tap\\s+to\\s+return\\s+to\\s+call.*",
+            RegexOption.IGNORE_CASE
+        )
+
         internal fun isUIChrome(text: String, minLength: Int, gmUiChromePrefixes: List<String>): Boolean {
             if (text.length < minLength) return true
-            val lower = text.lowercase()
+            val lower = text.lowercase().trim()
             if (lower == "send" || lower == "type a message" || lower == "message") return true
             if (lower.startsWith("today") || lower.startsWith("yesterday")) return true
+            // Conversation-header chrome (walked by the structural fallback).
+            if (lower.startsWith("last seen") || lower.startsWith("tap here for")) return true
             if (lower.matches(Regex("\\d{1,2}:\\d{2}\\s*(am|pm)?", RegexOption.IGNORE_CASE))) return true
+            if (DATE_SEPARATOR_PATTERN.matches(lower)) return true
+            if (CALL_CHROME_PATTERN.matches(lower)) return true
             if (gmUiChromePrefixes.any { lower.startsWith(it) }) return true
             return false
         }
@@ -330,8 +377,11 @@ class HitaAccessibilityService : AccessibilityService() {
         when (event.eventType) {
             // Compose-based apps (Google Messages) haven't finished rendering when
             // TYPE_WINDOW_STATE_CHANGED fires. Schedule processing with a 400 ms
-            // fallback; if TYPE_WINDOW_CONTENT_CHANGED fires first (Compose settled
-            // faster) it cancels the pending runnable and processes immediately.
+            // fallback; TYPE_WINDOW_CONTENT_CHANGED replaces any pending runnable
+            // with a 1500 ms trailing debounce (battery: avoids re-traversing the
+            // tree on every keystroke). Either path can therefore process a window
+            // whose header subtitle hasn't loaded yet — the alert-time group
+            // re-check in processWindow covers that race.
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 pendingRunnables.remove(pkg)?.let { mainHandler.removeCallbacks(it) }
                 val r = Runnable { processWindow(pkg) }
@@ -560,6 +610,29 @@ class HitaAccessibilityService : AccessibilityService() {
                 }
 
                 android.util.Log.d(TAG, "[$packageName] Score=${topResult.score} level=${topResult.riskLevel}")
+
+                // Group re-check at alert time: the group-header subtitle populates
+                // asynchronously, so the pre-scoring isGroupConversation gate can miss
+                // a group on the first window after chat-open. By the time scoring
+                // (and Gemma) finish, the header has loaded — positively identifying
+                // a group now means this window slipped through that race, and groups
+                // are never alerted on. Suppression requires BOTH the group
+                // identification AND that the window still shows the same
+                // conversation (hash match), so a genuine 1-1 alert can never be
+                // dropped because the user navigated to a group meanwhile.
+                if (topResult.riskLevel >= RiskLevel.MEDIUM) {
+                    val suppressAsGroup = withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        rootInActiveWindow?.let { liveRoot ->
+                            extractContactName(liveRoot, packageName)
+                                ?.let { sha256("$packageName|$it") } == convHash &&
+                                isGroupConversation(liveRoot, packageName)
+                        } ?: false
+                    }
+                    if (suppressAsGroup) {
+                        android.util.Log.i(TAG, "[$packageName] Group identified at alert time — suppressing (subtitle loaded after scoring pass)")
+                        return@launch
+                    }
+                }
 
                 // Notification fires immediately for every new risky message.
                 // setOnlyAlertOnce(true) in LocalNotificationManager ensures only one
@@ -810,11 +883,16 @@ class HitaAccessibilityService : AccessibilityService() {
                 val subtitle = subtitleNode?.text?.toString()?.takeIf { it.isNotBlank() }
                     ?: subtitleNode?.contentDescription?.toString() ?: ""
                 subtitleNodes.forEach { it.recycle() }
-                subtitle.contains("member", ignoreCase = true) ||
-                subtitle.contains("community", ignoreCase = true) ||
-                subtitle.contains("channel", ignoreCase = true) ||
-                subtitle.split(",").size >= 2 ||
-                subtitle.matches(Regex("\\d+\\s+online.*", RegexOption.IGNORE_CASE))
+                // Structural signal: per-bubble sender names exist only in group
+                // chats. The header subtitle populates asynchronously after the
+                // chat opens, so the first processed window often has no subtitle
+                // yet — sender names are already in the message list by then.
+                val senderNameId = RemoteConfig.uiTags.waGroupSenderNameId
+                val hasGroupSenderNames = senderNameId.isNotEmpty() &&
+                    root.findAccessibilityNodeInfosByViewId("$pkg:id/$senderNameId")
+                        .also { nodes -> nodes.forEach { it.recycle() } }
+                        .isNotEmpty()
+                isWhatsAppGroupSubtitle(subtitle) || hasGroupSenderNames
             }
             "com.instagram.android" -> {
                 val nodes = root.findAccessibilityNodeInfosByViewId("com.instagram.android:id/${RemoteConfig.uiTags.igHeaderSubtitleId}")
@@ -980,11 +1058,20 @@ class HitaAccessibilityService : AccessibilityService() {
                     node.recycle()
                 }
                 // Structural fallback: if the configured message text ID is absent (WhatsApp
-                // renamed it), collect TextView content from the full tree. Uses position-based
-                // outgoing detection (center > midpoint) consistent with isOutgoingWhatsApp.
+                // renamed it — but also a voice/media-only chat, which legitimately has no
+                // message_text nodes), collect TextView content from the full tree. Uses
+                // position-based outgoing detection (center > midpoint) consistent with
+                // isOutgoingWhatsApp. The walk includes the toolbar, so the contact header
+                // text must be dropped or it gets scored as a message.
                 if (raw.isEmpty()) {
                     if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] message_text ID not found — using structural fallback")
                     collectTextViewContent(root, raw)
+                    extractContactName(root, pkg)?.let { name ->
+                        raw.removeAll { it.first == name }
+                    }
+                    if (BuildConfig.DEBUG) raw.forEach {
+                        android.util.Log.d(TAG, "[$pkg] fallback text=\"${it.first.take(40)}\" outgoing=${it.second}")
+                    }
                 }
             }
             "com.instagram.android" -> {

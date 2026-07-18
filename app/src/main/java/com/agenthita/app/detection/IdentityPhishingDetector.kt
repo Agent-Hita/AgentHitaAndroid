@@ -71,6 +71,21 @@ class IdentityPhishingDetector : PatternMatcher {
         "tracking", "order number"
     )
 
+    // High-sensitivity credentials in a [USER] line: a full card number (13-16
+    // digits, optionally grouped), an SSN, or "password/passcode/pin/cvv is …"
+    // phrasing. A user handing these over may have been coerced through an
+    // out-of-window channel (voice call), so no visible request is required.
+    private val cardNumberRegex = Regex("""\b(?:\d{4}[ -]?){3}\d{1,4}\b""")
+    private val ssnShareRegex   = Regex("""\b\d{3}-\d{2}-\d{4}\b""")
+    private val credentialShareRegex =
+        Regex("""\b(?:my\s+)?(?:password|passcode|pin|cvv|cvc)\s*(?:is|:)\s*\S+""")
+
+    // Credentials people legitimately hand over in chat — household/streaming
+    // logins and physical-access codes. Suppresses credential_shared only.
+    private val benignCredentialContexts = listOf(
+        "wifi", "wi-fi", "hotspot", "router", "netflix", "door", "locker", "gate"
+    )
+
     // A safety warning about codes/credentials, not a request for them:
     // "Do not share your OTP/CVV with anyone", "Bank staff will never ask for
     // your password". (Contractions are normalized before matching.)
@@ -175,8 +190,15 @@ class IdentityPhishingDetector : PatternMatcher {
         val isProvidingContext = providingContextSignals.any { lower.contains(it) }
         val hasRequestSignals = matches.any { it.signal == "code_request" || it.signal == "credential_request" }
         if (!isProvidingContext || hasRequestSignals) {
+            // A [USER] line handing over a credential is a share, not a request —
+            // it is scored by credential_shared below. Letting it also fire
+            // personal_info_request would misread "my card number is …" as
+            // harvesting and escalate the unprompted warning tier to HIGH.
+            val infoRequestText = lines
+                .filterNot { isIncomingOtpDelivery(it) || isShareWarning(it) || isUserCredentialShare(it) }
+                .joinToString("\n")
             personalInfoSignals.forEach { signal ->
-                if (requestText.contains(normalizeContractions(signal))) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
+                if (infoRequestText.contains(normalizeContractions(signal))) matches.add(SignalMatch("personal_info_request", signal, 0.8f))
             }
         }
         urgencySignals.forEach { signal ->
@@ -192,6 +214,16 @@ class IdentityPhishingDetector : PatternMatcher {
         val hasCodeRequest = matches.any { it.signal == "code_request" }
         if (lines.any { isUserOtpShare(it, hasCodeRequest) }) {
             matches.add(SignalMatch("otp_shared", "one-time passcode shared by user", 0.9f))
+        }
+
+        // High-sensitivity credential leaving the user's device (card number,
+        // SSN, password/PIN/CVV). Unlike an OTP this is not automatically HIGH:
+        // unprompted it floors to the MEDIUM warning tier (the request may have
+        // happened on a voice call we cannot see — warn the user, don't email
+        // the guardian); with a request signal in the same window it floors to
+        // 0.87 like an OTP handover (see computeScore).
+        if (lines.any { isUserCredentialShare(it) }) {
+            matches.add(SignalMatch("credential_shared", "sensitive credential shared by user", 0.72f))
         }
 
         val score = computeScore(matches)
@@ -232,6 +264,21 @@ class IdentityPhishingDetector : PatternMatcher {
         return requestElsewhere && body.length <= 24
     }
 
+    /**
+     * True for a [USER] line that hands over a high-sensitivity credential —
+     * full card number, SSN, or password/PIN/CVV phrasing — outside recognised
+     * benign contexts (postal codes, wifi/streaming logins, door codes).
+     */
+    private fun isUserCredentialShare(line: String): Boolean {
+        if (!line.startsWith("[user]:")) return false
+        val body = line.removePrefix("[user]:").trim()
+        if (benignCodeContexts.any { body.contains(it) }) return false
+        if (benignCredentialContexts.any { body.contains(it) }) return false
+        return cardNumberRegex.containsMatchIn(body) ||
+            ssnShareRegex.containsMatchIn(body) ||
+            credentialShareRegex.containsMatchIn(body)
+    }
+
     private fun computeScore(matches: List<SignalMatch>): Float {
         if (matches.isEmpty()) return 0f
         val uniqueTypes = matches.map { it.signal }.toSet()
@@ -245,7 +292,22 @@ class IdentityPhishingDetector : PatternMatcher {
         // A code actually leaving the user's device is the completion of the scam —
         // floor at 0.87 so it clears the HIGH threshold (0.85) even for adults.
         val otpSharedFloor = if (uniqueTypes.contains("otp_shared")) 0.87f else 0f
-        return (rawScore + directHarvestBonus).coerceAtLeast(otpSharedFloor).coerceIn(0f, 1f)
+        // A credential share with a visible request is likewise scam completion
+        // (0.87 → HIGH for all ages). Unprompted, it floors at 0.72: above every
+        // MEDIUM threshold (warn the user) but below every HIGH threshold (no
+        // guardian email for what may be a benign transfer).
+        val hasRequestSignal = uniqueTypes.contains("code_request") ||
+            uniqueTypes.contains("credential_request") ||
+            uniqueTypes.contains("personal_info_request")
+        val credentialSharedFloor = when {
+            !uniqueTypes.contains("credential_shared") -> 0f
+            hasRequestSignal                           -> 0.87f
+            else                                       -> 0.72f
+        }
+        return (rawScore + directHarvestBonus)
+            .coerceAtLeast(otpSharedFloor)
+            .coerceAtLeast(credentialSharedFloor)
+            .coerceIn(0f, 1f)
     }
 
     private fun scoreToRiskLevel(score: Float) = when {

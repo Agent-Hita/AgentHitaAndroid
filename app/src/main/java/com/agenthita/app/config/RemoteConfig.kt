@@ -271,6 +271,10 @@ object RemoteConfig {
         val waStatusId: String                    = "status",
         val waContactNameId: String               = "conversation_contact_name",
         val waContactStatusId: String             = "conversation_contact_status",
+        // Per-bubble sender name — only present in group chats, so its existence
+        // identifies a group even before the header subtitle has loaded.
+        // Empty string = structural check disabled.
+        val waGroupSenderNameId: String           = "name_in_group_tv",
         // Edit-mode indicator — visible when user is editing a sent message.
         // Empty string = check disabled (set via OTA once confirmed).
         val waEditBarId: String                   = "",
@@ -416,6 +420,7 @@ object RemoteConfig {
             waStatusId        = wa?.optString("status_id",          d.waStatusId)        ?: d.waStatusId,
             waContactNameId   = wa?.optString("contact_name_id",    d.waContactNameId)   ?: d.waContactNameId,
             waContactStatusId = wa?.optString("contact_status_id",  d.waContactStatusId) ?: d.waContactStatusId,
+            waGroupSenderNameId = wa?.optString("group_sender_name_id", d.waGroupSenderNameId) ?: d.waGroupSenderNameId,
             waEditBarId       = wa?.optString("edit_bar_id",        d.waEditBarId)       ?: d.waEditBarId,
 
             igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,
