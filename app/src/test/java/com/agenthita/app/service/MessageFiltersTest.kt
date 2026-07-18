@@ -78,6 +78,10 @@ class MessageFiltersTest {
         assertTrue(chrome("Video call · 12:34"))
         assertTrue(chrome("Voice call (2 min)"))
         assertTrue(chrome("Tap to return to call"))
+        // Regression 2026-07-18 (live alert): the missed-call row's tap label
+        // was scraped by the fallback and scored as an incoming message.
+        assertTrue(chrome("Tap to call back"))
+        assertTrue(chrome("Missed voice call - Tap to call back"))
     }
 
     @Test

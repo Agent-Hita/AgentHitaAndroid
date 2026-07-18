@@ -139,14 +139,15 @@ class HitaAccessibilityService : AccessibilityService() {
         )
 
         // Call-log rows and in-call chrome ("Voice call", "Missed voice call",
-        // "Video call · 2:34", "Tap to return to call"). During the transient
+        // "Missed voice call - Tap to call back", "Video call · 2:34",
+        // "Tap to call back", "Tap to return to call"). During the transient
         // 0-node windows around a call the structural fallback walks the call UI,
         // so these must be filtered or they get scored as messages. Suffixes must
         // start with a non-letter so a real message like "voice call me tomorrow"
         // is never filtered.
         internal val CALL_CHROME_PATTERN = Regex(
-            "(?:missed\\s+|ongoing\\s+|incoming\\s+|outgoing\\s+)?(?:voice|video)\\s+call(?:\\s*[·•,(\\d].*)?" +
-            "|call\\s+(?:back|again|ended)|no\\s+answer|tap\\s+to\\s+return\\s+to\\s+call.*",
+            "(?:missed\\s+|ongoing\\s+|incoming\\s+|outgoing\\s+)?(?:voice|video)\\s+call(?:\\s*[·•,(\\d\\-–—].*)?" +
+            "|(?:tap\\s+to\\s+)?call\\s+(?:back|again|ended)|no\\s+answer|tap\\s+to\\s+return\\s+to\\s+call.*",
             RegexOption.IGNORE_CASE
         )
 
