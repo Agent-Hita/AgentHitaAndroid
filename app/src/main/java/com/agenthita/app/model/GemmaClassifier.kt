@@ -8,6 +8,7 @@ import com.agenthita.app.detection.HarmCategory
 import com.agenthita.app.detection.RiskLevel
 import com.agenthita.app.telemetry.TelemetryManager
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.atomic.AtomicBoolean
@@ -250,9 +251,20 @@ class GemmaClassifier(context: Context) {
     }
 
     internal fun buildMultiClassPrompt(text: String, context: List<String> = emptyList(), ageHint: String? = null): String {
-        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed template is ~760 chars
-        // (~215 tokens); buildFittedPrompt enforces the hard limit before inference,
-        // keeping the newest content when trimming.
+        // ONE template for every model. This is the June-era wording that both the
+        // 2B and the gemma3-1b demonstrably worked with, plus exactly one extension
+        // ("or bank transaction alerts") carrying the UPI-notification decision.
+        //
+        // The completion-style 2B is exquisitely sensitive to this wording: the
+        // gemma3-tuned rewrite of 2026-07-18 made it echo the prompt instead of
+        // answering (a live sextortion test scored NONE because the model returned
+        // our own multilingual instruction line as its "answer", 2026-07-19).
+        // Do not reword without re-running the on-device probe set — false-positive
+        // texts AND the canonical attack scripts — on every supported model.
+        //
+        // Total prompt must stay under gemmaMaxTokens (default 512). The fixed
+        // template is ~670 chars (~190 tokens); buildFittedPrompt enforces the hard
+        // limit before inference, keeping the newest content when trimming.
         val truncated = keepNewest(text, RemoteConfig.gemmaInputTruncationChars)
         val recipientLine = if (ageHint != null) "\nRecipient: $ageHint" else ""
         val contextBlock = if (context.isEmpty()) "" else {
@@ -264,8 +276,8 @@ class GemmaClassifier(context: Context) {
 Valid harm types: SEXTORTION FINANCIAL_SCAM GROOMING ROMANCE_SCAM IDENTITY_PHISHING LURING HARASSMENT NONE
 Valid severity levels: HIGH MEDIUM LOW NONE
 Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
-IDENTITY_PHISHING: [CONTACT] asking for the user's credentials, codes, or card details, or [USER] sending an OTP to the contact = HIGH. [USER] sending own password or card unasked = MEDIUM. Automated OTP deliveries and bank transaction alerts (UPI, mandate, debited, credited, A/c) to the user = NONE. Unrequested shares (phone numbers, contacts, payments) = NONE. For minors, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other self-shares from either side = NONE.
-IMPORTANT: Messages may mix English with other languages in Latin letters (romanised Hindi, Urdu, Turkish). Analyse only the English words; if none, respond NONE for both.
+IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery or bank transaction alerts to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
+IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
 $recipientLine$contextBlock
 Latest message: "$truncated"
 
@@ -549,7 +561,25 @@ Severity: """.trimIndent()
             }
             try {
                 val t0 = System.currentTimeMillis()
-                val response = inference.generateResponse(prompt).trim().uppercase()
+                // Constrained sampling for classification: default sampling (topK 40,
+                // temp ~0.8) lets the completion drift into prose — observed live on
+                // the 2B (2026-07-19), which described the harm in free text but never
+                // emitted the "Harm type:/Severity:" tokens, so real attacks parsed as
+                // NONE. Low temperature + tiny topK pin the most likely continuation:
+                // filling in the form. Values are OTA-tunable (gemma.top_k /
+                // gemma.temperature). generateAnalysis keeps default sampling — prose
+                // is desirable there.
+                val sessionOptions = LlmInferenceSession.LlmInferenceSessionOptions.builder()
+                    .setTopK(RemoteConfig.gemmaTopK)
+                    .setTemperature(RemoteConfig.gemmaTemperature)
+                    .build()
+                val session = LlmInferenceSession.createFromOptions(inference, sessionOptions)
+                val response = try {
+                    session.addQueryChunk(prompt)
+                    session.generateResponse().trim().uppercase()
+                } finally {
+                    session.close()
+                }
                 val ms = System.currentTimeMillis() - t0
                 android.util.Log.i("GemmaClassifier", "Inference took ${ms}ms | response: \"$response\"")
                 parseMultiClassResponse(response).also {

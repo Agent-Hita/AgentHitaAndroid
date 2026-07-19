@@ -123,6 +123,8 @@ object RemoteConfig {
     val buildType: String             get() = current.buildType
 
     val gemmaMaxTokens: Int             get() = current.gemmaMaxTokens
+    val gemmaTopK: Int                  get() = current.gemmaTopK
+    val gemmaTemperature: Float         get() = current.gemmaTemperature
     val gemmaInputTruncationChars: Int  get() = current.gemmaInputTruncationChars
     val gemmaContextMessages: Int       get() = current.gemmaContextMessages
     val gemmaContextMessageLength: Int  get() = current.gemmaContextMessageLength
@@ -203,6 +205,12 @@ object RemoteConfig {
 
         // Gemma
         val gemmaMaxTokens:            Int    = 512,
+        // Classification sampling — the model must fill a two-line form, not write
+        // prose. Default MediaPipe sampling (topK 40, temp ~0.8) lets completion
+        // drift into free text; low temperature + tiny topK pin the most likely
+        // continuation: the form itself.
+        val gemmaTopK:                 Int    = 5,
+        val gemmaTemperature:          Float  = 0.2f,
         val gemmaInputTruncationChars: Int    = 300,
         val gemmaContextMessages:      Int    = 5,
         val gemmaContextMessageLength: Int    = 80,
@@ -378,6 +386,8 @@ object RemoteConfig {
 
             // Gemma
             gemmaMaxTokens            = gem?.optInt("max_tokens",             defaults.gemmaMaxTokens)            ?: defaults.gemmaMaxTokens,
+            gemmaTopK                 = gem?.optInt("top_k",                  defaults.gemmaTopK)                 ?: defaults.gemmaTopK,
+            gemmaTemperature          = gem?.optDouble("temperature", defaults.gemmaTemperature.toDouble())?.toFloat() ?: defaults.gemmaTemperature,
             gemmaInputTruncationChars = gem?.optInt("input_truncation_chars", defaults.gemmaInputTruncationChars) ?: defaults.gemmaInputTruncationChars,
             gemmaContextMessages      = gem?.optInt("context_messages",       defaults.gemmaContextMessages)      ?: defaults.gemmaContextMessages,
             gemmaContextMessageLength = gem?.optInt("context_message_length", defaults.gemmaContextMessageLength) ?: defaults.gemmaContextMessageLength,

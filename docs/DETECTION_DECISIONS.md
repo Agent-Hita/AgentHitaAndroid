@@ -104,6 +104,35 @@ classifies whatever it is given, which made every latent extraction bug audible.
   any new `track(...)` call must land in the same commit as its
   `ALLOWED_EVENT_NAMES` entry.
 
+## 2026-07-19 — Switch back to the 2B model; constrained sampling; one template
+
+### 8. Classifier model: Gemma 2B, served to all devices
+- The 1B misfired deterministically on benign short/romanised-language messages
+  ("Tq pinni" → SEXTORTION HIGH). On-device comparison (ModelComparisonSuite,
+  Galaxy A16, same build/template/sampling): 1B 8/11, 2B 10/11 — 2B cleared
+  every incoming-benign FP probe the 1B failed, with better-calibrated
+  severities. All attack probes alert on both. Costs accepted: 941MB download,
+  1.35GB storage, ~5-16s inference on budget hardware (23s first-inference
+  warmup).
+- Served via the feedback service's `model.file-path` (the signed-URL endpoint
+  chooses the model; both tarball hashes stay in the app allowlist).
+
+### 9. Constrained sampling for classification — the decisive fix
+- With MediaPipe's default sampling (temp ~0.8, topK 40) the 2B echoed the
+  prompt instead of answering — a live sextortion test scored NONE. Same
+  template with temperature 0.2 / topK 5: perfectly formed answers on all 11
+  probes. Clean A/B: template alone did NOT fix it; sampling did.
+- Classification runs in an LlmInferenceSession with `gemma.top_k` /
+  `gemma.temperature` (OTA-tunable, defaults 5 / 0.2). generateAnalysis keeps
+  default sampling — prose is desirable there.
+
+### 10. ONE prompt template for every model (owner: Femina)
+- No model-conditional prompts. The template is the June-era wording (proven
+  on both models) plus exactly one extension ("or bank transaction alerts")
+  carrying the UPI decision. Any rewording must be re-validated by running
+  ModelComparisonSuite on-device on every supported model — that suite
+  (androidTest) is the acceptance gate for prompt/model/sampling changes.
+
 ### Working agreements surfaced today
 - **Risk-scoring changes require Femina's explicit approval**; prompt wording,
   parsing fixes, and extraction/chrome filtering are engineering territory.

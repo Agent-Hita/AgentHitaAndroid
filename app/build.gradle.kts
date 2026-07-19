@@ -39,6 +39,8 @@ android {
         buildConfigField("String", "REMOTE_CONFIG_URL",       "\"${secrets.getProperty("REMOTE_CONFIG_URL",       "https://www.agenthita.org/app_config.json")}\"")
         buildConfigField("Long",   "CLOUD_PROJECT_NUMBER",
             "${secrets.getProperty("CLOUD_PROJECT_NUMBER", "0")}L")
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -162,4 +164,8 @@ dependencies {
 
     // Unit tests
     testImplementation("junit:junit:4.13.2")
+
+    // Instrumented tests — on-device model comparison suite (ModelComparisonSuite)
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }
