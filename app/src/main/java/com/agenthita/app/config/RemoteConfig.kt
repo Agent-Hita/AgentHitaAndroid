@@ -275,6 +275,15 @@ object RemoteConfig {
         // identifies a group even before the header subtitle has loaded.
         // Empty string = structural check disabled.
         val waGroupSenderNameId: String           = "name_in_group_tv",
+        // View-ID prefixes excluded from the structural fallback walk — chrome
+        // that renders arbitrary text (verified on-device 2026-07-18):
+        // out_of_chat_title (banner for a message from ANOTHER chat — carried a
+        // contact's name that got scored), call_log_title/subtitle, date
+        // dividers, header contact name/status, E2E info banner, composer.
+        val waFallbackExcludedIdPrefixes: List<String> = listOf(
+            "out_of_chat", "call_log", "conversation_row_date",
+            "conversation_contact", "info", "date", "entry"
+        ),
         // Edit-mode indicator — visible when user is editing a sent message.
         // Empty string = check disabled (set via OTA once confirmed).
         val waEditBarId: String                   = "",
@@ -421,6 +430,9 @@ object RemoteConfig {
             waContactNameId   = wa?.optString("contact_name_id",    d.waContactNameId)   ?: d.waContactNameId,
             waContactStatusId = wa?.optString("contact_status_id",  d.waContactStatusId) ?: d.waContactStatusId,
             waGroupSenderNameId = wa?.optString("group_sender_name_id", d.waGroupSenderNameId) ?: d.waGroupSenderNameId,
+            waFallbackExcludedIdPrefixes = wa?.optJSONArray("fallback_excluded_id_prefixes")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+                ?.takeIf { it.isNotEmpty() } ?: d.waFallbackExcludedIdPrefixes,
             waEditBarId       = wa?.optString("edit_bar_id",        d.waEditBarId)       ?: d.waEditBarId,
 
             igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,

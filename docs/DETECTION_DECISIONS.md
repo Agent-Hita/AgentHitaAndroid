@@ -35,6 +35,15 @@ classifies whatever it is given, which made every latent extraction bug audible.
   debug builds log every fallback-collected string. Whole-line matches only —
   "voice call me tomorrow" and "meet me on December 4" must still score.
   Enforced by `MessageFiltersTest`.
+- **2026-07-19 addendum — structural, not string-matching**: text patterns are
+  whack-a-mole (next live FP: `out_of_chat_title` — WhatsApp's banner for a
+  message from ANOTHER chat — carried a contact's bare name, scored as
+  IDENTITY_PHISHING). The fallback walk now excludes nodes by view-ID prefix
+  (`waFallbackExcludedIdPrefixes`, OTA-patchable: out_of_chat, call_log,
+  conversation_row_date, conversation_contact, info, date, entry — all
+  verified via on-device hierarchy dump). Text filters stay as a second layer.
+  When a new fallback FP appears: dump the hierarchy, add the view-ID prefix —
+  don't add another text pattern.
 
 ### 3. Unprompted credential shares: MEDIUM warning, not guardian email
 - A [USER] line sharing a card number / SSN / password / PIN / CVV may be

@@ -151,6 +151,21 @@ class HitaAccessibilityService : AccessibilityService() {
             RegexOption.IGNORE_CASE
         )
 
+        /**
+         * True when a node's view ID marks it as conversation chrome that must
+         * never be treated as a message by the structural fallback walk —
+         * text-pattern filters cannot catch these because they carry arbitrary
+         * content (e.g. WhatsApp's out_of_chat_title renders another contact's
+         * NAME when a message from a different chat pops up over the open
+         * conversation; scored live as IDENTITY_PHISHING on 2026-07-18).
+         * Matches on the bare ID (after "id/") so package qualification and
+         * app differences don't matter.
+         */
+        internal fun isFallbackChromeId(viewIdResourceName: String?, excludedPrefixes: List<String>): Boolean {
+            val bareId = viewIdResourceName?.substringAfterLast("/") ?: return false
+            return excludedPrefixes.any { bareId.startsWith(it) }
+        }
+
         internal fun isUIChrome(text: String, minLength: Int, gmUiChromePrefixes: List<String>): Boolean {
             if (text.length < minLength) return true
             val lower = text.lowercase().trim()
@@ -1191,12 +1206,15 @@ class HitaAccessibilityService : AccessibilityService() {
      * Generic text collection for SMS apps — traverse tree and collect all
      * TextView-like content that looks like a message (long enough, not a label).
      * Each entry is (text, isOutgoing) using position-based direction detection.
+     * Nodes whose view ID marks them as conversation chrome are skipped — those
+     * carry arbitrary text (names, dates) that text filters cannot catch.
      */
     private fun collectTextViewContent(node: AccessibilityNodeInfo, out: MutableList<Pair<String, Boolean>>) {
         val text = node.text?.toString()
         if (!text.isNullOrBlank() &&
             text.length >= MIN_MESSAGE_LENGTH &&
             node.className?.contains("TextView") == true &&
+            !isFallbackChromeId(node.viewIdResourceName, RemoteConfig.uiTags.waFallbackExcludedIdPrefixes) &&
             !isMediaMessage(text) &&
             !isUIChrome(text)
         ) {

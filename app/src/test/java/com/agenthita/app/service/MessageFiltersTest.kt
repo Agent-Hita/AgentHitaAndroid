@@ -84,6 +84,37 @@ class MessageFiltersTest {
         assertTrue(chrome("Missed voice call - Tap to call back"))
     }
 
+    // ── isFallbackChromeId ────────────────────────────────────────────────────
+
+    private val excludedPrefixes =
+        com.agenthita.app.config.RemoteConfig.UiTags().waFallbackExcludedIdPrefixes
+
+    @Test
+    fun `chrome view IDs are excluded from the fallback walk`() {
+        // All verified live on-device 2026-07-18 (the out_of_chat banner carried
+        // another contact's name and was scored as IDENTITY_PHISHING).
+        listOf(
+            "com.whatsapp:id/out_of_chat_title",
+            "com.whatsapp:id/call_log_title",
+            "com.whatsapp:id/call_log_subtitle",
+            "com.whatsapp:id/conversation_row_date_divider",
+            "com.whatsapp:id/conversation_contact_name",
+            "com.whatsapp:id/info",
+            "com.whatsapp:id/date",
+            "com.whatsapp:id/entry"
+        ).forEach { id ->
+            assertTrue("$id must be excluded",
+                HitaAccessibilityService.isFallbackChromeId(id, excludedPrefixes))
+        }
+    }
+
+    @Test
+    fun `message view IDs and id-less nodes are not excluded`() {
+        assertFalse(HitaAccessibilityService.isFallbackChromeId(
+            "com.whatsapp:id/message_text", excludedPrefixes))
+        assertFalse(HitaAccessibilityService.isFallbackChromeId(null, excludedPrefixes))
+    }
+
     @Test
     fun `messages mentioning calls are not chrome`() {
         assertFalse(chrome("voice call me tomorrow night"))
