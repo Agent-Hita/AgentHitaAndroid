@@ -80,6 +80,23 @@ class ChildAlertInvariantsTest {
         "[USER]: my card number is 4532 7712 0034 9821 okay"
     )
 
+    @Test
+    fun `attack after a long benign message still alerts for child`() {
+        // Regression 2026-07-19: the service truncated the unseen block with
+        // .take(300) — keeping the FIRST 300 chars — so a live sextortion script
+        // that arrived beneath a long residents-association announcement was cut
+        // off before scoring and produced NO alert. The service now truncates
+        // with keepNewest; this locks the full assembly → truncation → scoring
+        // path for that exact window shape.
+        val longBenignOpener = "[CONTACT]: Dear residents, " +
+            "we are excited to share the community newsletter with updates ".repeat(12)
+        val window = longBenignOpener + "\n" +
+            "[CONTACT]: Send money now. I know your parents are rich.\n" +
+            "[CONTACT]: Else I will share your pictures with everyone you know."
+        val truncated = com.agenthita.app.model.GemmaClassifier.keepNewest(window, 300)
+        assertChildAlerts("Attack below a long benign opener", truncated)
+    }
+
     // ── Category must be read live, never snapshotted ─────────────────────────
 
     @Test

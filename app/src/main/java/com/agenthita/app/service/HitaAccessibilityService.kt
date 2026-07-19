@@ -599,9 +599,19 @@ class HitaAccessibilityService : AccessibilityService() {
                 // Previously seen messages become the context window for mild boosting.
                 // Each message is prefixed with [CONTACT] or [USER] so Gemma can
                 // distinguish incoming from outgoing when assessing harm direction.
-                val unseenText = unseenMessages.joinToString("\n") { msg ->
-                    if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
-                }.take(300)
+                //
+                // Truncation keeps the NEWEST content: a live sextortion script went
+                // unscored on 2026-07-19 because .take(300) kept the FIRST 300 chars —
+                // a long benign announcement at the top of the window — and cut off the
+                // attack lines beneath it. Coercion escalates toward the end of a
+                // window; the opener is what we can afford to lose (same rationale as
+                // GemmaClassifier.buildFittedPrompt).
+                val unseenText = com.agenthita.app.model.GemmaClassifier.keepNewest(
+                    unseenMessages.joinToString("\n") { msg ->
+                        if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
+                    },
+                    RemoteConfig.gemmaInputTruncationChars
+                )
                 val seenMessages = (messages - unseenMessages.toSet()).map { msg ->
                     if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
                 }
