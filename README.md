@@ -4,6 +4,7 @@
 
 Agent Hita is a patent-pending Android app that detects harmful conversation patterns in messaging apps before they escalate. All analysis runs entirely on the device. No message content is ever stored, transmitted, or shared. When a risk is detected, the app alerts the user and — with explicit consent — notifies a trusted guardian.
 
+→ **Get it on Google Play:** [play.google.com/store/apps/details?id=com.agenthita.app](https://play.google.com/store/apps/details?id=com.agenthita.app)
 → **Website:** [agenthita.org](https://www.agenthita.org)
 → **Architecture:** [agenthita.org/architecture.html](https://www.agenthita.org/architecture.html)
 → **Trust & Consent Specification:** [agenthita.org/consent.html](https://www.agenthita.org/consent.html)
