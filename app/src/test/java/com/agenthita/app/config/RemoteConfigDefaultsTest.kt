@@ -222,4 +222,27 @@ class RemoteConfigDefaultsTest {
         assertEquals(defaults.feedbackEndpoint, modified.feedbackEndpoint)
         assertEquals(defaults.targetPackages, modified.targetPackages)
     }
+
+    // ── WhatsApp message-content allowlist (2026-07-30 fix) ──────────────────
+    // Regression guard for a shared-contact-card message (vcard_text/msg_contact_btn/
+    // action_contact_btn) that used to leak into Gemma as if it were message text.
+
+    @Test
+    fun `waMessageContentIds contains message_text`() {
+        assertTrue(
+            "waMessageContentIds must contain message_text — the real WhatsApp message bubble ID",
+            RemoteConfig.UiTags().waMessageContentIds.contains("message_text")
+        )
+    }
+
+    @Test
+    fun `waMessageContentIds does not contain shared-contact-card view IDs`() {
+        val contentIds = RemoteConfig.UiTags().waMessageContentIds
+        listOf("vcard_text", "msg_contact_btn", "action_contact_btn").forEach { chromeId ->
+            assertFalse(
+                "waMessageContentIds must not contain $chromeId — it's a shared-contact-card UI element, not message text",
+                contentIds.contains(chromeId)
+            )
+        }
+    }
 }

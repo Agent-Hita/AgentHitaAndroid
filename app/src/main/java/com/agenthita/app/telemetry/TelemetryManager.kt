@@ -38,6 +38,9 @@ class TelemetryManager private constructor(private val context: Context) {
 
     // Aggregated counts: eventName → (sum, count, firstTimestamp)
     private val pendingEvents = mutableMapOf<String, AggregatedEvent>()
+    // Aggregated counts of unrecognized view IDs seen on parsing failure/empty extraction:
+    // (targetPackage, viewId) → count. Structural diagnostic only — see trackViewIdFailure.
+    private val pendingViewIdFailures = mutableMapOf<Pair<String, String>, Int>()
     private val lock = Any()
     private val lastFlushMs = AtomicLong(0L)
 
@@ -54,13 +57,35 @@ class TelemetryManager private constructor(private val context: Context) {
             } else {
                 existing.copy(sum = existing.sum + value, count = existing.count + 1)
             }
-            val nowMs = System.currentTimeMillis()
-            val enoughEvents = pendingEvents.size >= RemoteConfig.telemetryFlushThreshold
-            val enoughTime   = nowMs - lastFlushMs.get() >= RemoteConfig.telemetryFlushIntervalMs
-            if (enoughEvents || (enoughTime && pendingEvents.isNotEmpty())) {
-                lastFlushMs.set(nowMs)
-                flushAsync()
-            }
+            maybeFlush()
+        }
+    }
+
+    /**
+     * Records that [viewId] (a bare Android view-ID resource name, e.g. "vcard_text" —
+     * never message content) was seen on [targetPackage]'s screen during a parsing
+     * failure or empty extraction, and wasn't one we already recognize. Batched and sent
+     * on the same schedule as [track] — see the class doc's privacy contract, which this
+     * still honors: only structural UI element names, never anything derived from what a
+     * message actually said.
+     */
+    fun trackViewIdFailure(targetPackage: String, viewId: String) {
+        synchronized(lock) {
+            val key = targetPackage to viewId
+            pendingViewIdFailures[key] = (pendingViewIdFailures[key] ?: 0) + 1
+            maybeFlush()
+        }
+    }
+
+    /** Must be called while holding [lock]. */
+    private fun maybeFlush() {
+        val nowMs = System.currentTimeMillis()
+        val pendingCount = pendingEvents.size + pendingViewIdFailures.size
+        val enoughEvents = pendingCount >= RemoteConfig.telemetryFlushThreshold
+        val enoughTime   = nowMs - lastFlushMs.get() >= RemoteConfig.telemetryFlushIntervalMs
+        if (enoughEvents || (enoughTime && pendingCount > 0)) {
+            lastFlushMs.set(nowMs)
+            flushAsync()
         }
     }
 
@@ -73,29 +98,35 @@ class TelemetryManager private constructor(private val context: Context) {
 
     private fun flushAsync() {
         val batch: List<AggregatedEvent>
+        val viewIdBatch: Map<Pair<String, String>, Int>
         synchronized(lock) {
-            if (pendingEvents.isEmpty()) return
+            if (pendingEvents.isEmpty() && pendingViewIdFailures.isEmpty()) return
             batch = pendingEvents.values.toList()
+            viewIdBatch = pendingViewIdFailures.toMap()
             pendingEvents.clear()
+            pendingViewIdFailures.clear()
         }
 
         scope.launch {
             val token = DeviceTokenManager.getCachedToken(context) ?: run {
-                Log.d(TAG, "Telemetry flush deferred — device not yet registered, re-queuing ${batch.size} events")
+                Log.d(TAG, "Telemetry flush deferred — device not yet registered, re-queuing ${batch.size} events, ${viewIdBatch.size} view-id failures")
                 synchronized(lock) {
                     for (event in batch) {
                         val existing = pendingEvents[event.name]
                         pendingEvents[event.name] = if (existing == null) event
                             else existing.copy(sum = existing.sum + event.sum, count = existing.count + event.count)
                     }
+                    for ((key, count) in viewIdBatch) {
+                        pendingViewIdFailures[key] = (pendingViewIdFailures[key] ?: 0) + count
+                    }
                 }
                 return@launch
             }
-            sendBatch(batch, token)
+            sendBatch(batch, viewIdBatch, token)
         }
     }
 
-    private fun sendBatch(events: List<AggregatedEvent>, token: String) {
+    private fun sendBatch(events: List<AggregatedEvent>, viewIdFailures: Map<Pair<String, String>, Int>, token: String) {
         try {
             val payload = JSONObject().apply {
                 put("appVersion",     RemoteConfig.appVersion)
@@ -113,6 +144,18 @@ class TelemetryManager private constructor(private val context: Context) {
                         })
                     }
                 })
+                if (viewIdFailures.isNotEmpty()) {
+                    put("viewIdFailures", JSONArray().also { arr ->
+                        viewIdFailures.forEach { (key, count) ->
+                            val (targetPackage, viewId) = key
+                            arr.put(JSONObject().apply {
+                                put("targetPackage", targetPackage)
+                                put("viewId",         viewId)
+                                put("count",           count)
+                            })
+                        }
+                    })
+                }
             }
 
             val url = URL(RemoteConfig.telemetryEndpoint)
@@ -131,7 +174,7 @@ class TelemetryManager private constructor(private val context: Context) {
             conn.disconnect()
 
             if (code in 200..299) {
-                Log.d(TAG, "Telemetry batch sent: ${events.size} events")
+                Log.d(TAG, "Telemetry batch sent: ${events.size} events, ${viewIdFailures.size} view-id failures")
             } else {
                 if (code == 401) DeviceTokenManager.invalidate(context, token)
                 Log.w(TAG, "Telemetry batch rejected: HTTP $code")
