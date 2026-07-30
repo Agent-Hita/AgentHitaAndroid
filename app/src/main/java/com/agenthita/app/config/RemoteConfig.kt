@@ -292,6 +292,23 @@ object RemoteConfig {
             "out_of_chat", "call_log", "conversation_row_date",
             "conversation_contact", "info", "date", "entry"
         ),
+        // Allowlist of view IDs treated as real WhatsApp message content by the
+        // structural fallback (used only when no `waMessageTextId` nodes are visible —
+        // e.g. the viewport shows only a shared-contact card, poll, or other
+        // non-text-bubble content). An allowlist, not a denylist: any WhatsApp UI
+        // element whose ID isn't listed here (contact-card name/buttons, poll options
+        // not yet added, group-sender-name, header chrome, etc.) is never visited at
+        // all, instead of needing a new denylist entry every time a false positive is
+        // found on it. Verified 2026-07-30: a shared-contact-card message
+        // (vcard_text/msg_contact_btn/action_contact_btn) leaked into Gemma via the old
+        // denylist-based fallback, scored as harmful content on a contact's name.
+        // "text" is a speculative second entry (not yet confirmed on any device we've
+        // verified) — some WhatsApp builds are reported to expose the message bubble
+        // under this bare ID instead of message_text. Kept last and un-prefixed
+        // deliberately: "text" is a much more generic/common Android view ID than
+        // message_text, so if it ever starts matching unexpected content, dump the
+        // hierarchy and confirm before assuming it's safe to keep.
+        val waMessageContentIds: List<String> = listOf("message_text", "text"),
         // Edit-mode indicator — visible when user is editing a sent message.
         // Empty string = check disabled (set via OTA once confirmed).
         val waEditBarId: String                   = "",
@@ -443,6 +460,9 @@ object RemoteConfig {
             waFallbackExcludedIdPrefixes = wa?.optJSONArray("fallback_excluded_id_prefixes")
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
                 ?.takeIf { it.isNotEmpty() } ?: d.waFallbackExcludedIdPrefixes,
+            waMessageContentIds = wa?.optJSONArray("message_content_ids")
+                ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
+                ?.takeIf { it.isNotEmpty() } ?: d.waMessageContentIds,
             waEditBarId       = wa?.optString("edit_bar_id",        d.waEditBarId)       ?: d.waEditBarId,
 
             igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,

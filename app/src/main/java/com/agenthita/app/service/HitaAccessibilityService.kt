@@ -79,6 +79,7 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val TAG                = "HitaAccessibilityService"
         private const val TAG_IG_DIAG        = "HitaIG"
         internal const val MIN_MESSAGE_LENGTH = 8
+        private const val MAX_UNRECOGNIZED_VIEW_IDS_PER_EVENT = 10
 
         /**
          * Subtitle-based group identification for WhatsApp. Group subtitles show
@@ -164,6 +165,40 @@ class HitaAccessibilityService : AccessibilityService() {
         internal fun isFallbackChromeId(viewIdResourceName: String?, excludedPrefixes: List<String>): Boolean {
             val bareId = viewIdResourceName?.substringAfterLast("/") ?: return false
             return excludedPrefixes.any { bareId.startsWith(it) }
+        }
+
+        /**
+         * True if [bareId] (already stripped of any package/"id/" prefix) is NOT covered by
+         * [knownExact] (exact-match known view IDs) or [knownPrefixes] (prefix-match known
+         * chrome, e.g. WhatsApp's waFallbackExcludedIdPrefixes) — i.e. it's a genuinely
+         * unrecognized element worth surfacing as a parsing-failure diagnostic signal.
+         */
+        internal fun isUnrecognizedViewId(bareId: String, knownExact: Set<String>, knownPrefixes: List<String>): Boolean =
+            bareId !in knownExact && knownPrefixes.none { bareId.startsWith(it) }
+
+        /**
+         * Known-good view IDs for [packageName]'s message-extraction paths — used to tell
+         * apart "an element we already understand" from "something new/unexpected" when
+         * collecting unrecognized-view-ID diagnostics on a parsing failure. Returns
+         * (exact-match set, prefix-match list).
+         */
+        internal fun knownViewIdsFor(packageName: String): Pair<Set<String>, List<String>> {
+            val t = RemoteConfig.uiTags
+            val knownExact: Set<String> = when (packageName) {
+                "com.whatsapp", "com.whatsapp.w4b" -> (setOf(
+                    t.waMessageTextId, t.waContactNameId, t.waContactStatusId,
+                    t.waGroupSenderNameId, t.waEntryId, t.waSendId, t.waStatusId, t.waEditBarId
+                ) + t.waMessageContentIds)
+                "com.instagram.android" -> (setOf(
+                    t.igComposerEditTextId, t.igSendButtonId, t.igDirectSendButtonId,
+                    t.igRecyclerViewId, t.igHeaderTitleId, t.igHeaderSubtitleId, t.igEditBarId
+                ) + t.igMessageTextIds)
+                else -> emptySet()
+            }.filterTo(mutableSetOf()) { it.isNotBlank() }
+            val knownPrefixes: List<String> =
+                if (packageName == "com.whatsapp" || packageName == "com.whatsapp.w4b") t.waFallbackExcludedIdPrefixes
+                else emptyList()
+            return knownExact to knownPrefixes
         }
 
         internal fun isUIChrome(text: String, minLength: Int, gmUiChromePrefixes: List<String>): Boolean {
@@ -445,7 +480,7 @@ class HitaAccessibilityService : AccessibilityService() {
                         dumpHierarchy(root, "", 0)
                     }
                     android.util.Log.d(TAG, "[$packageName] Could not determine contact name — skipping")
-                    TelemetryManager.get(this).track(parsingFailedEvent(packageName))
+                    trackParsingFailure(packageName, root)
                     return
                 }
 
@@ -546,7 +581,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 // from hard parse failures; once per conversation session to avoid
                 // flooding) so a per-app spike is visible on the dashboard.
                 if (extractionEmptyTracked.add(convHash)) {
-                    TelemetryManager.get(this).track("${parsingFailedEvent(packageName)}_empty")
+                    trackParsingFailure(packageName, root, "_empty")
                 }
                 return
             }
@@ -757,7 +792,7 @@ class HitaAccessibilityService : AccessibilityService() {
             // selector in one app never crashes the service and silences all other apps.
             val shortPkg = pkgShortName(packageName)
             android.util.Log.e(TAG, "[$packageName] Parsing exception — $shortPkg will be skipped this event: ${e.message}", e)
-            TelemetryManager.get(this).track(parsingFailedEvent(packageName))
+            trackParsingFailure(packageName, root)
         } finally {
             root.recycle()
         }
@@ -772,6 +807,48 @@ class HitaAccessibilityService : AccessibilityService() {
         "com.android.mms"                           -> "parsing_failed_aosp_mms"
         else                                        -> "parsing_failed_unknown"
     }
+
+    /**
+     * Tracks a parsing-failure event (optionally suffixed, e.g. "_empty" for empty
+     * extractions) plus, best-effort, any unrecognized view IDs visible on screen at that
+     * moment — see [collectUnrecognizedViewIds]. Population-level signal for "what UI
+     * element don't we recognize yet," without needing to reproduce the issue by hand.
+     */
+    private fun trackParsingFailure(packageName: String, root: AccessibilityNodeInfo, suffix: String = "") {
+        TelemetryManager.get(this).track("${parsingFailedEvent(packageName)}$suffix")
+        collectUnrecognizedViewIds(root, packageName).forEach { viewId ->
+            TelemetryManager.get(this).trackViewIdFailure(packageName, viewId)
+        }
+    }
+
+    /**
+     * Walks [root] collecting distinct view-ID names for [packageName] that aren't already
+     * covered by any of our known extraction/exclusion lists (RemoteConfig.uiTags). Sent
+     * only as an aggregate counter — never message content — via
+     * TelemetryManager.trackViewIdFailure, so we can see, across the whole user
+     * population, when a supported app introduces UI our extraction code doesn't know
+     * about yet. Defensive: never throws, since it runs from within failure-handling
+     * paths themselves.
+     */
+    private fun collectUnrecognizedViewIds(root: AccessibilityNodeInfo, packageName: String): Set<String> =
+        runCatching {
+            val (knownExact, knownPrefixes) = knownViewIdsFor(packageName)
+
+            val found = mutableSetOf<String>()
+            fun walk(node: AccessibilityNodeInfo) {
+                val bareId = node.viewIdResourceName?.substringAfterLast("/")
+                if (bareId != null && isUnrecognizedViewId(bareId, knownExact, knownPrefixes)) {
+                    found.add(bareId)
+                }
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    walk(child)
+                    child.recycle()
+                }
+            }
+            walk(root)
+            found.take(MAX_UNRECOGNIZED_VIEW_IDS_PER_EVENT).toSet()
+        }.getOrDefault(emptySet())
 
     /** Returns a short metric-safe label for a package name. */
     private fun pkgShortName(pkg: String) = when (pkg) {
@@ -1083,18 +1160,19 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                     node.recycle()
                 }
-                // Structural fallback: if the configured message text ID is absent (WhatsApp
-                // renamed it — but also a voice/media-only chat, which legitimately has no
-                // message_text nodes), collect TextView content from the full tree. Uses
-                // position-based outgoing detection (center > midpoint) consistent with
-                // isOutgoingWhatsApp. The walk includes the toolbar, so the contact header
-                // text must be dropped or it gets scored as a message.
+                // Allowlist fallback: if no message_text nodes are visible (WhatsApp renamed
+                // the ID, or — far more commonly — the current viewport simply has no
+                // regular text bubbles in it, e.g. it shows only a shared-contact card, a
+                // poll, or a voice note), only collect text from the small set of known real
+                // message-content view IDs (RemoteConfig.uiTags.waMessageContentIds), never a
+                // full-tree walk. This avoids the whole class of "chrome scraped as a
+                // message" bugs by construction: WhatsApp UI that isn't on the allowlist
+                // (contact-card name/buttons, poll options not yet added, group-sender-name,
+                // header chrome, etc.) is simply never visited, rather than needing a new
+                // exclusion entry every time a new one is found.
                 if (raw.isEmpty()) {
-                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] message_text ID not found — using structural fallback")
-                    collectTextViewContent(root, raw)
-                    extractContactName(root, pkg)?.let { name ->
-                        raw.removeAll { it.first == name }
-                    }
+                    if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] message_text ID not found — using allowlisted content fallback")
+                    collectWhatsAppAllowlistedContent(root, pkg, raw)
                     if (BuildConfig.DEBUG) raw.forEach {
                         android.util.Log.d(TAG, "[$pkg] fallback text=\"${it.first.take(40)}\" outgoing=${it.second}")
                     }
@@ -1210,6 +1288,26 @@ class HitaAccessibilityService : AccessibilityService() {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
         return (rect.left + rect.right) / 2 > windowMidX(messageNode)
+    }
+
+    /**
+     * WhatsApp-only fallback for when no message_text nodes are visible — collects text
+     * only from the known real message-content view IDs in
+     * RemoteConfig.uiTags.waMessageContentIds (an allowlist, not a full-tree walk). See
+     * the call site for why this is safer than scraping every TextView on screen.
+     */
+    private fun collectWhatsAppAllowlistedContent(root: AccessibilityNodeInfo, pkg: String, out: MutableList<Pair<String, Boolean>>) {
+        RemoteConfig.uiTags.waMessageContentIds.forEach { contentId ->
+            val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/$contentId")
+            nodes.forEach { node ->
+                val text = node.text?.toString()
+                if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
+                    !isMediaMessage(text) && !isUIChrome(text)) {
+                    out.add(text to isOutgoingWhatsApp(node))
+                }
+                node.recycle()
+            }
+        }
     }
 
     /**

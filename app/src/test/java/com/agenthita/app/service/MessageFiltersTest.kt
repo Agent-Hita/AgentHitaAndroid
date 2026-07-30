@@ -256,4 +256,44 @@ class MessageFiltersTest {
             defaults.uiTags.gmEditBarId.isEmpty()
         )
     }
+
+    // ── isUnrecognizedViewId / knownViewIdsFor (2026-07-30 view-id-failure telemetry) ──
+
+    @Test
+    fun `isUnrecognizedViewId is false for a known exact id`() {
+        assertFalse(
+            HitaAccessibilityService.isUnrecognizedViewId("message_text", setOf("message_text"), emptyList())
+        )
+    }
+
+    @Test
+    fun `isUnrecognizedViewId is false for a known prefix match`() {
+        assertFalse(
+            HitaAccessibilityService.isUnrecognizedViewId("out_of_chat_title", emptySet(), listOf("out_of_chat"))
+        )
+    }
+
+    @Test
+    fun `isUnrecognizedViewId is true for something not in either list`() {
+        assertTrue(
+            HitaAccessibilityService.isUnrecognizedViewId("vcard_text", setOf("message_text"), listOf("out_of_chat"))
+        )
+    }
+
+    @Test
+    fun `knownViewIdsFor whatsapp includes message_text and vcard is not recognized`() {
+        val (exact, prefixes) = HitaAccessibilityService.knownViewIdsFor("com.whatsapp")
+        assertTrue("message_text must be a known WhatsApp id", exact.contains("message_text"))
+        assertTrue(
+            "vcard_text must NOT be recognized — it's the shared-contact-card bug this telemetry exists to catch",
+            HitaAccessibilityService.isUnrecognizedViewId("vcard_text", exact, prefixes)
+        )
+    }
+
+    @Test
+    fun `knownViewIdsFor unknown package returns empty`() {
+        val (exact, prefixes) = HitaAccessibilityService.knownViewIdsFor("com.some.other.app")
+        assertTrue(exact.isEmpty())
+        assertTrue(prefixes.isEmpty())
+    }
 }
