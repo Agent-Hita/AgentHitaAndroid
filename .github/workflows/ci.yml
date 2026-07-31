@@ -37,3 +37,16 @@ jobs:
           name: test-results
           path: app/build/reports/tests/
           retention-days: 14
+
+  require-dev-source:
+    name: Require dev as PR source
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify PR source branch is dev
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "PRs into main must come from the 'dev' branch (got '${{ github.head_ref }}')."
+            exit 1
+          fi
