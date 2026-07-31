@@ -6,7 +6,11 @@
         android:title="Guardian Alerts" />
 
     <item
-        android:id="@+id/popup_notification_settings"
+        android:id="@+id/popup_local_notifications"
+        android:title="Notification Settings" />
+
+    <item
+        android:id="@+id/popup_accessibility_settings"
         android:title="Accessibility Settings" />
 
     <item

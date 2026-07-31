@@ -217,6 +217,78 @@
                 android:layout_marginTop="12dp"
                 android:visibility="gone" />
 
+            <!-- Step-by-step visual guide for finding and enabling the service in
+                 Android's Accessibility settings, since that screen's layout is not
+                 something Agent Hita controls and can be easy to get lost in. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_dialog_gradient"
+                android:padding="20dp"
+                android:layout_marginTop="28dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Instructions"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/hita_primary"
+                    android:layout_marginBottom="4dp" />
+
+                <View
+                    android:layout_width="40dp"
+                    android:layout_height="2dp"
+                    android:background="@color/hita_primary"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="1. Tap &#8220;Grant Accessibility Access&#8221; above. Android opens Accessibility settings — find &#8220;Agent Hita Safety Monitor&#8221; and tap it. Depending on your device, it may be listed under a section called &#8220;Installed apps&#8221; or &#8220;Downloaded services.&#8221;"
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_primary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:layout_marginBottom="10dp" />
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/guide_accessibility_step1"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="Accessibility settings list showing Agent Hita Safety Monitor"
+                    android:layout_marginBottom="18dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="2. Turn the toggle On and confirm the permission dialog that Android shows. Make sure the switch reads &#8220;On&#8221; before going back — some devices require you to re-enter this screen to confirm it stayed enabled."
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_primary"
+                    android:lineSpacingMultiplier="1.5"
+                    android:layout_marginBottom="10dp" />
+
+                <ImageView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/guide_accessibility_step2"
+                    android:scaleType="fitCenter"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="Agent Hita Safety Monitor toggle switched On"
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="3. Come back to this screen and tap &#8220;I&#8217;ve granted access — Continue.&#8221;"
+                    android:textSize="13sp"
+                    android:textColor="@color/hita_text_primary"
+                    android:lineSpacingMultiplier="1.5" />
+
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 

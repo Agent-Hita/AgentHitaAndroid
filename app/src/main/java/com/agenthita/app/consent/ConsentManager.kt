@@ -51,6 +51,15 @@ class ConsentManager(context: Context) {
         get() = prefs.getBoolean(KEY_GUARDIAN_ALERTS_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_GUARDIAN_ALERTS_ENABLED, value).apply()
 
+    // --- Local notification preferences ---
+
+    /** When true, the on-device heads-up notification only fires for HIGH-risk detections.
+     *  MEDIUM-risk detections are still recorded and shown in the dashboard — this only
+     *  affects whether a notification interrupts the user. Defaults to off (notify on both). */
+    var notifyOnlyHighRiskEnabled: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_ONLY_HIGH_RISK, false)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_ONLY_HIGH_RISK, value).apply()
+
     // --- Autonomy prompts (consent.html safeguard #4) ---
     // Every 90 days, the monitored user is asked privately whether they still want guardian alerts.
     // Their response is NOT shared with the guardian.
@@ -118,6 +127,7 @@ class ConsentManager(context: Context) {
         private const val KEY_MONITORED_USER_NAME    = "monitored_user_name"
         private const val KEY_GUARDIAN_EMAIL         = "guardian_email"
         private const val KEY_GUARDIAN_ALERTS_ENABLED = "guardian_alerts_enabled"
+        private const val KEY_NOTIFY_ONLY_HIGH_RISK  = "notify_only_high_risk"
         private const val KEY_LAST_AUTONOMY_PROMPT   = "last_autonomy_prompt"
         private const val KEY_TERMS_ACCEPTED         = "terms_accepted"
         private const val KEY_ACCEPTED_TERMS_VERSION = "accepted_terms_version"

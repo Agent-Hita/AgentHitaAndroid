@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/hita_surface"
+        app:title="Notification Settings"
+        app:titleTextColor="@color/hita_text_primary"
+        app:navigationIcon="?attr/homeAsUpIndicator"
+        app:navigationIconTint="@color/hita_text_primary"
+        app:popupTheme="@style/ThemeOverlay.MaterialComponents.Dark" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Choose when Agent Hita shows a heads-up notification on this device. This only affects notifications on this phone — it does not change what's recorded in your threat log or what a guardian is alerted about."
+                android:textSize="14sp"
+                android:textColor="@color/hita_text_secondary"
+                android:lineSpacingMultiplier="1.4"
+                android:layout_marginBottom="20dp" />
+
+            <!-- High-risk-only toggle — prominent card, same pattern as Guardian Alerts -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp"
+                app:cardBackgroundColor="@color/hita_primary"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="16dp"
+                    android:gravity="center_vertical">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/tv_high_risk_only_label"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Notify for high-risk only (OFF)"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/white" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Only show a notification on this device for HIGH-risk detections"
+                            android:textSize="12sp"
+                            android:textColor="#CCffffff"
+                            android:layout_marginTop="2dp" />
+
+                    </LinearLayout>
+
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switch_high_risk_only"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        app:thumbTint="@color/switch_thumb_color"
+                        app:trackTint="@color/switch_track_color" />
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- What each risk level means -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="@color/hita_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="What's the difference?"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/hita_primary"
+                        android:letterSpacing="0.08"
+                        android:layout_marginBottom="12dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="10dp">
+
+                        <TextView
+                            android:layout_width="20dp"
+                            android:layout_height="wrap_content"
+                            android:text="•"
+                            android:textColor="@color/hita_accent"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="MEDIUM — some warning signs are present in the conversation"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp"
+                            android:lineSpacingMultiplier="1.4" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="20dp"
+                            android:layout_height="wrap_content"
+                            android:text="•"
+                            android:textColor="@color/hita_accent"
+                            android:textSize="14sp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="HIGH — tactics matching a known threat category were detected; this always notifies, and is also what triggers a guardian alert if configured"
+                            android:textColor="@color/hita_text_primary"
+                            android:textSize="14sp"
+                            android:lineSpacingMultiplier="1.4" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+        </LinearLayout>
+    </ScrollView>
+
+</LinearLayout>
