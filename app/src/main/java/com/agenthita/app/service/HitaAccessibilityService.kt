@@ -695,11 +695,15 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                 }
 
-                // Notification fires immediately for every new risky message.
+                // Notification fires immediately for every new risky message, unless the user
+                // has opted into HIGH-risk-only notifications — MEDIUM is still recorded and
+                // shown in the dashboard below regardless, this only gates the interruption.
                 // setOnlyAlertOnce(true) in LocalNotificationManager ensures only one
                 // heads-up banner per conversation — subsequent detections silently
                 // update the existing notification without making noise.
-                if (topResult.riskLevel >= RiskLevel.MEDIUM) {
+                val shouldNotify = topResult.riskLevel == RiskLevel.HIGH ||
+                    (topResult.riskLevel == RiskLevel.MEDIUM && !consentManager.notifyOnlyHighRiskEnabled)
+                if (shouldNotify) {
                     localNotificationManager.showWarning(topResult)
                     telemetry.track("alert_generated")
                 }

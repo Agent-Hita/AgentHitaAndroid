@@ -184,7 +184,11 @@ class DashboardActivity : AppCompatActivity() {
                         startActivity(Intent(this, GuardianSetupActivity::class.java))
                         true
                     }
-                    R.id.popup_notification_settings -> {
+                    R.id.popup_local_notifications -> {
+                        startActivity(Intent(this, NotificationSettingsActivity::class.java))
+                        true
+                    }
+                    R.id.popup_accessibility_settings -> {
                         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
                         true
                     }

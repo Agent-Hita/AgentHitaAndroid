@@ -12,6 +12,7 @@ import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.security.DeviceTokenManager
+import com.agenthita.app.consent.NotificationPreferenceDecision
 import com.agenthita.app.consent.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -131,12 +132,23 @@ class GuardianSetupActivity : AppCompatActivity() {
     }
 
     private fun saveAgeCategory() {
-        consentManager.userCategory = when (binding.rgUserCategory.checkedRadioButtonId) {
+        val category = when (binding.rgUserCategory.checkedRadioButtonId) {
             R.id.rb_under_13        -> UserCategory.CHILD
             R.id.rb_under_21        -> UserCategory.ADOLESCENT
             R.id.rb_vulnerable_adult -> UserCategory.VULNERABLE_ADULT
             else                    -> UserCategory.SELF_PROTECTING_ADULT
         }
+        val previousCategory = consentManager.userCategory
+        if (NotificationPreferenceDecision.shouldResetToDefault(
+                previousCategory = previousCategory,
+                newCategory = category,
+                isFirstTimeSetup = !consentManager.isGuardianSetupComplete
+            )
+        ) {
+            consentManager.notifyOnlyHighRiskEnabled =
+                NotificationPreferenceDecision.defaultNotifyOnlyHighRisk(category)
+        }
+        consentManager.userCategory = category
         consentManager.monitoredUserName = binding.etMonitoredName.text?.toString()?.trim()
     }
 
