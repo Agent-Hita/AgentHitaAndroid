@@ -263,6 +263,15 @@ class HitaAccessibilityService : AccessibilityService() {
     // session — one signal per conversation visit is enough for dashboard trends.
     private val extractionEmptyTracked = mutableSetOf<String>()
 
+    // Packages that already reported a contact-name-extraction failure or parsing
+    // exception during the current conversation-screen visit. Keyed by package, not
+    // convHash, because both failures happen before the contact name (and therefore
+    // convHash) is known. Without this, a single broken screen re-reports on every
+    // TYPE_WINDOW_CONTENT_CHANGED event (~every 1.5s) for as long as the user stays on
+    // it — WhatsApp alone fires those constantly via read receipts and timestamp ticks,
+    // which is what inflated the parsing-failure counts on the dashboard.
+    private val parsingFailureTrackedPackages = mutableSetOf<String>()
+
     // Tracks the highest-risk event seen while the user is inside a single conversation.
     // Only the first MEDIUM+ detection per session is saved to DB; subsequent detections
     // update the in-memory best result so the guardian alert always reflects the worst seen.
@@ -464,6 +473,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 // User navigated back to chat list — flush pending alert for this app
                 activeConvHash?.let { flushPendingAlert(it) }
                 activeConvHash = null
+                parsingFailureTrackedPackages.remove(packageName)
                 return
             }
 
@@ -480,7 +490,9 @@ class HitaAccessibilityService : AccessibilityService() {
                         dumpHierarchy(root, "", 0)
                     }
                     android.util.Log.d(TAG, "[$packageName] Could not determine contact name — skipping")
-                    trackParsingFailure(packageName, root)
+                    if (parsingFailureTrackedPackages.add(packageName)) {
+                        trackParsingFailure(packageName, root)
+                    }
                     return
                 }
 
@@ -796,7 +808,9 @@ class HitaAccessibilityService : AccessibilityService() {
             // selector in one app never crashes the service and silences all other apps.
             val shortPkg = pkgShortName(packageName)
             android.util.Log.e(TAG, "[$packageName] Parsing exception — $shortPkg will be skipped this event: ${e.message}", e)
-            trackParsingFailure(packageName, root)
+            if (parsingFailureTrackedPackages.add(packageName)) {
+                trackParsingFailure(packageName, root)
+            }
         } finally {
             root.recycle()
         }
@@ -886,6 +900,23 @@ class HitaAccessibilityService : AccessibilityService() {
                     val editing = editNodes.isNotEmpty()
                     editNodes.forEach { it.recycle() }
                     if (editing) return false
+                }
+                // Media caption editor and the forward/recipient picker both have their own
+                // compose box + send button, so they'd otherwise pass the checks below and
+                // get misread as a conversation — neither has a contact name or messages,
+                // so every screen visit failed extraction and flooded parsing-failure
+                // telemetry (color_picker_btn, recipients_scroller, etc. — 2026-08-01).
+                if (t.waCaptionEditorMarkerId.isNotEmpty()) {
+                    val captionNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waCaptionEditorMarkerId}")
+                    val inCaptionEditor = captionNodes.isNotEmpty()
+                    captionNodes.forEach { it.recycle() }
+                    if (inCaptionEditor) return false
+                }
+                if (t.waRecipientPickerMarkerId.isNotEmpty()) {
+                    val recipientNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waRecipientPickerMarkerId}")
+                    val inRecipientPicker = recipientNodes.isNotEmpty()
+                    recipientNodes.forEach { it.recycle() }
+                    if (inRecipientPicker) return false
                 }
                 val entryNodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${t.waEntryId}")
                 val composeVisible = entryNodes.any { it.isVisibleToUser }
