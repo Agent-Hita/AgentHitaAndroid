@@ -245,4 +245,26 @@ class RemoteConfigDefaultsTest {
             )
         }
     }
+
+    // ── WhatsApp non-conversation-screen exclusion markers (2026-08-01 fix) ──
+    // Regression guard: the media caption editor and forward/recipient picker both
+    // have their own compose box + send button, so without these markers
+    // isConversationScreen misreads them as a real conversation — flooding
+    // parsing-failure telemetry with color_picker_btn/recipients_scroller/etc.
+
+    @Test
+    fun `waCaptionEditorMarkerId is non-blank by default`() {
+        assertTrue(
+            "waCaptionEditorMarkerId must ship with a non-blank default so the exclusion is active out of the box",
+            RemoteConfig.UiTags().waCaptionEditorMarkerId.isNotBlank()
+        )
+    }
+
+    @Test
+    fun `waRecipientPickerMarkerId is non-blank by default`() {
+        assertTrue(
+            "waRecipientPickerMarkerId must ship with a non-blank default so the exclusion is active out of the box",
+            RemoteConfig.UiTags().waRecipientPickerMarkerId.isNotBlank()
+        )
+    }
 }

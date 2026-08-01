@@ -312,6 +312,16 @@ object RemoteConfig {
         // Edit-mode indicator — visible when user is editing a sent message.
         // Empty string = check disabled (set via OTA once confirmed).
         val waEditBarId: String                   = "",
+        // Media caption editor screen — shown after picking a photo/video, before
+        // sending. Has its own compose box + send button, so it otherwise passes the
+        // conversation-screen check; this excludes it. Confirmed from parsing-failure
+        // telemetry 2026-08-01: color_picker_btn/font_picker_btn/caption/drag_n_drop_overlay
+        // were flooding the dashboard because this screen was misread as a conversation.
+        val waCaptionEditorMarkerId: String        = "caption_input",
+        // Forward/recipient-picker screen — choosing multiple contacts to forward media
+        // to. Same false-positive as the caption editor; confirmed from the same
+        // telemetry spike (recipients_scroller/recipient_chips/media_recipients_layout).
+        val waRecipientPickerMarkerId: String      = "recipients_scroller",
 
         // Instagram view IDs (package-qualified, verified v424)
         val igComposerEditTextId: String          = "row_thread_composer_edittext",
@@ -464,6 +474,8 @@ object RemoteConfig {
                 ?.let { arr -> (0 until arr.length()).mapNotNull { arr.optString(it).takeIf(String::isNotBlank) } }
                 ?.takeIf { it.isNotEmpty() } ?: d.waMessageContentIds,
             waEditBarId       = wa?.optString("edit_bar_id",        d.waEditBarId)       ?: d.waEditBarId,
+            waCaptionEditorMarkerId = wa?.optString("caption_editor_marker_id", d.waCaptionEditorMarkerId) ?: d.waCaptionEditorMarkerId,
+            waRecipientPickerMarkerId = wa?.optString("recipient_picker_marker_id", d.waRecipientPickerMarkerId) ?: d.waRecipientPickerMarkerId,
 
             igComposerEditTextId  = ig?.optString("composer_edit_text_id",   d.igComposerEditTextId)  ?: d.igComposerEditTextId,
             igSendButtonId        = ig?.optString("send_button_id",          d.igSendButtonId)        ?: d.igSendButtonId,
