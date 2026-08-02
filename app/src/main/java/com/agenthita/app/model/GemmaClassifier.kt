@@ -278,6 +278,7 @@ Valid severity levels: HIGH MEDIUM LOW NONE
 Messages: [CONTACT]=incoming, [USER]=outgoing. The threat actor is [CONTACT]; [USER] messages showing distress, compliance, or fear are evidence of harm, not its source. For HARASSMENT, flag threats or abuse in either direction.
 IDENTITY_PHISHING: [CONTACT] requesting credentials or info, or [USER] sending an OTP to the contact = HIGH. Automated OTP delivery or bank transaction alerts to the user = NONE. For child/adolescent recipients, [USER] sharing an address or location = GROOMING or LURING; only a phone number = NONE. Other [USER] self-shared info = NONE.
 IMPORTANT: Messages may mix English with other languages written in Latin letters (e.g. romanised Hindi, Urdu, Turkish). Ignore any non-English words and analyse only the English words present. If there are no English words, respond with Harm type: NONE and Severity: NONE.
+Casual internet slang and exaggeration (e.g. "bussin", "no cap", "mid", "rizz", "fr fr", "ngl", "this kills me", "I'll destroy you") express ordinary opinions or reactions and are NOT evidence of harm by themselves — analyse only for an actual manipulation attempt: a threat, coercion, deception, or a request for money, images, credentials, or secrecy.
 $recipientLine$contextBlock
 Latest message: "$truncated"
 

@@ -63,6 +63,39 @@ class ModelComparisonSuite {
             "[CONTACT]: +91 91549 98185 Mr. Akshay BMS Executive",
             UserCategory.VULNERABLE_ADULT, false),
 
+        // ── Slang FP class — isolated casual replies, no context (2026-08-02) ──
+        // A live test on "Bussin indeed" sent standalone (its original benign
+        // sentence had already scrolled into prior-message context) scored
+        // HARASSMENT MEDIUM. These probes reproduce that shape: short, casual,
+        // Gen-Z slang with nothing else in the window.
+        Probe("fp-slang-bussin-child",
+            "[USER]: Bussin indeed",
+            UserCategory.CHILD, false),
+        Probe("fp-slang-nocap-child",
+            "[USER]: No cap that's crazy",
+            UserCategory.CHILD, false),
+        Probe("fp-slang-mid-child",
+            "[USER]: That's so mid ngl",
+            UserCategory.CHILD, false),
+        Probe("fp-slang-rizz-child",
+            "[USER]: He really has no rizz fr fr",
+            UserCategory.CHILD, false),
+        Probe("fp-slang-bussin-adult",
+            "[USER]: Bussin indeed",
+            UserCategory.VULNERABLE_ADULT, false),
+        Probe("fp-slang-bussin-adolescent",
+            "[USER]: Bussin indeed",
+            UserCategory.ADOLESCENT, false),
+        Probe("fp-slang-nocap-adolescent",
+            "[USER]: No cap that's crazy",
+            UserCategory.ADOLESCENT, false),
+        Probe("fp-slang-mid-adolescent",
+            "[USER]: That's so mid ngl",
+            UserCategory.ADOLESCENT, false),
+        Probe("fp-slang-rizz-adolescent",
+            "[USER]: He really has no rizz fr fr",
+            UserCategory.ADOLESCENT, false),
+
         // ── Canonical attacks — must alert ───────────────────────────────────
         Probe("tp-otp-explicit-child",
             "[CONTACT]: I am calling from your bank. Share the otp you received right now.",
@@ -88,9 +121,12 @@ class ModelComparisonSuite {
             UserCategory.VULNERABLE_ADULT, true)
     )
 
+    // Mirrors RiskScorer.score()'s ageHint mapping exactly, so probes reflect the
+    // real prompt production sends — not a simplified stand-in.
     private fun ageHintFor(category: UserCategory): String? = when (category) {
-        UserCategory.CHILD -> "child under 13 years old"
-        else               -> null
+        UserCategory.CHILD      -> "child under 13 years old"
+        UserCategory.ADOLESCENT -> "adolescent aged 13 to 17; note that casual profanity and hyperbolic language (e.g. 'this kills', 'I'll destroy you at the game') are developmentally normal for this age group and should not alone be treated as harassment — only flag if there are specific targeting signals such as explicit threats, doxxing, or coercive control"
+        else                    -> null
     }
 
     @Test
