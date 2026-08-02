@@ -751,21 +751,31 @@ class HitaAccessibilityService : AccessibilityService() {
                         contactIdentifier = contactIdentifier,
                         result            = topResult
                     )
-                    val signalNames = topResult.signals.map { it.signal }.distinct()
-                    val analysis = classifier.generateAnalysis(unseenText, seenMessages, signalNames, topResult.category)
-                    riskEventStore.updateGemmaAnalysis(eventId, analysis)
                     android.util.Log.d(TAG, "[$packageName] Session event $eventId saved (gemmaLoaded=${classifier.isLoaded})")
 
                     withContext(kotlinx.coroutines.Dispatchers.Main) {
                         if (activeConvHash == convHash) sessionRecords[convHash] = eventId
                     }
-                } else {
-                    eventId = existingEventId
-                    if (classifier.isLoaded) {
+
+                    // Runs independently of the guardian-alert dispatch below: the analysis
+                    // text is dashboard-only (EventDetailActivity) and is never part of the
+                    // guardian email payload (see GuardianAlertSender.sendAlert — category,
+                    // riskLevel, and a static per-category action list only), so a HIGH alert
+                    // must not wait on this second, slower Gemma call.
+                    serviceScope.launch {
                         val signalNames = topResult.signals.map { it.signal }.distinct()
                         val analysis = classifier.generateAnalysis(unseenText, seenMessages, signalNames, topResult.category)
                         riskEventStore.updateGemmaAnalysis(eventId, analysis)
-                        android.util.Log.d(TAG, "[$packageName] Gemma analysis refreshed for event $eventId")
+                    }
+                } else {
+                    eventId = existingEventId
+                    if (classifier.isLoaded) {
+                        serviceScope.launch {
+                            val signalNames = topResult.signals.map { it.signal }.distinct()
+                            val analysis = classifier.generateAnalysis(unseenText, seenMessages, signalNames, topResult.category)
+                            riskEventStore.updateGemmaAnalysis(eventId, analysis)
+                            android.util.Log.d(TAG, "[$packageName] Gemma analysis refreshed for event $eventId")
+                        }
                     } else {
                         android.util.Log.d(TAG, "[$packageName] Session already has event $eventId — skipping DB save")
                     }
