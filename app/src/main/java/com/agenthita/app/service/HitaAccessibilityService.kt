@@ -1403,7 +1403,24 @@ class HitaAccessibilityService : AccessibilityService() {
         if (depth > 12) return null
         val text = (node.text?.toString() ?: node.contentDescription?.toString())
             ?.lowercase() ?: ""
-        if (text.isNotBlank() && isDisappearingActivationText(text)) return text
+        if (text.isNotBlank() && isDisappearingActivationText(text)) {
+            // The trigger phrase and the timer duration (e.g. "90 days") can render as
+            // sibling nodes under a shared container — WhatsApp's banner has a bold
+            // "Change timer" link as its own node, which means the surrounding sentence
+            // is sometimes split too. Widen to the parent's full text so a duration
+            // living in a sibling node is still visible to parseDurationDays(); without
+            // this, a long/default timer whose digits fall outside the matched node
+            // parses as unparseable and falls through to the HIGH default meant for a
+            // genuinely short timer.
+            val parent = node.parent
+            val widened = if (parent != null) {
+                val collected = StringBuilder()
+                collectAllText(parent, collected, 0)
+                parent.recycle()
+                collected.toString().lowercase().ifBlank { text }
+            } else text
+            return widened
+        }
         for (i in 0 until node.childCount) {
             val child = node.getChild(i) ?: continue
             val found = scanNodeForOnPatterns(child, depth + 1)
@@ -1411,6 +1428,20 @@ class HitaAccessibilityService : AccessibilityService() {
             if (found != null) return found
         }
         return null
+    }
+
+    private fun collectAllText(node: AccessibilityNodeInfo, out: StringBuilder, depth: Int) {
+        if (depth > 12) return
+        val t = node.text?.toString() ?: node.contentDescription?.toString()
+        if (!t.isNullOrBlank()) {
+            if (out.isNotEmpty()) out.append(' ')
+            out.append(t)
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            collectAllText(child, out, depth + 1)
+            child.recycle()
+        }
     }
 
     private fun isUIChrome(text: String): Boolean =
