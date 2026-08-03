@@ -376,6 +376,11 @@ class HitaAccessibilityService : AccessibilityService() {
                 // window where two engines are alive at once.
                 if (classifier.isLoaded) {
                     android.util.Log.d(TAG, "Gemma already loaded — skipping redundant load")
+                    // Tracked (not just logged) so we can see in aggregate, across the fleet,
+                    // how often this service is being restarted and re-triggering a load
+                    // attempt — the mechanism behind the native crashes this guard fixes.
+                    // A rising count here is an early-warning signal even before any crash.
+                    TelemetryManager.get(this@HitaAccessibilityService).track("gemma_reload_skipped")
                     return@withContext
                 }
                 val loadStart = System.currentTimeMillis()
