@@ -27,6 +27,7 @@ import com.agenthita.app.telemetry.TelemetryManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
@@ -368,6 +369,15 @@ class HitaAccessibilityService : AccessibilityService() {
     private fun loadGemmaAsync() {
         serviceScope.launch {
             withContext(Dispatchers.IO) {
+                // Guards against loading a second native engine when this is triggered
+                // more than once (both onServiceConnected and modelAvailableReceiver call
+                // this) — upgrade() also closes any previous instance defensively, but
+                // skipping the reload entirely avoids the wasted work and the brief
+                // window where two engines are alive at once.
+                if (classifier.isLoaded) {
+                    android.util.Log.d(TAG, "Gemma already loaded — skipping redundant load")
+                    return@withContext
+                }
                 val loadStart = System.currentTimeMillis()
                 val gemma = OnDeviceClassifier(this@HitaAccessibilityService)
                 val telemetry = TelemetryManager.get(this@HitaAccessibilityService)
@@ -417,6 +427,15 @@ class HitaAccessibilityService : AccessibilityService() {
         }
         localNotificationManager.dismissStatusIndicator()
         TelemetryManager.get(this).flush()
+        // Cancel first so no new inference work starts against a classifier we're about
+        // to close, then release the native Gemma engine. Without this, OneUI's frequent
+        // freeze/restart of this service (see onServiceConnected) left the previous
+        // instance's native LlmInference engine loaded forever, since loadGemmaAsync()
+        // always creates a brand new one on the next connect. Two live native engines in
+        // one process is consistent with the SIGABRT/SIGSEGV crashes seen in production
+        // inside libllm_inference_engine_jni.so.
+        serviceScope.cancel()
+        if (::classifier.isInitialized) classifier.close()
     }
 
     private fun writeHeartbeat() {
