@@ -30,9 +30,19 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
     /** True when a model file was found but MediaPipe threw during initialisation. */
     val loadFailed: Boolean get() = activeGemma.get()?.loadFailed == true
 
-    /** Replace the stub with a loaded Gemma instance. Thread-safe. */
+    /**
+     * Replace the stub with a loaded Gemma instance. Thread-safe.
+     *
+     * Closes whatever was previously active first — without this, a caller that
+     * accidentally upgrades more than once (loadGemmaAsync() has no reload guard and
+     * can be triggered by both a direct call and a broadcast) would leave the previous
+     * native LlmInference engine loaded forever, never released. Two live native
+     * engines in one process is consistent with the SIGABRT/SIGSEGV crashes seen in
+     * production inside libllm_inference_engine_jni.so.
+     */
     fun upgrade(loaded: OnDeviceClassifier) {
-        activeGemma.set(loaded.activeGemma.get())
+        val previous = activeGemma.getAndSet(loaded.activeGemma.get())
+        previous?.close()
     }
 
     /**
