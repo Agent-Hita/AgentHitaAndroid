@@ -35,6 +35,7 @@ android {
         buildConfigField("String", "ALERT_API_URL",           "\"${secrets.getProperty("ALERT_API_URL",           "https://api.agenthita.org/alert")}\"")
         buildConfigField("String", "TELEMETRY_API_URL",       "\"${secrets.getProperty("TELEMETRY_API_URL",       "https://api.agenthita.org/telemetry")}\"")
         buildConfigField("String", "DEVICE_REGISTER_URL",     "\"${secrets.getProperty("DEVICE_REGISTER_URL",     "https://api.agenthita.org/device/register")}\"")
+        buildConfigField("String", "DEVICE_PING_URL",         "\"${secrets.getProperty("DEVICE_PING_URL",         "https://api.agenthita.org/device/ping")}\"")
         buildConfigField("String", "MODEL_SIGNED_URL_ENDPOINT","\"${secrets.getProperty("MODEL_SIGNED_URL_ENDPOINT","https://api.agenthita.org/model/download-url")}\"")
         buildConfigField("String", "REMOTE_CONFIG_URL",       "\"${secrets.getProperty("REMOTE_CONFIG_URL",       "https://www.agenthita.org/app_config.json")}\"")
         buildConfigField("Long",   "CLOUD_PROJECT_NUMBER",
@@ -70,6 +71,8 @@ android {
                 "\"${devSecrets.getProperty("TELEMETRY_API_URL",        "https://api-dev.agenthita.org/telemetry")}\"")
             buildConfigField("String", "DEVICE_REGISTER_URL",
                 "\"${devSecrets.getProperty("DEVICE_REGISTER_URL",      "https://api-dev.agenthita.org/device/register")}\"")
+            buildConfigField("String", "DEVICE_PING_URL",
+                "\"${devSecrets.getProperty("DEVICE_PING_URL",          "https://api-dev.agenthita.org/device/ping")}\"")
             buildConfigField("String", "MODEL_SIGNED_URL_ENDPOINT",
                 "\"${devSecrets.getProperty("MODEL_SIGNED_URL_ENDPOINT","https://api-dev.agenthita.org/model/download-url")}\"")
             buildConfigField("String", "REMOTE_CONFIG_URL",
