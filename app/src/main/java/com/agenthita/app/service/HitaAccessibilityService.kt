@@ -71,6 +71,10 @@ class HitaAccessibilityService : AccessibilityService() {
     private val heartbeatRunnable: Runnable = object : Runnable {
         override fun run() {
             writeHeartbeat()
+            // pingIfDue no-ops instantly unless a day has actually rolled over, so
+            // checking on every 60s tick is cheap — this is what lets the backend
+            // count devices actively being protected, not just ever-registered.
+            serviceScope.launch { com.agenthita.app.security.DeviceTokenManager.pingIfDue(this@HitaAccessibilityService) }
             mainHandler.postDelayed(this, HEARTBEAT_INTERVAL_MS)
         }
     }

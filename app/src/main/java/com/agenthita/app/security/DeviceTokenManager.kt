@@ -37,9 +37,10 @@ private class RegistrationRateLimitedException : Exception()
 
 object DeviceTokenManager {
 
-    private const val TAG        = "DeviceTokenManager"
-    private const val PREFS_FILE = "hita_device_token"
-    private const val KEY_TOKEN  = "device_token"
+    private const val TAG              = "DeviceTokenManager"
+    private const val PREFS_FILE       = "hita_device_token"
+    private const val KEY_TOKEN        = "device_token"
+    private const val KEY_LAST_PING_DATE = "last_ping_date"
 
     private const val INITIAL_BACKOFF_MS = 2L  * 60 * 1_000  // 2 min
     private const val MAX_BACKOFF_MS     = 60L * 60 * 1_000  // 60 min
@@ -145,6 +146,40 @@ object DeviceTokenManager {
             return stored
         }
         return null
+    }
+
+    /**
+     * Sends at most one lightweight daily check-in per device, so the backend can
+     * tell how many devices are actively being protected right now — not just how
+     * many have ever registered. Safe to call often (e.g. every heartbeat tick):
+     * it no-ops instantly unless the device is registered and the stored date has
+     * rolled over. Never triggers registration as a side effect — an unregistered
+     * device simply has nothing to ping with yet.
+     */
+    suspend fun pingIfDue(context: Context) {
+        val token = getCachedToken(context) ?: return
+        val prefs = buildEncryptedPrefs(context.applicationContext)
+        val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString()
+        if (prefs.getString(KEY_LAST_PING_DATE, null) == today) return
+
+        withContext(Dispatchers.IO) {
+            try {
+                val conn = URL(RemoteConfig.devicePingEndpoint).openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("X-Device-Token", token)
+                conn.connectTimeout = RemoteConfig.connectTimeoutMs
+                conn.readTimeout = RemoteConfig.readTimeoutMs
+                val code = conn.responseCode
+                conn.disconnect()
+                when {
+                    code in 200..299 -> prefs.edit().putString(KEY_LAST_PING_DATE, today).apply()
+                    code == 401      -> invalidate(context, token)
+                    else             -> Log.w(TAG, "Device ping returned HTTP $code")
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Device ping failed (will retry next heartbeat): ${e.message}")
+            }
+        }
     }
 
     fun invalidate(context: Context, rejectedToken: String? = null) {

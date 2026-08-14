@@ -111,6 +111,7 @@ object RemoteConfig {
     val feedbackEndpoint: String         get() = current.feedbackEndpoint
     val falseFeedbackEndpoint: String    get() = current.falseFeedbackEndpoint
     val deviceRegisterEndpoint: String   get() = current.deviceRegisterEndpoint
+    val devicePingEndpoint: String       get() = current.devicePingEndpoint
     val connectTimeoutMs:            Int  get() = current.connectTimeoutMs
     val readTimeoutMs:               Int  get() = current.readTimeoutMs
     val configConnectTimeoutMs:      Int  get() = current.configConnectTimeoutMs
@@ -191,6 +192,7 @@ object RemoteConfig {
         val feedbackEndpoint:        String = BuildConfig.FEEDBACK_API_URL,
         val falseFeedbackEndpoint:   String = "${BuildConfig.FEEDBACK_API_URL}/false-positive",
         val deviceRegisterEndpoint:  String = BuildConfig.DEVICE_REGISTER_URL,
+        val devicePingEndpoint:      String = BuildConfig.DEVICE_PING_URL,
         val connectTimeoutMs:           Int  = 10_000,
         val readTimeoutMs:              Int  = 15_000,
         val configConnectTimeoutMs:     Int  = 5_000,
@@ -399,6 +401,7 @@ object RemoteConfig {
             feedbackEndpoint       = api?.optString("feedback_endpoint",         defaults.feedbackEndpoint)       ?: defaults.feedbackEndpoint,
             falseFeedbackEndpoint  = api?.optString("false_positive_endpoint",   defaults.falseFeedbackEndpoint)  ?: defaults.falseFeedbackEndpoint,
             deviceRegisterEndpoint = api?.optString("device_register_endpoint",  defaults.deviceRegisterEndpoint) ?: defaults.deviceRegisterEndpoint,
+            devicePingEndpoint     = api?.optString("device_ping_endpoint",      defaults.devicePingEndpoint)     ?: defaults.devicePingEndpoint,
             connectTimeoutMs        = api?.optInt("connect_timeout_ms",          defaults.connectTimeoutMs)        ?: defaults.connectTimeoutMs,
             readTimeoutMs           = api?.optInt("read_timeout_ms",            defaults.readTimeoutMs)           ?: defaults.readTimeoutMs,
             configConnectTimeoutMs  = api?.optInt("config_connect_timeout_ms",  defaults.configConnectTimeoutMs)  ?: defaults.configConnectTimeoutMs,
