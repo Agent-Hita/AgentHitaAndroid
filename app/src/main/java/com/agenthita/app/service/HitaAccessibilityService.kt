@@ -639,9 +639,10 @@ class HitaAccessibilityService : AccessibilityService() {
             val convStateKey = "$CONV_KEY_PREFIX$convHash"
             val seenKey      = "$SEEN_KEY_PREFIX$convHash"
 
-            // Layer 1
-            val prevLastMessage = dedupPrefs.getString(convStateKey, null)
-            if (lastMessage == prevLastMessage) return
+            // Layer 1 — compares hashes only; raw message text is never persisted to disk.
+            val lastMessageHash = sha256(lastMessage)
+            val prevLastMessageHash = dedupPrefs.getString(convStateKey, null)
+            if (lastMessageHash == prevLastMessageHash) return
 
             // Layer 2 — find every message not yet scored
             val unseenMessages = seenTracker.filterUnseen(seenKey, messages) { sha256(it) }
@@ -654,7 +655,7 @@ class HitaAccessibilityService : AccessibilityService() {
 
             // Persist dedup state for all unseen messages before analysis so that
             // re-entrant events during the coroutine are also suppressed.
-            persistConvState(convStateKey, lastMessage)
+            persistConvState(convStateKey, lastMessageHash)
             seenTracker.markSeen(seenKey, unseenMessages) { sha256(it) }
 
             if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$packageName] Contact=$contactName ${unseenMessages.size} new msg(s), latest=\"${lastMessage.take(60)}\"")
@@ -1480,11 +1481,12 @@ class HitaAccessibilityService : AccessibilityService() {
     // -------------------------------------------------------------------------
 
     /**
-     * Persists the last-analyzed message text for a conversation key.
+     * Persists the SHA-256 hash of the last-analyzed message for a conversation key —
+     * never the raw message text, so nothing from the conversation is written to disk.
      * Evicts excess entries (oldest by insertion order is not guaranteed in SharedPreferences,
      * so we just trim any entries beyond the cap to keep the prefs file lean).
      */
-    private fun persistConvState(key: String, lastMessage: String) {
+    private fun persistConvState(key: String, lastMessageHash: String) {
         val prefs = dedupPrefs
         val editor = prefs.edit()
         val all = prefs.all
@@ -1493,7 +1495,7 @@ class HitaAccessibilityService : AccessibilityService() {
                 .take(all.size - DEDUP_MAX_ENTRIES + 1)
                 .forEach { editor.remove(it) }
         }
-        editor.putString(key, lastMessage).apply()
+        editor.putString(key, lastMessageHash).apply()
     }
 
     /**
