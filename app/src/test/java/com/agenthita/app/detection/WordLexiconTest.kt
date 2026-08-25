@@ -1,5 +1,8 @@
 package com.agenthita.app.detection
 
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.WordLexicon
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue

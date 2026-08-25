@@ -124,6 +124,9 @@ kotlin {
 }
 
 dependencies {
+    // Hita Safety SDK — shared detection engine (also used by the iOS build)
+    implementation("com.agenthita.sdk:HitaSafetySDK-android:0.1.0")
+
     // Core
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.activity:activity-ktx:1.13.0")

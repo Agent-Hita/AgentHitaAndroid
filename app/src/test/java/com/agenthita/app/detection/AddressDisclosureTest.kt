@@ -1,6 +1,12 @@
 package com.agenthita.app.detection
 
-import com.agenthita.app.consent.UserCategory
+import com.agenthita.sdk.detection.Classifier
+import com.agenthita.sdk.detection.DetectionResult
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
+import com.agenthita.sdk.detection.RiskScorer
+import com.agenthita.sdk.detection.UserCategory
+
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

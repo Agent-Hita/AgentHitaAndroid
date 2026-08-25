@@ -1,7 +1,7 @@
 package com.agenthita.app.model
 
-import com.agenthita.app.detection.HarmCategory
-import com.agenthita.app.detection.RiskLevel
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

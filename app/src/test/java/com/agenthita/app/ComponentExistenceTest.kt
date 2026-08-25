@@ -6,7 +6,7 @@ import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.detection.ConversationBuffer
-import com.agenthita.app.detection.WordLexicon
+import com.agenthita.sdk.detection.WordLexicon
 import com.agenthita.app.service.HitaAccessibilityService
 import com.agenthita.app.telemetry.TelemetryManager
 import com.agenthita.app.model.ModelDownloadWorker

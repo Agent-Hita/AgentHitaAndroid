@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.security.DeviceTokenManager
-import com.agenthita.app.detection.DetectionResult
-import com.agenthita.app.detection.HarmCategory
+import com.agenthita.sdk.detection.DetectionResult
+import com.agenthita.sdk.detection.HarmCategory
 import com.agenthita.app.storage.HitaDatabase
 import com.agenthita.app.telemetry.TelemetryManager
 import org.json.JSONObject

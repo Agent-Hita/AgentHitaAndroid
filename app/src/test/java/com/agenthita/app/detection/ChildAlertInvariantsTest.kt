@@ -1,6 +1,11 @@
 package com.agenthita.app.detection
 
-import com.agenthita.app.consent.UserCategory
+import com.agenthita.sdk.detection.Classifier
+import com.agenthita.sdk.detection.DetectionResult
+import com.agenthita.sdk.detection.RiskLevel
+import com.agenthita.sdk.detection.RiskScorer
+import com.agenthita.sdk.detection.UserCategory
+
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -105,7 +110,9 @@ class ChildAlertInvariantsTest {
         // the scorer at connect time (before guardian setup), then the user picks
         // CHILD on the next screen.
         var category = UserCategory.SELF_PROTECTING_ADULT
-        val scorer = RiskScorer(FakeClassifier()) { category }
+        // Named arg required: RiskScorer now also takes a trailing riskThresholdsProvider
+        // lambda, so an unqualified trailing lambda here would bind to that instead.
+        val scorer = RiskScorer(FakeClassifier(), userCategoryProvider = { category })
 
         val borderline =
             "[CONTACT]: Dear Customer, your OTP for verifying Express Delivery is 482913. Do not share it with anyone.\n" +

@@ -2,10 +2,10 @@ package com.agenthita.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.agenthita.app.consent.UserCategory
-import com.agenthita.app.detection.Classifier
-import com.agenthita.app.detection.RiskLevel
-import com.agenthita.app.detection.RiskScorer
+import com.agenthita.sdk.detection.UserCategory
+import com.agenthita.sdk.detection.Classifier
+import com.agenthita.sdk.detection.RiskLevel
+import com.agenthita.sdk.detection.RiskScorer
 import com.agenthita.app.model.GemmaClassifier
 import org.junit.Assert.assertTrue
 import org.junit.Test
