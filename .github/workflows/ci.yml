@@ -19,10 +19,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Agent-Hita/HitaSafetySDK
-          # settings.gradle.kts includes this build via a relative path
-          # ("../HitaSafetySDK"), so it must land as a sibling of this
-          # checkout, not nested inside it.
-          path: ../HitaSafetySDK
+          # actions/checkout refuses a path outside this repo's own checkout
+          # directory, so this lands nested rather than as a true sibling.
+          # settings.gradle.kts falls back to this exact path when the local
+          # sibling-directory layout (used for local dev) isn't present.
+          path: HitaSafetySDK-sibling
 
       - name: Set up secrets.properties
         run: |
