@@ -1,5 +1,10 @@
 package com.agenthita.app.detection
 
+import com.agenthita.sdk.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
+import com.agenthita.sdk.detection.disappearingRiskLevel
+import com.agenthita.sdk.detection.parseDurationDays
+import com.agenthita.sdk.detection.RiskLevel
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

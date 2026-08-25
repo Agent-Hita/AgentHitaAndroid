@@ -40,3 +40,7 @@ app/src/main/java/**/*_Dao_Impl.java
 *.bin
 *.tflite
 *.h5
+
+# CI-only nested checkout of the Hita Safety SDK (composite build fallback —
+# local dev uses a true sibling directory instead; see settings.gradle.kts)
+/HitaSafetySDK-sibling/

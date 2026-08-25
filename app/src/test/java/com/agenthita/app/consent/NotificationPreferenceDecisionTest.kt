@@ -1,5 +1,6 @@
 package com.agenthita.app.consent
 
+import com.agenthita.sdk.detection.UserCategory
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

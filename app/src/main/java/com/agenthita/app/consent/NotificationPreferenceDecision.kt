@@ -1,5 +1,7 @@
 package com.agenthita.app.consent
 
+import com.agenthita.sdk.detection.UserCategory
+
 object NotificationPreferenceDecision {
 
     /**

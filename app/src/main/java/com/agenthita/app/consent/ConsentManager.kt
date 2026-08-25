@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.agenthita.sdk.detection.UserCategory
 
 /**
  * Manages all consent state for Agent Hita.
@@ -137,11 +138,4 @@ class ConsentManager(context: Context) {
         const val CURRENT_CONSENT_VERSION = "1.0"
         const val CURRENT_TERMS_VERSION   = "1.0"
     }
-}
-
-enum class UserCategory {
-    SELF_PROTECTING_ADULT,
-    VULNERABLE_ADULT,
-    ADOLESCENT,
-    CHILD
 }

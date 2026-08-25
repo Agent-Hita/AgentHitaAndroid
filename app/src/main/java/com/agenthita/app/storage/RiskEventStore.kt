@@ -1,6 +1,6 @@
 package com.agenthita.app.storage
 
-import com.agenthita.app.detection.DetectionResult
+import com.agenthita.sdk.detection.DetectionResult
 import kotlinx.coroutines.flow.Flow
 import java.security.MessageDigest
 

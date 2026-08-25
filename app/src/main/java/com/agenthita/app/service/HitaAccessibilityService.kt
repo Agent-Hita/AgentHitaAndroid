@@ -17,8 +17,8 @@ import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.alert.LocalNotificationManager
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
-import com.agenthita.app.detection.RiskLevel
-import com.agenthita.app.detection.RiskScorer
+import com.agenthita.sdk.detection.RiskLevel
+import com.agenthita.sdk.detection.RiskScorer
 import com.agenthita.app.model.OnDeviceClassifier
 import com.agenthita.app.storage.ContactNameDao
 import com.agenthita.app.storage.ContactNameEntry
@@ -102,7 +102,7 @@ class HitaAccessibilityService : AccessibilityService() {
             subtitle.matches(Regex("\\d+\\s+online.*", RegexOption.IGNORE_CASE))
         private const val DEDUP_PREFS        = "hita_dedup"
         // Threshold imported from DisappearingMessageUtils — kept as alias here for log messages.
-        private val SHORT_TIMER_THRESHOLD_DAYS = com.agenthita.app.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
+        private val SHORT_TIMER_THRESHOLD_DAYS = com.agenthita.sdk.detection.DISAPPEARING_SHORT_TIMER_THRESHOLD_DAYS
         private const val AI_PREFS           = "hita_ai_prefs"
         private const val KEY_GEMMA_LOADED       = "gemma_loaded"
         private const val KEY_GEMMA_FAILED       = "gemma_load_failed"
@@ -311,7 +311,11 @@ class HitaAccessibilityService : AccessibilityService() {
         val app = application as HitaApplication
         consentManager           = ConsentManager(this)
         classifier               = OnDeviceClassifier()
-        riskScorer               = RiskScorer(classifier) { consentManager.userCategory }
+        riskScorer               = RiskScorer(
+            classifier              = classifier,
+            userCategoryProvider    = { consentManager.userCategory },
+            riskThresholdsProvider  = { RemoteConfig.riskThresholds }
+        )
         localNotificationManager = LocalNotificationManager(this)
         guardianAlertSender      = GuardianAlertSender(this, consentManager)
         riskEventStore           = RiskEventStore(app.database.riskEventDao())
@@ -558,8 +562,8 @@ class HitaAccessibilityService : AccessibilityService() {
             if (!alreadyFlagged && (!alreadySuppressed || hasExistingThreat)) {
                 val matchedText = detectDisappearingMessages(root)
                 if (matchedText != null) {
-                    val durationDays = com.agenthita.app.detection.parseDurationDays(matchedText)
-                    val riskLevel = com.agenthita.app.detection.disappearingRiskLevel(durationDays, hasExistingThreat)
+                    val durationDays = com.agenthita.sdk.detection.parseDurationDays(matchedText)
+                    val riskLevel = com.agenthita.sdk.detection.disappearingRiskLevel(durationDays, hasExistingThreat)
                     if (riskLevel != null) {
                         dedupPrefs.edit().putBoolean(disappearingKey, true).apply()
                         disappearingMessagesSuppressed.remove(convHash)
@@ -569,11 +573,11 @@ class HitaAccessibilityService : AccessibilityService() {
                             "Contact enabled disappearing messages"
                         else
                             "Contact has disappearing messages enabled alongside detected risk"
-                        val syntheticResult = com.agenthita.app.detection.DetectionResult(
-                            category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES,
+                        val syntheticResult = com.agenthita.sdk.detection.DetectionResult(
+                            category    = com.agenthita.sdk.detection.HarmCategory.DISAPPEARING_MESSAGES,
                             riskLevel   = riskLevel,
                             score       = if (riskLevel == RiskLevel.HIGH) 1.0f else 0.75f,
-                            signals     = listOf(com.agenthita.app.detection.SignalMatch("activation_confirmed", "disappearing messages detected", 0.95f)),
+                            signals     = listOf(com.agenthita.sdk.detection.SignalMatch("activation_confirmed", "disappearing messages detected", 0.95f)),
                             explanation = explanation
                         )
                         serviceScope.launch {
@@ -586,7 +590,7 @@ class HitaAccessibilityService : AccessibilityService() {
                                 lastMessage = "Disappearing messages mode was activated in this conversation.",
                                 context     = emptyList(),
                                 signals     = listOf("activation_confirmed"),
-                                category    = com.agenthita.app.detection.HarmCategory.DISAPPEARING_MESSAGES
+                                category    = com.agenthita.sdk.detection.HarmCategory.DISAPPEARING_MESSAGES
                             )
                             riskEventStore.updateGemmaAnalysis(eventId, analysis)
                             if (riskLevel == RiskLevel.HIGH) {

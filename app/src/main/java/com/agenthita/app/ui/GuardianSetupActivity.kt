@@ -13,7 +13,7 @@ import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.consent.NotificationPreferenceDecision
-import com.agenthita.app.consent.UserCategory
+import com.agenthita.sdk.detection.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers

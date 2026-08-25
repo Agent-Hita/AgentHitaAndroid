@@ -1,5 +1,8 @@
 ﻿package com.agenthita.app.detection
 
+import com.agenthita.sdk.detection.DisappearingMessageDetector
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before

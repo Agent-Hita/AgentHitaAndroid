@@ -7,9 +7,9 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.agenthita.app.HitaApplication
 import com.agenthita.app.R
-import com.agenthita.app.detection.DetectionResult
-import com.agenthita.app.detection.HarmCategory
-import com.agenthita.app.detection.RiskLevel
+import com.agenthita.sdk.detection.DetectionResult
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
 import com.agenthita.app.ui.DashboardActivity
 
 class LocalNotificationManager(private val context: Context) {

@@ -4,8 +4,8 @@ import android.content.ContentUris
 import android.content.Context
 import android.provider.MediaStore
 import com.agenthita.app.config.RemoteConfig
-import com.agenthita.app.detection.HarmCategory
-import com.agenthita.app.detection.RiskLevel
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
 import com.agenthita.app.telemetry.TelemetryManager
 import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.google.mediapipe.tasks.genai.llminference.LlmInferenceSession

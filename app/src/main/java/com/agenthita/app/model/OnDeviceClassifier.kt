@@ -2,8 +2,8 @@ package com.agenthita.app.model
 
 import android.content.Context
 import com.agenthita.app.config.RemoteConfig
-import com.agenthita.app.detection.HarmCategory
-import com.agenthita.app.detection.RiskLevel
+import com.agenthita.sdk.detection.HarmCategory
+import com.agenthita.sdk.detection.RiskLevel
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference
  * otherwise a rules-based explanation built from category + signals.
  */
 class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?) :
-        com.agenthita.app.detection.Classifier {
+        com.agenthita.sdk.detection.Classifier {
 
     // Atomic reference allows safe hot-swap from background thread
     private val activeGemma = AtomicReference(gemma)

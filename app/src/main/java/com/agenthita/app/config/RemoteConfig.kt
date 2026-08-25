@@ -3,6 +3,8 @@ package com.agenthita.app.config
 import android.content.Context
 import android.util.Log
 import com.agenthita.app.BuildConfig
+import com.agenthita.sdk.detection.RiskBand
+import com.agenthita.sdk.detection.RiskThresholds
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -144,15 +146,8 @@ object RemoteConfig {
     val uiTags: UiTags             get() = current.uiTags
 
     // ── Data classes ──────────────────────────────────────────────────────────
-
-    data class RiskBand(val high: Float, val medium: Float, val low: Float)
-
-    data class RiskThresholds(
-        val child:           RiskBand = RiskBand(0.80f, 0.62f, 0.32f),
-        val adolescent:      RiskBand = RiskBand(0.82f, 0.65f, 0.36f),
-        val adult:           RiskBand = RiskBand(0.85f, 0.70f, 0.40f),
-        val vulnerableAdult: RiskBand = RiskBand(0.85f, 0.70f, 0.40f)
-    )
+    // RiskBand/RiskThresholds now come from the Hita Safety SDK (shared with
+    // iOS) — see com.agenthita.sdk.detection.RiskThresholds for defaults.
 
     data class CategoryResources(val tip1Url: String, val tip2Url: String)
 
