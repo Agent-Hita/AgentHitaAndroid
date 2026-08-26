@@ -11,6 +11,7 @@ import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.agenthita.app.alert.AccessibilityDisabledCheckWorker
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.storage.EventPruneWorker
@@ -58,6 +59,17 @@ class HitaApplication : Application() {
             ExistingPeriodicWorkPolicy.KEEP,
             PeriodicWorkRequestBuilder<EventPruneWorker>(1, TimeUnit.DAYS)
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 3, TimeUnit.HOURS)
+                .build()
+        )
+        // Runs independently of whether the monitored person ever reopens the
+        // app — see AccessibilityDisabledCheckWorker's own doc comment for why
+        // that matters: someone disabling monitoring on purpose has no reason
+        // to come back and "confess" via the Dashboard.
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            AccessibilityDisabledCheckWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<AccessibilityDisabledCheckWorker>(6, TimeUnit.HOURS)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.HOURS)
                 .build()
         )
     }

@@ -258,6 +258,7 @@ class TelemetryManager private constructor(private val context: Context) {
             "guardian_alert_abandoned",
             "guardian_alert_skipped_no_email",
             "guardian_alert_skipped_disabled",
+            "accessibility_disabled_guardian_notified",
             "parsing_failed_whatsapp",
             "parsing_failed_instagram",
             "parsing_failed_google_messages",

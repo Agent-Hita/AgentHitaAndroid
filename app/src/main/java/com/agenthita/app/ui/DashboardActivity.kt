@@ -485,12 +485,8 @@ else -> false
             .edit().putBoolean("gemma_loaded", true).apply()
     }
 
-    private fun isNotificationListenerEnabled(): Boolean {
-        val enabledServices = Settings.Secure.getString(
-            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        return enabledServices.contains(packageName, ignoreCase = true)
-    }
+    private fun isNotificationListenerEnabled(): Boolean =
+        com.agenthita.app.alert.isAccessibilityServiceEnabled(this)
 
     private fun maybePromptModelDownload() {
         val aiPrefs = getSharedPreferences("hita_ai_prefs", MODE_PRIVATE)
