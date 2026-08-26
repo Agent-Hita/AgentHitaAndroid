@@ -18,9 +18,6 @@
         <item name="android:textColorPrimary">@color/hita_text_primary</item>
         <item name="android:textColorSecondary">@color/hita_text_secondary</item>
 
-        <!-- Status bar -->
-        <item name="android:statusBarColor">@color/hita_surface</item>
-
         <!-- Buttons — gradient primary, cyan outlined -->
         <item name="materialButtonStyle">@style/Widget.AgentHita.Button</item>
         <item name="materialButtonOutlinedStyle">@style/Widget.AgentHita.Button.Outlined</item>
