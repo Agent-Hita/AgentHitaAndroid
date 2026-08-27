@@ -64,11 +64,13 @@ class GuardianSetupActivity : AppCompatActivity() {
         }
 
         binding.btnSave.setOnClickListener {
-            val email = binding.etGuardianEmail.text.toString().trim()
-            val emailValid = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
+            val rawInput = binding.etGuardianEmail.text.toString().trim()
+            val parsedEmails = parseGuardianEmails(rawInput)
+            val emailValid = rawInput.isNotEmpty() && parsedEmails != null
+            val email = parsedEmails?.joinToString(", ") ?: rawInput
 
-            if (email.isNotEmpty() && !emailValid) {
-                binding.etGuardianEmail.error = "Please enter a valid email address"
+            if (rawInput.isNotEmpty() && !emailValid) {
+                binding.etGuardianEmail.error = "Enter up to two valid email addresses, separated by a comma"
                 return@setOnClickListener
             }
 
@@ -90,6 +92,10 @@ class GuardianSetupActivity : AppCompatActivity() {
         }
     }
 
+    companion object {
+        private const val MAX_GUARDIAN_EMAILS = 2
+    }
+
     private fun notifyGuardianChange(
         previousEmail: String?,
         wasEnabled: Boolean,
@@ -105,6 +111,17 @@ class GuardianSetupActivity : AppCompatActivity() {
         GlobalScope.launch(Dispatchers.IO) {
             GuardianConfigClient.postGuardianConfig(this@GuardianSetupActivity, consentManager, email, action)
         }
+    }
+
+    /**
+     * Splits [raw] on commas/semicolons and validates each part as an email address.
+     * Returns null if empty, any part is invalid, or more than [MAX_GUARDIAN_EMAILS] addresses are given.
+     */
+    private fun parseGuardianEmails(raw: String): List<String>? {
+        if (raw.isEmpty()) return null
+        val parts = raw.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.isEmpty() || parts.size > MAX_GUARDIAN_EMAILS) return null
+        return parts.takeIf { all -> all.all { Patterns.EMAIL_ADDRESS.matcher(it).matches() } }
     }
 
     private fun saveAgeCategory() {
