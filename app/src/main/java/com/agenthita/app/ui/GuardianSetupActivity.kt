@@ -9,9 +9,8 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.agenthita.app.R
 import com.agenthita.app.alert.GuardianAlertDecision
-import com.agenthita.app.config.RemoteConfig
+import com.agenthita.app.alert.GuardianConfigClient
 import com.agenthita.app.consent.ConsentManager
-import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.app.consent.NotificationPreferenceDecision
 import com.agenthita.sdk.detection.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
@@ -19,10 +18,6 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.json.JSONObject
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
 
 class GuardianSetupActivity : AppCompatActivity() {
 
@@ -69,11 +64,13 @@ class GuardianSetupActivity : AppCompatActivity() {
         }
 
         binding.btnSave.setOnClickListener {
-            val email = binding.etGuardianEmail.text.toString().trim()
-            val emailValid = email.isNotEmpty() && Patterns.EMAIL_ADDRESS.matcher(email).matches()
+            val rawInput = binding.etGuardianEmail.text.toString().trim()
+            val parsedEmails = parseGuardianEmails(rawInput)
+            val emailValid = rawInput.isNotEmpty() && parsedEmails != null
+            val email = parsedEmails?.joinToString(", ") ?: rawInput
 
-            if (email.isNotEmpty() && !emailValid) {
-                binding.etGuardianEmail.error = "Please enter a valid email address"
+            if (rawInput.isNotEmpty() && !emailValid) {
+                binding.etGuardianEmail.error = "Enter up to two valid email addresses, separated by a comma"
                 return@setOnClickListener
             }
 
@@ -95,6 +92,10 @@ class GuardianSetupActivity : AppCompatActivity() {
         }
     }
 
+    companion object {
+        private const val MAX_GUARDIAN_EMAILS = 2
+    }
+
     private fun notifyGuardianChange(
         previousEmail: String?,
         wasEnabled: Boolean,
@@ -108,27 +109,19 @@ class GuardianSetupActivity : AppCompatActivity() {
     @OptIn(DelicateCoroutinesApi::class)
     private fun postGuardianConfig(email: String, action: String) {
         GlobalScope.launch(Dispatchers.IO) {
-            try {
-                val token = DeviceTokenManager.getToken(this@GuardianSetupActivity)
-                val payload = JSONObject().apply {
-                    put("deviceId",     consentManager.userId)
-                    put("guardianEmail", email)
-                    put("action", action)
-                }
-                val conn = URL(RemoteConfig.guardianConfigEndpoint).openConnection() as HttpURLConnection
-                conn.requestMethod = "POST"
-                conn.setRequestProperty("Content-Type", "application/json")
-                conn.setRequestProperty("X-Device-Token", token)
-                conn.doOutput = true
-                conn.connectTimeout = RemoteConfig.connectTimeoutMs
-                conn.readTimeout    = RemoteConfig.readTimeoutMs
-                OutputStreamWriter(conn.outputStream).use { it.write(payload.toString()) }
-                conn.responseCode
-                conn.disconnect()
-            } catch (e: Exception) {
-                android.util.Log.w(TAG, "Guardian config notification failed ($action): ${e.message}")
-            }
+            GuardianConfigClient.postGuardianConfig(this@GuardianSetupActivity, consentManager, email, action)
         }
+    }
+
+    /**
+     * Splits [raw] on commas/semicolons and validates each part as an email address.
+     * Returns null if empty, any part is invalid, or more than [MAX_GUARDIAN_EMAILS] addresses are given.
+     */
+    private fun parseGuardianEmails(raw: String): List<String>? {
+        if (raw.isEmpty()) return null
+        val parts = raw.split(',', ';').map { it.trim() }.filter { it.isNotEmpty() }
+        if (parts.isEmpty() || parts.size > MAX_GUARDIAN_EMAILS) return null
+        return parts.takeIf { all -> all.all { Patterns.EMAIL_ADDRESS.matcher(it).matches() } }
     }
 
     private fun saveAgeCategory() {
@@ -154,10 +147,6 @@ class GuardianSetupActivity : AppCompatActivity() {
 
     private fun updateAlertsLabel(isChecked: Boolean) {
         binding.tvAlertsLabel.text = GuardianAlertDecision.alertsLabel(isChecked)
-    }
-
-    companion object {
-        private const val TAG = "GuardianSetupActivity"
     }
 
     private fun goToDashboard() {

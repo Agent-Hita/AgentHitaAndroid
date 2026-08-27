@@ -1,5 +1,6 @@
 package com.agenthita.app
 
+import com.agenthita.app.alert.AccessibilityDisabledCheckWorker
 import com.agenthita.app.alert.GuardianAlertSender
 import com.agenthita.app.alert.LocalNotificationManager
 import com.agenthita.app.config.RemoteConfig
@@ -84,6 +85,12 @@ class ComponentExistenceTest {
     @Test
     fun `LocalNotificationManager class exists`() {
         val klass: Class<*> = LocalNotificationManager::class.java
+        assertNotNull(klass)
+    }
+
+    @Test
+    fun `AccessibilityDisabledCheckWorker class exists`() {
+        val klass: Class<*> = AccessibilityDisabledCheckWorker::class.java
         assertNotNull(klass)
     }
 
