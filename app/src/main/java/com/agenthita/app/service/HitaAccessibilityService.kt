@@ -110,6 +110,13 @@ class HitaAccessibilityService : AccessibilityService() {
         private const val HEARTBEAT_INTERVAL_MS  = 60_000L
         const val NOTIFICATION_ID_STATUS         = 1000
         private const val DEDUP_MAX_ENTRIES  = 500
+        // Bounds how much prior on-screen history is fed into scoring as context.
+        // Gemma's own prompt only ever renders the last 3 of whatever it's given
+        // (buildMultiClassPrompt), so this doesn't change what the model sees —
+        // it bounds the rule-based context-escalation pass and the classifier's
+        // prompt-fitting work, both of which otherwise scale with however many
+        // messages happen to be visible on screen (unbounded on a long scroll-back).
+        private const val MAX_SEEN_MESSAGES_FOR_CONTEXT = 10
         private const val CONV_KEY_PREFIX         = "last_"
         private const val SEEN_KEY_PREFIX         = "seen_"
         private const val DISAPPEARING_KEY_PREFIX = "disappearing_"
@@ -692,9 +699,9 @@ class HitaAccessibilityService : AccessibilityService() {
                     },
                     RemoteConfig.gemmaInputTruncationChars
                 )
-                val seenMessages = (messages - unseenMessages.toSet()).map { msg ->
-                    if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg"
-                }
+                val seenMessages = (messages - unseenMessages.toSet())
+                    .takeLast(MAX_SEEN_MESSAGES_FOR_CONTEXT)
+                    .map { msg -> if (msg in outgoingTexts) "[USER]: $msg" else "[CONTACT]: $msg" }
 
                 val results = try {
                     riskScorer.score(unseenText, seenMessages)
