@@ -1233,11 +1233,12 @@ class HitaAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             "com.whatsapp", "com.whatsapp.w4b" -> {
+                val statusNodes = queryWhatsAppStatusNodes(root, pkg)
                 val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/${RemoteConfig.uiTags.waMessageTextId}")
                 if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] extraction: ${nodes.size} text nodes found")
                 nodes.forEach { node ->
                     val text = node.text?.toString()
-                    val outgoing = isOutgoingWhatsApp(node)
+                    val outgoing = isOutgoingWhatsApp(node, statusNodes)
                     val media = text != null && isMediaMessage(text)
                     if (BuildConfig.DEBUG) android.util.Log.d(TAG, "[$pkg] node text=\"${text?.take(40)}\" outgoing=$outgoing media=$media len=${text?.length}")
                     if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH && !media && !isUIChrome(text)) {
@@ -1245,6 +1246,7 @@ class HitaAccessibilityService : AccessibilityService() {
                     }
                     node.recycle()
                 }
+                statusNodes.forEach { it.recycle() }
                 // Allowlist fallback: if no message_text nodes are visible (WhatsApp renamed
                 // the ID, or — far more commonly — the current viewport simply has no
                 // regular text bubbles in it, e.g. it shows only a shared-contact card, a
@@ -1342,10 +1344,31 @@ class HitaAccessibilityService : AccessibilityService() {
      * Max-width incoming center ≈ (22 + 832)/2 = 427px; outgoing ≈ (248 + 1058)/2 = 653px
      * on a 1080px screen — both safely on opposite sides of the 540px threshold.
      */
-    private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo): Boolean {
+    private fun isOutgoingWhatsApp(messageNode: AccessibilityNodeInfo, statusNodes: List<AccessibilityNodeInfo>): Boolean {
         val rect = Rect()
         messageNode.getBoundsInScreen(rect)
+        // Structural, position-independent signal: WhatsApp only ever shows a
+        // delivery-status indicator (sent/delivered/read ticks) on the user's own
+        // outgoing bubbles, never on an incoming one — confirmed on-device via
+        // hierarchy dump (2026-08-28): the "status" node sits in the same row as
+        // the outgoing bubble only. Checked first since it's immune to the
+        // animation-timing glitch documented on windowMidX, where bubble bounds
+        // are transiently offset and every message reads as outgoing by position.
+        val statusRect = Rect()
+        val hasStatusInRow = statusNodes.any { status ->
+            status.getBoundsInScreen(statusRect)
+            statusRect.top < rect.bottom && statusRect.bottom > rect.top
+        }
+        if (hasStatusInRow) return true
         return (rect.left + rect.right) / 2 > windowMidX(messageNode)
+    }
+
+    /** Queries WhatsApp's delivery-status indicator nodes once per window, reused across
+     *  every message bubble in [isOutgoingWhatsApp] rather than re-querying per message. */
+    private fun queryWhatsAppStatusNodes(root: AccessibilityNodeInfo, pkg: String): List<AccessibilityNodeInfo> {
+        val statusId = RemoteConfig.uiTags.waStatusId
+        return if (statusId.isEmpty()) emptyList()
+               else root.findAccessibilityNodeInfosByViewId("$pkg:id/$statusId")
     }
 
     /**
@@ -1382,17 +1405,19 @@ class HitaAccessibilityService : AccessibilityService() {
      * the call site for why this is safer than scraping every TextView on screen.
      */
     private fun collectWhatsAppAllowlistedContent(root: AccessibilityNodeInfo, pkg: String, out: MutableList<Pair<String, Boolean>>) {
+        val statusNodes = queryWhatsAppStatusNodes(root, pkg)
         RemoteConfig.uiTags.waMessageContentIds.forEach { contentId ->
             val nodes = root.findAccessibilityNodeInfosByViewId("$pkg:id/$contentId")
             nodes.forEach { node ->
                 val text = node.text?.toString()
                 if (!text.isNullOrBlank() && text.length >= MIN_MESSAGE_LENGTH &&
                     !isMediaMessage(text) && !isUIChrome(text)) {
-                    out.add(text to isOutgoingWhatsApp(node))
+                    out.add(text to isOutgoingWhatsApp(node, statusNodes))
                 }
                 node.recycle()
             }
         }
+        statusNodes.forEach { it.recycle() }
     }
 
     /**
