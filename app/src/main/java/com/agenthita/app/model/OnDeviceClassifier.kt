@@ -105,6 +105,10 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
                     "This conversation shows signs of harassment, threats, or coercive control behaviour directed at the recipient."
                 HarmCategory.DISAPPEARING_MESSAGES ->
                     "The other person enabled disappearing messages in this conversation. This feature is often used to hide harmful or coercive behaviour and destroy evidence."
+                // ADULT_CONTENT/HARMFUL_CONTENT: iOS-keyboard-only categories for now (self-directed
+                // search/statement, not a reply to a contact) — Android's own detectors don't produce
+                // these yet, so this is just exhaustiveness, not reachable in practice today.
+                else -> "This conversation shows signs of a safety concern."
             }
 
             val sr = RemoteConfig.safetyResources
@@ -117,6 +121,7 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
                 HarmCategory.LURING            -> sr.luring
                 HarmCategory.HARASSMENT             -> sr.harassment
                 HarmCategory.DISAPPEARING_MESSAGES  -> sr.grooming
+                else                                -> sr.grooming
             }
 
             val tip1 = when (category) {
@@ -136,6 +141,7 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
                     "Tip 1: Document the messages and report them to the platform and, if threats are involved, to local authorities. StopBullying.gov outlines how to report online harassment.\n${urls.tip1Url}"
                 HarmCategory.DISAPPEARING_MESSAGES ->
                     "Tip 1: Take screenshots of the conversation immediately before messages disappear. This is your primary way to preserve evidence.\n${urls.tip1Url}"
+                else -> "Tip 1: Talk to a trusted adult about what you saw.\n${urls.tip1Url}"
             }
 
             val tip2 = when (category) {
@@ -155,6 +161,7 @@ class OnDeviceClassifier private constructor(private val gemma: GemmaClassifier?
                     "Tip 2: Block the sender and consider reaching out to a support service. CISA provides resources on reporting and recovering from online abuse.\n${urls.tip2Url}"
                 HarmCategory.DISAPPEARING_MESSAGES ->
                     "Tip 2: If you suspect the person is a predator or the contact involves a minor, report to the NCMEC CyberTipline, which works directly with law enforcement.\n${urls.tip2Url}"
+                else -> "Tip 2: If you have questions, reach out to a trusted adult.\n${urls.tip2Url}"
             }
 
             val signalSummary = if (signals.isNotEmpty()) {
