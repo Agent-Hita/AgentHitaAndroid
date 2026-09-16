@@ -1,0 +1,3 @@
+[submodule "AgentHitaAndroidTests"]
+	path = AgentHitaAndroidTests
+	url = git@github.com:Agent-Hita/AgentHitaAndroidTests.git

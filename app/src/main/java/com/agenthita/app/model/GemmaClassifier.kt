@@ -641,6 +641,9 @@ Severity: """.trimIndent()
             HarmCategory.LURING            -> "luring via fake offer"
             HarmCategory.HARASSMENT             -> "harassment or threats"
             HarmCategory.DISAPPEARING_MESSAGES  -> "disappearing messages / secrecy signal"
+            // iOS-keyboard-only categories for now — Android's own detectors
+            // don't produce these yet, so this is just exhaustiveness.
+            else -> "a safety concern"
         }
         val signalList = signals.take(5).joinToString(", ").ifEmpty { "none" }
 
