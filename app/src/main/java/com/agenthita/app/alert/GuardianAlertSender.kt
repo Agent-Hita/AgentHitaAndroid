@@ -394,6 +394,10 @@ class GuardianAlertWorker(
             // CountryDetector's own doc comment. Matches iOS's guardian alert,
             // which sends Locale.current.region?.identifier.
             put("country",       CountryDetector.detect(applicationContext))
+            // The guardian-entered name from GuardianSetupActivity — purely for
+            // personalizing the alert (subject/body), matching iOS's guardian
+            // alert (store.monitoredUserName). Never used for matching/lookup.
+            put("monitoredUserName", ConsentManager(applicationContext).monitoredUserName ?: "")
         }
 
         val conn = URL(RemoteConfig.alertEndpoint).openConnection() as HttpURLConnection
