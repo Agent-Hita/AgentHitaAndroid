@@ -2,11 +2,9 @@ package com.agenthita.app.telemetry
 
 import android.content.Context
 import android.os.Build
-import android.telephony.TelephonyManager
 import android.util.Log
 import com.agenthita.app.config.RemoteConfig
 import com.agenthita.app.security.DeviceTokenManager
-import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -184,20 +182,8 @@ class TelemetryManager private constructor(private val context: Context) {
         }
     }
 
-    /**
-     * ISO 3166-1 alpha-2 country code.
-     * Prefers the SIM's network country (most reliable); falls back to the device locale.
-     * Returns "unknown" if neither is available.
-     */
-    private fun getCountry(): String {
-        return try {
-            val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-            val simCountry = tm.simCountryIso?.uppercase()?.takeIf { it.length == 2 }
-            simCountry ?: Locale.getDefault().country.uppercase().takeIf { it.length == 2 } ?: "unknown"
-        } catch (e: Exception) {
-            "unknown"
-        }
-    }
+    /** ISO 3166-1 alpha-2 country code — see CountryDetector's own doc comment. */
+    private fun getCountry(): String = CountryDetector.detect(context)
 
     // ── Data class ────────────────────────────────────────────────────────────
 
