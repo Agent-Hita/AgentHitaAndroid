@@ -17,6 +17,7 @@ import com.agenthita.app.security.DeviceTokenManager
 import com.agenthita.sdk.detection.DetectionResult
 import com.agenthita.sdk.detection.HarmCategory
 import com.agenthita.app.storage.HitaDatabase
+import com.agenthita.app.telemetry.CountryDetector
 import com.agenthita.app.telemetry.TelemetryManager
 import org.json.JSONObject
 import java.io.OutputStreamWriter
@@ -389,6 +390,10 @@ class GuardianAlertWorker(
             put("isAggregated",  isAggregated)
             if (isAggregated) put("eventCount", eventCount)
             put("whatYouCanDo",  org.json.JSONArray(whatYouCanDo))
+            // Same derivation as TelemetryManager's country dimension — see
+            // CountryDetector's own doc comment. Matches iOS's guardian alert,
+            // which sends Locale.current.region?.identifier.
+            put("country",       CountryDetector.detect(applicationContext))
         }
 
         val conn = URL(RemoteConfig.alertEndpoint).openConnection() as HttpURLConnection
