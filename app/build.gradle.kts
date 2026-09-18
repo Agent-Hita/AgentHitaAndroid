@@ -40,6 +40,12 @@ android {
         buildConfigField("String", "REMOTE_CONFIG_URL",       "\"${secrets.getProperty("REMOTE_CONFIG_URL",       "https://www.agenthita.org/app_config.json")}\"")
         buildConfigField("Long",   "CLOUD_PROJECT_NUMBER",
             "${secrets.getProperty("CLOUD_PROJECT_NUMBER", "0")}L")
+        // Authorizes AgentHitaFeedbackService's PLAY_INTEGRITY_REQUIRE_TOKEN=false
+        // unattested-registration bypass — see DeviceTokenManager.register() and that
+        // service's PlayIntegrityService/AppleAttestationService. Blank by default;
+        // only ever set (via devSecrets below) in the debug build type against
+        // api-dev.agenthita.org.
+        buildConfigField("String", "DEV_REGISTRATION_KEY", "\"${secrets.getProperty("DEV_REGISTRATION_KEY", "")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -78,6 +84,8 @@ android {
             buildConfigField("String", "REMOTE_CONFIG_URL",
                 "\"${devSecrets.getProperty("REMOTE_CONFIG_URL",        "https://www.agenthita.org/dev/app_config.json")}\"")
             buildConfigField("Long", "CLOUD_PROJECT_NUMBER", "0L")
+            buildConfigField("String", "DEV_REGISTRATION_KEY",
+                "\"${devSecrets.getProperty("DEV_REGISTRATION_KEY", "")}\"")
         }
         release {
             isMinifyEnabled = true

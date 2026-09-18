@@ -27,6 +27,7 @@ gradle/.gradle/
 *.keystore
 keystore.properties
 secrets.properties
+secrets.dev.properties
 
 # OS
 .DS_Store
