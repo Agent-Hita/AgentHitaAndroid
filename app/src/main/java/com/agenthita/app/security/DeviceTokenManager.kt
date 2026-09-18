@@ -217,6 +217,14 @@ object DeviceTokenManager {
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
         conn.setRequestProperty("Accept", "application/json")
+        // Only meaningful when integrityToken above is null (Play Integrity unavailable) —
+        // the backend ignores this header once a real token is present. Blank in release
+        // builds and any debug build without a devSecrets override, in which case this
+        // header is simply omitted and the backend's own require-token default (true)
+        // rejects the bypass anyway. See BuildConfig.DEV_REGISTRATION_KEY's own comment.
+        if (BuildConfig.DEV_REGISTRATION_KEY.isNotBlank()) {
+            conn.setRequestProperty("X-Dev-Registration-Key", BuildConfig.DEV_REGISTRATION_KEY)
+        }
         conn.connectTimeout = RemoteConfig.connectTimeoutMs
         conn.readTimeout    = RemoteConfig.readTimeoutMs
         conn.doOutput = true
