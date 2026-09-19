@@ -111,6 +111,18 @@
                 android:textSize="13sp"
                 android:textColor="@color/hita_text_primary" />
 
+            <TextView
+                android:id="@+id/tv_guardian_email_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="· Guardian email not verified"
+                android:textSize="13sp"
+                android:textColor="@color/hita_warning"
+                android:clickable="true"
+                android:focusable="true"
+                android:visibility="gone" />
+
         </LinearLayout>
 
         <!-- AI status chip — tapping opens GemmaDownloadActivity -->
