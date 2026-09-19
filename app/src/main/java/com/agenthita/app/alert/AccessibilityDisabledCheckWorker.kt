@@ -82,7 +82,7 @@ class AccessibilityDisabledCheckWorker(
             consentManager = consentManager,
             email = guardianEmail!!,
             action = "REMOVED"
-        )
+        ).success
         return if (sent) {
             prefs.edit()
                 .putBoolean(KEY_WAS_ENABLED, false)
