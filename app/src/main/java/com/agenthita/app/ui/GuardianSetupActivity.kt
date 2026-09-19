@@ -3,21 +3,28 @@ package com.agenthita.app.ui
 import android.content.Intent
 import android.os.Bundle
 import android.util.Patterns
+import android.view.View
+import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.agenthita.app.R
 import com.agenthita.app.alert.GuardianAlertDecision
 import com.agenthita.app.alert.GuardianConfigClient
+import com.agenthita.app.alert.GuardianEmailStatus
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.consent.NotificationPreferenceDecision
 import com.agenthita.sdk.detection.UserCategory
 import com.agenthita.app.databinding.ActivityGuardianSetupBinding
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class GuardianSetupActivity : AppCompatActivity() {
 
@@ -47,6 +54,8 @@ class GuardianSetupActivity : AppCompatActivity() {
         binding.switchAlerts.setOnCheckedChangeListener { _, isChecked ->
             updateAlertsLabel(isChecked)
         }
+
+        refreshGuardianStatus()
 
         // Pre-fill RadioGroup from saved category
         val radioId = when (consentManager.userCategory) {
@@ -85,32 +94,85 @@ class GuardianSetupActivity : AppCompatActivity() {
             consentManager.isGuardianAlertsEnabled = alertsEnabled
             if (!emailValid) binding.switchAlerts.isChecked = false
 
-            notifyGuardianChange(previousEmail, wasEnabled, email.ifEmpty { null }, alertsEnabled)
+            val notifyDeferred = notifyGuardianChange(previousEmail, wasEnabled, email.ifEmpty { null }, alertsEnabled)
             saveAgeCategory()
             consentManager.isGuardianSetupComplete = true
-            goToDashboard()
+
+            // Await (briefly) so we can tell the user whether a confirmation email
+            // is now required before we navigate away — the actual backend calls
+            // themselves run on GlobalScope below and complete regardless of
+            // whether this activity is still around to hear back.
+            lifecycleScope.launch {
+                val pendingConfirmation = withTimeoutOrNull(GUARDIAN_NOTIFY_TIMEOUT_MS) { notifyDeferred.await() }
+                pendingConfirmation?.let { pending ->
+                    Toast.makeText(
+                        this@GuardianSetupActivity,
+                        if (pending) "Confirmation email sent — alerts start once your guardian confirms."
+                        else "Guardian alerts are active.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                goToDashboard()
+            }
         }
     }
 
     companion object {
         private const val MAX_GUARDIAN_EMAILS = 2
+        private const val GUARDIAN_NOTIFY_TIMEOUT_MS = 4_000L
     }
 
+    /**
+     * Fires the backend notification(s) for whatever guardian changes just happened
+     * (ADDED/REMOVED, possibly both — e.g. swapping one address for another) on
+     * GlobalScope so they always complete even if this Activity doesn't survive to
+     * see the result. Returns a Deferred the caller can (optionally, with a
+     * timeout) await purely for UI feedback — the network calls aren't gated on it.
+     *
+     * @return the last ADDED action's pendingConfirmation, or null if nothing was ADDED.
+     */
+    @OptIn(DelicateCoroutinesApi::class)
     private fun notifyGuardianChange(
         previousEmail: String?,
         wasEnabled: Boolean,
         newEmail: String?,
         isNowEnabled: Boolean
-    ) {
-        GuardianAlertDecision.computeChanges(previousEmail, wasEnabled, newEmail, isNowEnabled)
-            .forEach { postGuardianConfig(it.email, it.action) }
+    ): Deferred<Boolean?> {
+        val changes = GuardianAlertDecision.computeChanges(previousEmail, wasEnabled, newEmail, isNowEnabled)
+        return GlobalScope.async(Dispatchers.IO) {
+            var pendingConfirmation: Boolean? = null
+            for (change in changes) {
+                val result = GuardianConfigClient.postGuardianConfig(
+                    this@GuardianSetupActivity, consentManager, change.email, change.action
+                )
+                if (change.action == "ADDED") pendingConfirmation = result.pendingConfirmation
+            }
+            pendingConfirmation
+        }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun postGuardianConfig(email: String, action: String) {
-        GlobalScope.launch(Dispatchers.IO) {
-            GuardianConfigClient.postGuardianConfig(this@GuardianSetupActivity, consentManager, email, action)
+    /** Fetches and renders per-address confirmed/pending status for whatever guardian
+     *  email(s) are already saved. No-ops (leaves the status view hidden) if nothing is
+     *  configured yet, or the fetch fails — this is a best-effort status check, not a
+     *  requirement for Guardian Setup to otherwise function. */
+    private fun refreshGuardianStatus() {
+        if (consentManager.guardianEmail.isNullOrBlank()) return
+        lifecycleScope.launch {
+            val statuses = GuardianConfigClient.fetchGuardianStatus(this@GuardianSetupActivity)
+            renderGuardianStatus(statuses)
         }
+    }
+
+    private fun renderGuardianStatus(statuses: List<GuardianEmailStatus>?) {
+        if (statuses.isNullOrEmpty()) {
+            binding.tvGuardianStatus.visibility = View.GONE
+            return
+        }
+        binding.tvGuardianStatus.text = statuses.joinToString("\n") { status ->
+            if (status.confirmed) "✓ ${status.email} confirmed"
+            else "⏳ ${status.email} — check their inbox to confirm"
+        }
+        binding.tvGuardianStatus.visibility = View.VISIBLE
     }
 
     /**

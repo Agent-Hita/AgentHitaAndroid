@@ -110,6 +110,7 @@ object RemoteConfig {
     val telemetryEndpoint: String        get() = current.telemetryEndpoint
     val alertEndpoint: String            get() = current.alertEndpoint
     val guardianConfigEndpoint: String   get() = current.guardianConfigEndpoint
+    val guardianStatusEndpoint: String   get() = current.guardianStatusEndpoint
     val feedbackEndpoint: String         get() = current.feedbackEndpoint
     val falseFeedbackEndpoint: String    get() = current.falseFeedbackEndpoint
     val deviceRegisterEndpoint: String   get() = current.deviceRegisterEndpoint
@@ -184,6 +185,7 @@ object RemoteConfig {
         val telemetryEndpoint: String = BuildConfig.TELEMETRY_API_URL,
         val alertEndpoint:          String = "${BuildConfig.ALERT_API_URL}/guardian",
         val guardianConfigEndpoint: String = "${BuildConfig.ALERT_API_URL}/guardian/configure",
+        val guardianStatusEndpoint: String = "${BuildConfig.ALERT_API_URL}/guardian/status",
         val feedbackEndpoint:        String = BuildConfig.FEEDBACK_API_URL,
         val falseFeedbackEndpoint:   String = "${BuildConfig.FEEDBACK_API_URL}/false-positive",
         val deviceRegisterEndpoint:  String = BuildConfig.DEVICE_REGISTER_URL,
@@ -393,6 +395,7 @@ object RemoteConfig {
             telemetryEndpoint = api?.optString("telemetry_endpoint", defaults.telemetryEndpoint) ?: defaults.telemetryEndpoint,
             alertEndpoint          = api?.optString("alert_endpoint",           defaults.alertEndpoint)          ?: defaults.alertEndpoint,
             guardianConfigEndpoint = api?.optString("guardian_config_endpoint", defaults.guardianConfigEndpoint) ?: defaults.guardianConfigEndpoint,
+            guardianStatusEndpoint = api?.optString("guardian_status_endpoint", defaults.guardianStatusEndpoint) ?: defaults.guardianStatusEndpoint,
             feedbackEndpoint       = api?.optString("feedback_endpoint",         defaults.feedbackEndpoint)       ?: defaults.feedbackEndpoint,
             falseFeedbackEndpoint  = api?.optString("false_positive_endpoint",   defaults.falseFeedbackEndpoint)  ?: defaults.falseFeedbackEndpoint,
             deviceRegisterEndpoint = api?.optString("device_register_endpoint",  defaults.deviceRegisterEndpoint) ?: defaults.deviceRegisterEndpoint,

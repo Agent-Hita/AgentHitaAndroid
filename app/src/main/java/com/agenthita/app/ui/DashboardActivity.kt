@@ -25,6 +25,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.agenthita.app.HitaApplication
 import com.agenthita.app.R
+import com.agenthita.app.alert.GuardianConfigClient
 import com.agenthita.app.consent.AntiCoercionMonitor
 import com.agenthita.app.consent.ConsentManager
 import com.agenthita.app.consent.GemmaTerms
@@ -109,6 +110,11 @@ class DashboardActivity : AppCompatActivity() {
 
         updateStatusDot()
         updateAiStatus()
+        updateGuardianEmailStatus()
+
+        binding.tvGuardianEmailStatus.setOnClickListener {
+            startActivity(Intent(this, GuardianSetupActivity::class.java))
+        }
 
         binding.layoutAiStatus.setOnClickListener {
             TelemetryManager.get(this).track("gemma_download_tapped")
@@ -155,6 +161,7 @@ class DashboardActivity : AppCompatActivity() {
             .registerOnSharedPreferenceChangeListener(aiPrefsListener)
         updateStatusDot()
         updateAiStatus()
+        updateGuardianEmailStatus()
     }
 
     override fun onPause() {
@@ -303,6 +310,24 @@ else -> false
         // Dismiss the enable-prompt if it was shown for a previous disabled state.
         enableDialog?.dismiss()
         enableDialog = null
+    }
+
+    /** Shows a small warning next to "Monitoring is active" when a guardian email is
+     *  configured but hasn't clicked its confirmation link yet — real alerts won't
+     *  reach that address until they do, and this is the one status the app never
+     *  surfaces unless the user happens to reopen Guardian Setup. Tapping it goes
+     *  straight there. Hidden (not an error state) if nothing's configured, or
+     *  every configured address is already confirmed. */
+    private fun updateGuardianEmailStatus() {
+        if (consentManager.guardianEmail.isNullOrBlank() || !consentManager.isGuardianAlertsEnabled) {
+            binding.tvGuardianEmailStatus.visibility = View.GONE
+            return
+        }
+        lifecycleScope.launch {
+            val statuses = GuardianConfigClient.fetchGuardianStatus(this@DashboardActivity)
+            val anyPending = statuses?.any { !it.confirmed } == true
+            binding.tvGuardianEmailStatus.visibility = if (anyPending) View.VISIBLE else View.GONE
+        }
     }
 
     private fun requestBatteryOptimizationExemption() {
