@@ -28,8 +28,8 @@ android {
         applicationId = "com.agenthita.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 37
-        versionName = "1.0.37"
+        versionCode = 38
+        versionName = "1.0.38"
 
         buildConfigField("String", "FEEDBACK_API_URL",        "\"${secrets.getProperty("FEEDBACK_API_URL",        "https://api.agenthita.org/feedback")}\"")
         buildConfigField("String", "ALERT_API_URL",           "\"${secrets.getProperty("ALERT_API_URL",           "https://api.agenthita.org/alert")}\"")
